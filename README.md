@@ -9,7 +9,8 @@ This program will be able to convert model, texture, and other binary files used
 File types:
 
 VBIN: Most likely "Vertex Binary". The game's model files for characters. The majority can be converted to STL, but animation and texture data needs to be handled differently. Possible that .3ds or another format works better, but STL is simpler and far more portable.
-  VBIN.Mesh: The game's model files for levels. These are structured significantly differently from standard VBIN files and aren't well understood yet.
+
+VBIN.Mesh: The game's model files for levels. These are structured significantly differently from standard VBIN files and aren't well understood yet.
 
 ITF: Might be "Infogrames Texture Format/File". The game's texture files, fairly similar to standard .BMPs. 
 
