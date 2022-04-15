@@ -14,6 +14,7 @@
 #include <QRadioButton>
 #include <QTableWidget>
 #include <QTableWidgetItem>
+#include <QHeaderView>
 #include <QQuaternion>
 #include <QLabel>
 
@@ -44,6 +45,7 @@ public:
 
     BinChanger binChanger;
     VBIN* vbinFile;
+    ITF* itfFile;
     GeometrySet* geometrySet;
 
     Ui::MainWindow *ui;
@@ -57,24 +59,25 @@ public:
     QRadioButton *radioSingle;
     QRadioButton *radioMultiple;
     QComboBox *ListLODLevels;
-    QTableWidget *TablePalette;
     QPushButton *ButtonSaveITF;
     QByteArray fileData;
-    QLabel *LabelImageTest;
+    QTableWidget *PaletteTable;
     int highestLOD;
     long fileLength;
     int numColors;
     QString whichModel;
-    Palette textureColors[256];
     std::vector<std::vector<std::vector<int>>> lodArrays;
     std::vector<int> usedIndecies;
+
+
+    void createTable(int rows, int columns);
 
 public slots:
     void convertVBINToSTL();
     //void convertITFToBMP();
     //void convertBMPtoPNG(QString bmpPath);
     void openVBIN();
-    //void openITF();
+    void openITF();
 };
 
 

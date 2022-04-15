@@ -5,9 +5,9 @@
 
 #include <vector>
 
-class MainWindow;
+class ProgWindow;
 
-class Palette{
+class Color{
 public:
     int32_t R;
     int32_t G;
@@ -15,9 +15,26 @@ public:
     int32_t A;
 };
 
+class Palette{
+public:
+    std::vector<Color> paletteColors;
+    int size;
+};
+
 class ITF{
+public:
+    QString filePath;
+    std::vector<Palette> paletteList;
+    std::vector<int> pixelList;
+    int width;
+    int height;
+    ProgWindow *parent;
+
+    void readData();
+    void writeData();
+
     private:
-    void populatePalette(Palette colors[], int numColors);
+    void populatePalette();
     void saveITFPalette();
     void editPalette(int row, int column);
     void convertBMPtoPNG(QString bmpPath);

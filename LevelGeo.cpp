@@ -1,21 +1,21 @@
 #include "mainwindow.h"
 
-void GeometrySet::getVerticies(ProgWindow &ProgWindow){
+void GeometrySet::getVerticies(){
 
     //NEED TO POPULATE FILEDATA FIRST
     //qDebug() << "this works";
     //return;
 
     QByteArrayMatcher findGeoSet("~GeometrySet");
-    long startPos = findGeoSet.indexIn(ProgWindow.fileData, 0) +2;
-    long endPos = findGeoSet.indexIn(ProgWindow.fileData, startPos + 12);
+    long startPos = findGeoSet.indexIn(parent->fileData, 0) +2;
+    long endPos = findGeoSet.indexIn(parent->fileData, startPos + 12);
     int index[3];
     std::vector<QVector3D> tempVec;
     long currentPosition = startPos;
 
     geoSetVerticies.resize((endPos-startPos)/4);
 
-    QString fileOut = QFileDialog::getSaveFileName(&ProgWindow, ProgWindow.tr("Select Output STL"), QDir::currentPath() + "/STL/", ProgWindow.tr("Model Files (*.stl)"));
+    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", parent->tr("Model Files (*.stl)"));
     QFile stlOut(fileOut);
     QFile file(fileOut);
     file.open(QFile::WriteOnly|QFile::Truncate);
@@ -29,10 +29,10 @@ void GeometrySet::getVerticies(ProgWindow &ProgWindow){
 //                int i = allowedMeshes[p];
         for (long i = 0; i < ((endPos-startPos)/4); i++){
             if (currentPosition + (i*4) > 173 and currentPosition + (i*4) < 490) {
-                geoSetVerticies[i] = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition + (i*4), 4).toHex(), 2));
-                index[0] = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition + (i*4), 4).toHex(), 2));
-                index[1] = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition+4 + (i*4), 4).toHex(), 2));
-                index[2] = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition+8 + (i*4), 4).toHex(), 2));
+                geoSetVerticies[i] = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.mid(currentPosition + (i*4), 4).toHex(), 2));
+                index[0] = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.mid(currentPosition + (i*4), 4).toHex(), 2));
+                index[1] = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.mid(currentPosition+4 + (i*4), 4).toHex(), 2));
+                index[2] = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.mid(currentPosition+8 + (i*4), 4).toHex(), 2));
                 qDebug() << Q_FUNC_INFO << "current position" <<  QString::number(currentPosition+(i*4), 16) << " Current float: " << geoSetVerticies[i];
                 tempVec.push_back(QVector3D(index[0], index[1], index[2]));
                 qDebug() << Q_FUNC_INFO << "created vector: " << QVector3D(index[0], index[1], index[2]);
@@ -52,18 +52,18 @@ void GeometrySet::getVerticies(ProgWindow &ProgWindow){
     }
 }
 
-void GeometrySet::openMeshVBINFile(ProgWindow &ProgWindow){
+void GeometrySet::openMeshVBINFile(){
 
-    QString fileIn = QFileDialog::getOpenFileName(&ProgWindow, ProgWindow.tr("Select VBIN"), QDir::currentPath() + "/VBIN/", ProgWindow.tr("Model Files (*.vbin)"));
+    QString fileIn = QFileDialog::getOpenFileName(parent, parent->tr("Select VBIN"), QDir::currentPath() + "/VBIN/", parent->tr("Model Files (*.vbin)"));
     filePath = fileIn;
-    ProgWindow.fileData.clear();
+    parent->fileData.clear();
 
     QFile inputFile(fileIn);
     inputFile.open(QIODevice::ReadOnly);
-    ProgWindow.fileData = inputFile.readAll();
+    parent->fileData = inputFile.readAll();
 
     qDebug() << Q_FUNC_INFO << "File data loaded.";
-    getVerticies(ProgWindow);
+    getVerticies();
     qDebug() << Q_FUNC_INFO << "File data read.";
 
 

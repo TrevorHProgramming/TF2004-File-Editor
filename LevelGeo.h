@@ -9,9 +9,10 @@ class GeometrySet{
 public:
     std::vector<float> geoSetVerticies;
     QString filePath;
+    ProgWindow *parent;
 
-    void getVerticies(ProgWindow &ProgWindow);
-    void openMeshVBINFile(ProgWindow &ProgWindow);
+    void getVerticies();
+    void openMeshVBINFile();
 };
 
 #endif // LEVELGEO_H

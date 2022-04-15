@@ -11,7 +11,12 @@ ProgWindow::ProgWindow(QWidget *parent)
     highestLOD = 0;
 
     vbinFile = new VBIN;
+    vbinFile->parent = this;
+    itfFile = new ITF;
+    itfFile->parent = this;
     geometrySet = new GeometrySet;
+    geometrySet->parent = this;
+    PaletteTable = nullptr;
 
     ButtonVBINtoSTL = new QPushButton("Convert VBIN to STL", this);
     ButtonVBINtoSTL -> setGeometry(QRect(QPoint(50,50), QSize(150,30)));
@@ -34,9 +39,10 @@ ProgWindow::ProgWindow(QWidget *parent)
     radioMultiple = new QRadioButton("Multi-file output", this);
     radioMultiple -> setGeometry(QRect(QPoint(540,120), QSize(120,30)));
     radioSingle-> toggle();
-    LabelImageTest = new QLabel(this);
-    LabelImageTest->setGeometry(QRect(QPoint(540,200), QSize(120,30)));
+    //PaletteTable = new QTableView(this);
+    //PaletteTable->setGeometry(QRect(QPoint(250,250), QSize(150,30)));
 
+    //createTable(4,4, *this);
 
     //try a QTableView for palette editing
     //check for max 255/min 0 value
@@ -44,9 +50,9 @@ ProgWindow::ProgWindow(QWidget *parent)
 
     connect(ButtonVBINtoSTL, &QPushButton::released, this, &ProgWindow::convertVBINToSTL);
     connect(ButtonOpenVBIN, &QPushButton::released, this, &ProgWindow::openVBIN);
-    connect(ButtonOpenMeshVBIN, &QPushButton::released, [this] {geometrySet->openMeshVBINFile(*this);});
+    connect(ButtonOpenMeshVBIN, &QPushButton::released, [this] {geometrySet->openMeshVBINFile();});
     //connect(ButtonITFtoBMP, &QPushButton::released, this, &ProgWindow::convertITFToBMP);
-    //connect(ButtonOpenITF, &QPushButton::released, this, &ProgWindow::openITF);
+    connect(ButtonOpenITF, &QPushButton::released, this, &ProgWindow::openITF);
     //connect(ButtonSaveITF, &QPushButton::released, this, &ProgWindow::saveITFPalette);
 }
 
@@ -55,6 +61,17 @@ ProgWindow::~ProgWindow()
     delete ui;
 }
 
+
+void ProgWindow::createTable(int rows, int columns){
+    if(this->PaletteTable == nullptr){
+        qDebug() << "The table does not already exist.";
+        PaletteTable = new QTableWidget(rows, columns, this);
+        PaletteTable->setGeometry(QRect(QPoint(50,250), QSize(125*columns,300)));
+    } else {
+        qDebug() << "The table already exists.";
+        //clear and resize table
+    }
+}
 
 
 

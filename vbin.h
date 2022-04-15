@@ -10,6 +10,7 @@
 class ProgWindow;
 
 class Mesh;
+class VBIN;
 
 class Triangles{
   public:
@@ -30,8 +31,9 @@ public:
     int type;
     QVector3D location;
     float radius;
+    VBIN *file;
 
-    void populateData(ProgWindow &ProgWindow);
+    void populateData();
 };
 
 class NormalArray{
@@ -39,6 +41,7 @@ public:
   int arrayID;
   long arrayLength;
   QString meshName;
+  VBIN *file;
   QVector3D positionList[];
 };
 
@@ -47,6 +50,7 @@ public:
   int arrayID;
   long arrayLength;
   QString meshName;
+  VBIN *file;
   QVector3D positionList[];
 };
 
@@ -64,8 +68,9 @@ public:
     QQuaternion rotation;
     float scale;
     QString name;
+    VBIN *file;
 
-    void getModifications(ProgWindow& ProgWindow);
+    void getModifications();
     void modifyPosArrays();
     void clear();
 
@@ -76,19 +81,20 @@ public:
     QString filePath;
     std::vector<SceneNode> nodeList;
     std::vector<Mesh> meshList;
+    ProgWindow *parent;
 
-    std::vector<int> getIndexArrays(int posCount, int chosenLOD, int location, ProgWindow &ProgWindow);
-    void makeTriangles(std::vector<int> indArrays, int whichArray, int location, QTextStream *stream, ProgWindow &ProgWindow);
-    void readData(ProgWindow &ProgWindow);
-    void writeData(ProgWindow &ProgWindow);
+    std::vector<int> getIndexArrays(int posCount, int chosenLOD, int location);
+    void makeTriangles(std::vector<int> indArrays, int whichArray, int location, QTextStream *stream);
+    void readData();
+    void writeData();
 private:
     void modifyPosArrays();
-    void outputPositionList(int location, ProgWindow &ProgWindow);
-    void getSceneNodeTree(ProgWindow& ProgWindow, long searchStart);
-    void analyzeTriangles(std::vector<int> indArrays, int whichArray, ProgWindow &ProgWindow);
-    QVector3D needOffset(int offsetLocation, ProgWindow &ProgWindow);
-    QQuaternion getRotation(int offsetLocation, ProgWindow &ProgWindow);
-    float getScale(int offsetLocation, ProgWindow &ProgWindow);
+    void outputPositionList(int location);
+    void getSceneNodeTree(long searchStart);
+    void analyzeTriangles(std::vector<int> indArrays, int whichArray);
+    QVector3D needOffset(int offsetLocation);
+    QQuaternion getRotation(int offsetLocation);
+    float getScale(int offsetLocation);
 };
 
 #endif // VBIN_H

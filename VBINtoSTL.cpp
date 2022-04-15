@@ -18,25 +18,25 @@ void SceneNode::clear(){
     return;
 }
 
-void BoundingVolume::populateData(ProgWindow &ProgWindow){
+void BoundingVolume::populateData(){
     long currentPosition = fileLocation + 25;
-    this->hasVolume = ProgWindow.fileData.mid(currentPosition, 1).toInt(nullptr, 16);
+    this->hasVolume = file->parent->fileData.mid(currentPosition, 1).toInt(nullptr, 16);
     currentPosition += 1;
-    this->type = ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2).toInt(nullptr, 16);
+    this->type = file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2).toInt(nullptr, 16);
     currentPosition += 4;
-    this->location.setX(ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2)));
-    this->location.setY(ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition+4, 4).toHex(), 2)));
-    this->location.setZ(ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition+8, 4).toHex(), 2)));
+    this->location.setX(file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2)));
+    this->location.setY(file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition+4, 4).toHex(), 2)));
+    this->location.setZ(file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition+8, 4).toHex(), 2)));
     currentPosition += 12;
-    this->radius = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition+8, 4).toHex(), 2));
+    this->radius = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition+8, 4).toHex(), 2));
 
     return;
 }
 
-void VBIN::readData(ProgWindow& ProgWindow){
+void VBIN::readData(){
 
     //gets all scene nodes in the file, populates their PositionArrays and IndexArrays, and gets modifications
-    this->getSceneNodeTree(ProgWindow, 0);
+    this->getSceneNodeTree(0);
 
     //qDebug() << Q_FUNC_INFO << "Successfully loaded the scene node tree.";
 
@@ -80,29 +80,29 @@ void VBIN::modifyPosArrays(){
 }
 
 
-void SceneNode::getModifications(ProgWindow& ProgWindow){
+void SceneNode::getModifications(){
     //initialize and set default values
     offset = QVector3D();
     rotation = QQuaternion();
     scale = 1;
 
     long currentPosition = this->fileLocation+12; //reads after 12 bytes, length of "~SceneNode" + 2
-    QByteArray readData = ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2);
+    QByteArray readData = file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2);
     int lengthOfName = readData.toUInt(nullptr, 16);
     currentPosition += 4;
-    this->name = ProgWindow.fileData.mid(currentPosition, lengthOfName);
+    this->name = file->parent->fileData.mid(currentPosition, lengthOfName);
     currentPosition += lengthOfName+8;
-    readData = ProgWindow.fileData.mid(currentPosition, 1).toHex();
+    readData = file->parent->fileData.mid(currentPosition, 1).toHex();
     modifications = readData.toUInt(nullptr, 16);
     //qDebug() << Q_FUNC_INFO << "Reading at: " << currentPosition << " node: " << this->name << " with modifications: " << modifications << " from hex: " << readData;
     currentPosition += 1;
     if (!(modifications & 1)) {
         //not default position, read 3 sets of 4 bytes, convert to float, and make vector
-        float x_offset = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float x_offset = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
-        float y_offset = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float y_offset = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
-        float z_offset = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float z_offset = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
         offset = QVector3D(x_offset, y_offset, z_offset);
         //qDebug() << Q_FUNC_INFO << this->offset;
@@ -110,19 +110,19 @@ void SceneNode::getModifications(ProgWindow& ProgWindow){
     if (!(modifications & 2)) {
         //not default rotation, read 4 sets of 4 bytes, convert to float, and make quaternion
         //these could be in the wrong order, we'll see
-        float x_rotation = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float x_rotation = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
-        float y_rotation = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float y_rotation = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
-        float z_rotation = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float z_rotation = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
-        float scalar = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float scalar = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
         rotation = QQuaternion(scalar, x_rotation, y_rotation, z_rotation).normalized();
     }
     if (!(modifications & 4)) {
         //not default scale, read set of 4 bytes, convert to float
-        scale = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        scale = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4; //currently unnecessary but I'm putting this here just in case the position needs to be used in this function at a later time.
     }
 
@@ -134,7 +134,7 @@ void SceneNode::getModifications(ProgWindow& ProgWindow){
     return;
 }
 
-void VBIN::getSceneNodeTree(ProgWindow& ProgWindow, long searchStart){
+void VBIN::getSceneNodeTree(long searchStart){
     SceneNode sceneNode;
     Mesh mesh;
     QByteArray meshStr = QByteArray::fromHex("7E4D6573680001");
@@ -151,54 +151,54 @@ void VBIN::getSceneNodeTree(ProgWindow& ProgWindow, long searchStart){
     int nameLength = 0;
     std::vector<long> locationList;
     searchFile.setPattern(fileSections[0].toUtf8());
-    sceneLocation = searchFile.indexIn(ProgWindow.fileData, searchStart);
+    sceneLocation = searchFile.indexIn(parent->fileData, searchStart);
     //qDebug() << Q_FUNC_INFO << "Found SceneNode at: " << sceneLocation;
     while (sceneLocation != -1){
         sceneNode.clear();
         sceneNode.fileLocation = sceneLocation;
-        sceneNode.getModifications(ProgWindow);
+        sceneNode.getModifications();
         searchFile.setPattern(fileSections[3].toUtf8());
-        sceneNode.boundVol.fileLocation = searchFile.indexIn(ProgWindow.fileData, sceneNode.fileLocation);
+        sceneNode.boundVol.fileLocation = searchFile.indexIn(parent->fileData, sceneNode.fileLocation);
 
         this->nodeList.push_back(sceneNode);
 
         searchFile.setPattern(fileSections[0].toUtf8());
-        sceneLocation = searchFile.indexIn(ProgWindow.fileData, sceneNode.boundVol.fileLocation);
+        sceneLocation = searchFile.indexIn(parent->fileData, sceneNode.boundVol.fileLocation);
 
     }
 
     qDebug() << Q_FUNC_INFO << " Finished loading scene arrays.";
 
     searchFile.setPattern(meshStr);
-    meshLocation = searchFile.indexIn(ProgWindow.fileData, searchStart);
+    meshLocation = searchFile.indexIn(parent->fileData, searchStart);
     while (meshLocation != -1) {
         mesh.clear();
         mesh.fileLocation = meshLocation;
-        nameLength = ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(meshLocation + meshStr.length(), 4).toHex(), 2).toInt(nullptr, 16);
-        mesh.name = ProgWindow.fileData.mid(meshLocation + meshStr.length()+4, nameLength);
+        nameLength = parent->binChanger.reverse_input(parent->fileData.mid(meshLocation + meshStr.length(), 4).toHex(), 2).toInt(nullptr, 16);
+        mesh.name = parent->fileData.mid(meshLocation + meshStr.length()+4, nameLength);
 
         searchFile.setPattern(fileSections[1].toUtf8());
-        positionLocation = searchFile.indexIn(ProgWindow.fileData, mesh.fileLocation);
+        positionLocation = searchFile.indexIn(parent->fileData, mesh.fileLocation);
         mesh.posArray.fileLocation = positionLocation;
-        mesh.posArray.getIndexArrays(ProgWindow);
+        mesh.posArray.getIndexArrays();
         positionLocation += fileSections[1].length()+2;
-        mesh.posArray.vertexCount = (ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(positionLocation, 4).toHex(), 2).toInt(nullptr, 16)-4)/12; //-4 to exclude itself, /12 for 1 every vertex
+        mesh.posArray.vertexCount = (parent->binChanger.reverse_input(parent->fileData.mid(positionLocation, 4).toHex(), 2).toInt(nullptr, 16)-4)/12; //-4 to exclude itself, /12 for 1 every vertex
         positionLocation += 4;
         mesh.posArray.positionList.resize(mesh.posArray.vertexCount);
         for (int i = 0; i < mesh.posArray.vertexCount; i++) {
-            x_position = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(positionLocation + (i*12), 4).toHex(), 2));
-            //qDebug() << Q_FUNC_INFO << "X float: " << x_position << " from hex: " << ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(positionLocation + (i*12), 4).toHex(), 2);
-            y_position = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(positionLocation+4 + (i*12), 4).toHex(), 2));
-            z_position = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(positionLocation+8 + (i*12), 4).toHex(), 2));
+            x_position = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.mid(positionLocation + (i*12), 4).toHex(), 2));
+            //qDebug() << Q_FUNC_INFO << "X float: " << x_position << " from hex: " << file->parent->binChanger.reverse_input(file->parent->fileData.mid(positionLocation + (i*12), 4).toHex(), 2);
+            y_position = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.mid(positionLocation+4 + (i*12), 4).toHex(), 2));
+            z_position = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.mid(positionLocation+8 + (i*12), 4).toHex(), 2));
             mesh.posArray.positionList[i] = QVector3D(x_position, y_position, z_position);
             //qDebug() << Q_FUNC_INFO << "Position floats: " << mesh.posArray.positionList[i];
         }
 
         searchFile.setPattern(fileSections[2].toUtf8());
-        lodLocation = searchFile.indexIn(ProgWindow.fileData, positionLocation);
+        lodLocation = searchFile.indexIn(parent->fileData, positionLocation);
         if (lodLocation != -1) {
             mesh.lodInfo.fileLocation = lodLocation + fileSections[2].length()+2;
-            mesh.lodInfo.populateLevels(ProgWindow);
+            mesh.lodInfo.populateLevels();
         } else {
             mesh.lodInfo.fileLocation = 0;
             mesh.lodInfo.levels = 1;
@@ -208,16 +208,16 @@ void VBIN::getSceneNodeTree(ProgWindow& ProgWindow, long searchStart){
         //qDebug() << Q_FUNC_INFO << "levels for mesh " << mesh.name << ": " << mesh.lodInfo.targetIndecies;
 
         searchFile.setPattern(fileSections[3].toUtf8());
-        boundingLocation = searchFile.indexIn(ProgWindow.fileData, positionLocation);
+        boundingLocation = searchFile.indexIn(parent->fileData, positionLocation);
         mesh.boundVol.fileLocation = boundingLocation;
-        mesh.boundVol.populateData(ProgWindow);
+        mesh.boundVol.populateData();
 
-        mesh.getModifications(ProgWindow);
+        mesh.getModifications();
 
         this->meshList.push_back(mesh);
 
         searchFile.setPattern(meshStr);
-        meshLocation = searchFile.indexIn(ProgWindow.fileData, mesh.boundVol.fileLocation);
+        meshLocation = searchFile.indexIn(parent->fileData, mesh.boundVol.fileLocation);
 
     }
 
@@ -237,13 +237,13 @@ void VBIN::getSceneNodeTree(ProgWindow& ProgWindow, long searchStart){
 
 void ProgWindow::convertVBINToSTL(){
 
-    this->vbinFile->writeData(*this);
+    this->vbinFile->writeData();
 
     return;
 }
 
 
-void VBIN::writeData(ProgWindow &ProgWindow){
+void VBIN::writeData(){
 
     int index[3];
     std::vector<int> allowedMeshes = {1,2,3};
@@ -251,8 +251,8 @@ void VBIN::writeData(ProgWindow &ProgWindow){
 
     std::vector<int> chosenLOD;
 
-    if(ProgWindow.radioSingle->isChecked()){
-        QString fileOut = QFileDialog::getSaveFileName(&ProgWindow, ProgWindow.tr("Select Output STL"), QDir::currentPath() + "/STL/", ProgWindow.tr("Model Files (*.stl)"));
+    if(parent->radioSingle->isChecked()){
+        QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", parent->tr("Model Files (*.stl)"));
         QFile stlOut(fileOut);
         QFile file(fileOut);
         file.open(QFile::WriteOnly|QFile::Truncate);
@@ -266,7 +266,7 @@ void VBIN::writeData(ProgWindow &ProgWindow){
 //            for (int p = 0; p<int(allowedMeshes.size()); p++) {
 //                int i = allowedMeshes[p];
             for (int i = 0; i < int(this->meshList.size()); i++) {
-                chosenLOD = meshList[i].lodInfo.targetIndecies[ProgWindow.ListLODLevels->currentText().toInt(nullptr, 10)-1];
+                chosenLOD = meshList[i].lodInfo.targetIndecies[parent->ListLODLevels->currentText().toInt(nullptr, 10)-1];
                 //qDebug() << Q_FUNC_INFO << "chosen LOD: " << chosenLOD << " for node " << i << " and mesh " << j;
                 for (int n = chosenLOD[0]; n <= chosenLOD[1]; n++){
                     for (int k = 0; k < int(meshList[i].posArray.indexArrays[n].triangleStrips.size());k++){
@@ -293,7 +293,7 @@ void VBIN::writeData(ProgWindow &ProgWindow){
             stream << "endsolid Default" << Qt::endl;
         }
     } else {
-        QString fileOut = QFileDialog::getExistingDirectory(&ProgWindow, ProgWindow.tr("Select Output STL"), QDir::currentPath() + "/STL/", QFileDialog::ShowDirsOnly);
+        QString fileOut = QFileDialog::getExistingDirectory(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", QFileDialog::ShowDirsOnly);
         QFile stlOut(fileOut);
         QFile file(fileOut);
 
@@ -309,7 +309,7 @@ void VBIN::writeData(ProgWindow &ProgWindow){
                 stream << "solid Default" << Qt::endl;
                 //qDebug() << Q_FUNC_INFO << "Position Array length: " << nodeList[i].meshList[j].posArray.vertexCount;
                 //qDebug() << Q_FUNC_INFO << "Index Array length: " << nodeList[i].meshList[j].posArray.indexArrays[0].arrayLength;
-                chosenLOD = meshList[j].lodInfo.targetIndecies[ProgWindow.ListLODLevels->currentText().toInt(nullptr, 10)-1];
+                chosenLOD = meshList[j].lodInfo.targetIndecies[parent->ListLODLevels->currentText().toInt(nullptr, 10)-1];
                 //qDebug() << Q_FUNC_INFO << "chosen LOD: " << chosenLOD << " for node " << i << " and mesh " << j;
                 for (int n = chosenLOD[0]; n <= chosenLOD[1]; n++){
                     for (int k = 0; k < int(meshList[j].posArray.indexArrays[n].triangleStrips.size());k++){
