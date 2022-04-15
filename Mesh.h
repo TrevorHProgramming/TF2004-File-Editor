@@ -8,8 +8,9 @@ public:
     long fileLocation;
     int levels;
     std::vector<std::vector<int>> targetIndecies;
+    VBIN *file;
 
-    void populateLevels(ProgWindow &ProgWindow);
+    void populateLevels();
     void clear();
 };
 
@@ -20,8 +21,9 @@ public:
     long fileLocation;
     std::vector<TriangleStrip> triangleStrips;
     std::vector<int> indexList;
+    VBIN *file;
 
-    void populateTriangleStrips(ProgWindow &ProgWindow);
+    void populateTriangleStrips();
 };
 
 class PositionArray{
@@ -30,11 +32,12 @@ public:
   int vertexCount;
   long fileLocation;
   QString meshName;
-  std::vector<QVector3D> positionList; //standin for positioniterator
+  std::vector<QVector3D> positionList;
   std::vector<IndexArray> indexArrays;
+  VBIN *file;
 
   void Transform();
-  void getIndexArrays(ProgWindow& ProgWindow);
+  void getIndexArrays();
   void clear();
 };
 
@@ -46,8 +49,9 @@ public:
     NormalArray* normArray;
     ColorArray* colArray;
     TextureCoords* textCoords;
+    VBIN *file;
 
-    void getArrayLocations(ProgWindow& ProgWindow);
+    void getArrayLocations();
 };
 
 class Mesh{
@@ -61,9 +65,10 @@ public:
     QVector3D offset;
     QQuaternion rotation;
     float scale;
+    VBIN *file;
 
     void clear();
-    void getModifications(ProgWindow& ProgWindow);
+    void getModifications();
 };
 
 

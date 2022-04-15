@@ -1,5 +1,140 @@
-//#include "mainwindow.h"
-//#include "ui_mainwindow.h"
+#include "mainwindow.h"
+#include "ui_mainwindow.h"
+
+void ITF::readData(){
+    //TODO: add capability to change which palette is displayed.
+
+
+    QByteArray txtrString = "TXTR";
+    QByteArray ps2String = "PS2";
+    QByteArrayMatcher matcher(txtrString);
+    QByteArrayMatcher ps2Matcher(ps2String);
+    QTableWidgetItem currentItem;
+    long location = 0;
+    long startLocation = 0;
+    long currentPos = 0;
+    int ps2Header = 0;
+    int paletteCount = 0;
+    int colorCount = 0;
+    long contentLength = 0;
+    std::tuple <int8_t, int8_t> nibTup;
+    parent->fileData.clear();
+    QFile inputFile(this->filePath);
+    inputFile.open(QIODevice::ReadOnly);
+    parent->fileData = inputFile.readAll();
+    inputFile.close();
+    //qDebug() << Q_FUNC_INFO << fileLength;
+
+    currentPos = ps2Matcher.indexIn(parent->fileData, 0);
+    //qDebug() << Q_FUNC_INFO << "PS2 header found at: " << currentPos;
+    ps2Header = parent->fileData.mid(currentPos+3, 1).toHex().toInt(nullptr, 16);
+    //qDebug() << Q_FUNC_INFO << "PS2 header: " << ps2Header;
+    paletteCount = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+20, 4).toHex(),2).toInt(nullptr, 16);
+    //qDebug() << Q_FUNC_INFO << "Palette count: " << paletteCount;
+    this->paletteList.resize(paletteCount);
+    if (ps2Header & 1){
+        colorCount = 256;
+    } else {
+        colorCount = 16;
+    }
+    //qDebug() << Q_FUNC_INFO << "Color count: " << colorCount;
+    location = matcher.indexIn(parent->fileData, 0)+4;
+    startLocation = location; //this will be used later to remove the palette from the content
+    contentLength = parent->binChanger.reverse_input(parent->fileData.mid(location, 4).toHex(),2).toInt(nullptr, 16);
+    location += 4;
+    //qDebug() << Q_FUNC_INFO << "content length: " << contentLength;
+    for (int i = 0; i<paletteCount;i++){
+        paletteList[i].size = colorCount;
+        paletteList[i].paletteColors.resize(colorCount);
+        for (int j = 0; j<colorCount; j++){
+            paletteList[i].paletteColors[j].R = parent->fileData.mid(location, 1).toHex().toInt(nullptr, 16);
+            paletteList[i].paletteColors[j].G = parent->fileData.mid(location+1, 1).toHex().toInt(nullptr, 16);
+            paletteList[i].paletteColors[j].B = parent->fileData.mid(location+2, 1).toHex().toInt(nullptr, 16);
+            paletteList[i].paletteColors[j].A = parent->fileData.mid(location+3, 1).toHex().toInt(nullptr, 16);
+            location += 4;
+        }
+    }
+    contentLength -= (location-startLocation); //remove the length of the palette section before getting to the pixels
+
+    if (ps2Header & 1){
+        //256 palette case. nice and easy since each pixel uses 1 byte to refer to the palette
+        pixelList.resize(contentLength);
+        for (int i = 0; i < contentLength; i++){
+            pixelList[i] = parent->fileData.mid(location, 1).toHex().toInt(nullptr, 16);
+            location += 1;
+        }
+    } else {
+        //16 palette case. this is tougher since each pixel is only half a byte (nibble?) and we can only refer to whole bytes.
+        //however every image should be an even number of pixels so we can just grab them in pairs.
+        //byte_to_nib here to get a tuple of both nibbles
+        int pixelIndex = 0;
+        pixelList.resize(contentLength*2);
+        for(int i = 0; i < contentLength; i++){
+            nibTup = parent->binChanger.byte_to_nib(parent->fileData.mid(location, 1));
+            pixelList[pixelIndex] = std::get<0>(nibTup);
+            pixelIndex += 1;
+            pixelList[pixelIndex] = std::get<1>(nibTup);
+            pixelIndex += 1;
+        }
+    }
+
+    qDebug() << Q_FUNC_INFO << "Palette length: " << paletteList[0].paletteColors.size();
+
+    //this will need to be moved to its own function to be called when changing palettes
+
+    parent->createTable(paletteList[0].paletteColors.size(), 5);
+    QStringList columnNames = {"Palette Index", "Red", "Blue", "Green", "Alpha"};
+    parent->PaletteTable->setHorizontalHeaderLabels(columnNames);
+    parent->PaletteTable->show();
+    parent->PaletteTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    for(int i = 0; i < paletteList[0].paletteColors.size(); i++){
+        //I actually hate this part. Needing to make an item for every single cell feels so overcomplicated but that's how tables work, I guess.
+        QTableWidgetItem *cellText0 = parent->PaletteTable->item(i,0);
+        if (!cellText0){
+            cellText0 = new QTableWidgetItem;
+            parent->PaletteTable->setItem(i,0,cellText0);
+        }
+        cellText0->setText(QString::number(i));
+        QTableWidgetItem *cellText = parent->PaletteTable->item(i,1);
+        if (!cellText){
+            cellText = new QTableWidgetItem;
+            parent->PaletteTable->setItem(i,1,cellText);
+        }
+        cellText->setText(QString::number(paletteList[0].paletteColors[i].R));
+        QTableWidgetItem *cellText2 = parent->PaletteTable->item(i,2);
+        if (!cellText2){
+            cellText2 = new QTableWidgetItem;
+            parent->PaletteTable->setItem(i,2,cellText2);
+        }
+        cellText2->setText(QString::number(paletteList[0].paletteColors[i].G));
+        QTableWidgetItem *cellText3 = parent->PaletteTable->item(i,3);
+        if (!cellText3){
+            cellText3 = new QTableWidgetItem;
+            parent->PaletteTable->setItem(i,3,cellText3);
+        }
+        cellText3->setText(QString::number(paletteList[0].paletteColors[i].B));
+        QTableWidgetItem *cellText4 = parent->PaletteTable->item(i,4);
+        if (!cellText4){
+            cellText4 = new QTableWidgetItem;
+            parent->PaletteTable->setItem(i,4,cellText4);
+        }
+        cellText4->setText(QString::number(paletteList[0].paletteColors[i].A));
+
+    }
+
+    //that should be it for loading data.
+    //after this, have a function catching the table cell changed slot
+    //needs to check if value is between 0 and 255 to be a valid color
+    //then only change the associated value if valid
+
+    //the only issue I see with this is turning the data BACK into an ITF file.
+    //We don't currently know what all of the header data stands for, which could be an issue
+
+}
+
+void ITF::populatePalette(){
+
+}
 
 //void ProgWindow::convertITFToBMP(){
 //    QByteArray txtrString = "TXTR";

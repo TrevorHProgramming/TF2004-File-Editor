@@ -24,28 +24,28 @@ void Mesh::clear(){
     scale = 1;
 }
 
-void Mesh::getModifications(ProgWindow &ProgWindow){
+void Mesh::getModifications(){
     //initialize and set default values
     offset = QVector3D();
     rotation = QQuaternion();
     scale = 1;
 
     long currentPosition = this->lodInfo.fileLocation;
-    QByteArray readData = ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2);
+    QByteArray readData = file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2);
     int lengthOfLod = readData.toUInt(nullptr, 16)+4;
     //qDebug() << Q_FUNC_INFO << "length of LOD: " << lengthOfLod << " from hex " << readData;
     currentPosition += lengthOfLod;
-    readData = ProgWindow.fileData.mid(currentPosition, 1).toHex();
+    readData = file->parent->fileData.mid(currentPosition, 1).toHex();
     modifications = readData.toUInt(nullptr, 16);
     //qDebug() << Q_FUNC_INFO << "Reading at: " << currentPosition << " mesh: " << this->name << " with modifications: " << modifications << " from hex: " << readData;
     currentPosition += 1;
     if (!(modifications & 1)) {
         //not default position, read 3 sets of 4 bytes, convert to float, and make vector
-        float x_offset = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float x_offset = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
-        float y_offset = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float y_offset = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
-        float z_offset = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float z_offset = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
         offset = QVector3D(x_offset, y_offset, z_offset);
         //qDebug() << Q_FUNC_INFO << this->offset;
@@ -53,19 +53,19 @@ void Mesh::getModifications(ProgWindow &ProgWindow){
     if (!(modifications & 2)) {
         //not default rotation, read 4 sets of 4 bytes, convert to float, and make quaternion
         //these could be in the wrong order, we'll see
-        float x_rotation = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float x_rotation = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
-        float y_rotation = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float y_rotation = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
-        float z_rotation = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float z_rotation = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
-        float scalar = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        float scalar = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4;
         rotation = QQuaternion(scalar, x_rotation, y_rotation, z_rotation).normalized();
     }
     if (!(modifications & 4)) {
         //not default scale, read set of 4 bytes, convert to float
-        scale = ProgWindow.binChanger.hex_to_float(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2));
+        scale = file->parent->binChanger.hex_to_float(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2));
         currentPosition += 4; //currently unnecessary but I'm putting this here just in case the position needs to be used in this function at a later time.
     }
 
@@ -78,18 +78,18 @@ void Mesh::getModifications(ProgWindow &ProgWindow){
     return;
 }
 
-void LODInfo::populateLevels(ProgWindow &ProgWindow){
+void LODInfo::populateLevels(){
     long currentPosition = this->fileLocation+4;
-    this->levels = ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2).toInt(nullptr, 16);
-    if (levels > ProgWindow.highestLOD){
-        ProgWindow.highestLOD = levels;
+    this->levels = file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2).toInt(nullptr, 16);
+    if (levels > file->parent->highestLOD){
+        file->parent->highestLOD = levels;
     }
-    //qDebug() << Q_FUNC_INFO << "LOD levels: " << levels << " from hex: " << ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2);
+    //qDebug() << Q_FUNC_INFO << "LOD levels: " << levels << " from hex: " << file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2);
     currentPosition += 4;
     this->targetIndecies.resize(levels);
     for (int i = 0; i<levels; i++){
-        this->targetIndecies[i].push_back(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition, 4).toHex(), 2).toInt(nullptr, 16));
-        this->targetIndecies[i].push_back(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentPosition+4, 4).toHex(), 2).toInt(nullptr, 16));
+        this->targetIndecies[i].push_back(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2).toInt(nullptr, 16));
+        this->targetIndecies[i].push_back(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition+4, 4).toHex(), 2).toInt(nullptr, 16));
         //third item is float, assuming distance to swap LOD levels
         currentPosition += 12;
     }
@@ -97,7 +97,7 @@ void LODInfo::populateLevels(ProgWindow &ProgWindow){
     return;
 }
 
-void IndexArray::populateTriangleStrips(ProgWindow &ProgWindow){
+void IndexArray::populateTriangleStrips(){
     int indexCount = 0;
     TriangleStrip triangleStrip;
     long currentLocation = this->fileLocation+4;
@@ -105,13 +105,13 @@ void IndexArray::populateTriangleStrips(ProgWindow &ProgWindow){
     //qDebug() << Q_FUNC_INFO << "array length: " << arrayLength;
 
     for (int i = 0; i < this->arrayLength; i++) {
-        indexCount = ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentLocation, 2).toHex(),2).toInt(nullptr, 16);
+        indexCount = file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentLocation, 2).toHex(),2).toInt(nullptr, 16);
         //qDebug() << Q_FUNC_INFO << "index count at " << currentLocation << " is " << indexCount;
         i += indexCount;
-        //qDebug() << Q_FUNC_INFO << "first index read is " << ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(i + 2, 2).toHex(),2);
+        //qDebug() << Q_FUNC_INFO << "first index read is " << file->parent->binChanger.reverse_input(file->parent->fileData.mid(i + 2, 2).toHex(),2);
         currentLocation += 2;
         for (int j = 0; j < indexCount; j++){
-            triangleStrip.stripIndecies.push_back(ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(currentLocation, 2).toHex(),2).toInt(nullptr, 16));
+            triangleStrip.stripIndecies.push_back(file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentLocation, 2).toHex(),2).toInt(nullptr, 16));
             currentLocation += 2;
         }
         //qDebug() << Q_FUNC_INFO << "triangle strip: " << triangleStrip.stripIndecies;
@@ -123,28 +123,28 @@ void IndexArray::populateTriangleStrips(ProgWindow &ProgWindow){
     }
 }
 
-void PositionArray::getIndexArrays(ProgWindow &ProgWindow){
+void PositionArray::getIndexArrays(){
     QByteArrayMatcher searchFile("~BoundingVolume");
     long startSearch = this->fileLocation;
-    long endSearch = searchFile.indexIn(ProgWindow.fileData, startSearch);
+    long endSearch = searchFile.indexIn(file->parent->fileData, startSearch);
     long location = 0;
     int indexArrayIndex = 0; //not my proudest variable
 
 
     searchFile.setPattern("~IndexArray");
-    location = searchFile.indexIn(ProgWindow.fileData, startSearch);
+    location = searchFile.indexIn(file->parent->fileData, startSearch);
     while (location < endSearch & location != -1) {
         startSearch = location + 13; //increase by length of "~IndexArray" + 2
         this->indexArrays.resize(indexArrayIndex+1);
         this->indexArrays[indexArrayIndex].arrayID = indexArrayIndex;
         this->indexArrays[indexArrayIndex].fileLocation = startSearch;
-        this->indexArrays[indexArrayIndex].arrayLength = (ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(startSearch, 4).toHex(), 2).toUInt(nullptr, 16)-4)/2; //-4 to remove itself, /2 for short length
-        //qDebug() << Q_FUNC_INFO << "Array length: " << ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(startSearch, 4).toHex(), 2).toUInt(nullptr, 16) << " from hex: " << ProgWindow.binChanger.reverse_input(ProgWindow.fileData.mid(startSearch, 4).toHex(), 2);
+        this->indexArrays[indexArrayIndex].arrayLength = (file->parent->binChanger.reverse_input(file->parent->fileData.mid(startSearch, 4).toHex(), 2).toUInt(nullptr, 16)-4)/2; //-4 to remove itself, /2 for short length
+        //qDebug() << Q_FUNC_INFO << "Array length: " << file->parent->binChanger.reverse_input(file->parent->fileData.mid(startSearch, 4).toHex(), 2).toUInt(nullptr, 16) << " from hex: " << file->parent->binChanger.reverse_input(file->parent->fileData.mid(startSearch, 4).toHex(), 2);
 
         startSearch += 4;
-        this->indexArrays[indexArrayIndex].populateTriangleStrips(ProgWindow);
+        this->indexArrays[indexArrayIndex].populateTriangleStrips();
 
-        location = searchFile.indexIn(ProgWindow.fileData, startSearch);
+        location = searchFile.indexIn(file->parent->fileData, startSearch);
         ++indexArrayIndex;
 
     }
