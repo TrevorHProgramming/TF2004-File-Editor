@@ -8,7 +8,6 @@ ProgWindow::ProgWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    highestLOD = 0;
 
     vbinFile = new VBIN;
     vbinFile->parent = this;
@@ -32,13 +31,7 @@ ProgWindow::ProgWindow(QWidget *parent)
     ButtonITFtoBMP -> setGeometry(QRect(QPoint(50,170), QSize(150,30)));
     ButtonOpenITF = new QPushButton("Open ITF File", this);
     ButtonOpenITF -> setGeometry(QRect(QPoint(50,140), QSize(150,30)));
-    ListLODLevels = new QComboBox(this);
-    ListLODLevels -> setGeometry(QRect(QPoint(250,50), QSize(150,30)));
-    radioSingle = new QRadioButton("Single file output", this);
-    radioSingle -> setGeometry(QRect(QPoint(440,120), QSize(100,30)));
-    radioMultiple = new QRadioButton("Multi-file output", this);
-    radioMultiple -> setGeometry(QRect(QPoint(540,120), QSize(120,30)));
-    radioSingle-> toggle();
+
     //PaletteTable = new QTableView(this);
     //PaletteTable->setGeometry(QRect(QPoint(250,250), QSize(150,30)));
 
@@ -50,10 +43,12 @@ ProgWindow::ProgWindow(QWidget *parent)
 
     connect(ButtonVBINtoSTL, &QPushButton::released, this, &ProgWindow::convertVBINToSTL);
     connect(ButtonOpenVBIN, &QPushButton::released, this, &ProgWindow::openVBIN);
-    connect(ButtonOpenMeshVBIN, &QPushButton::released, [this] {geometrySet->openMeshVBINFile();});
+    connect(ButtonOpenMeshVBIN, &QPushButton::released, this, [this] {geometrySet->openMeshVBINFile();});
     //connect(ButtonITFtoBMP, &QPushButton::released, this, &ProgWindow::convertITFToBMP);
     connect(ButtonOpenITF, &QPushButton::released, this, &ProgWindow::openITF);
-    //connect(ButtonSaveITF, &QPushButton::released, this, &ProgWindow::saveITFPalette);
+    connect(ButtonSaveITF, &QPushButton::released, this, [this] {itfFile->writeITF();});
+    connect(ButtonITFtoBMP, &QPushButton::released, this, [this] {itfFile->writeBMP();});
+    //connect(ButtonITFtoBMP, &QPushButton::released, this, [this] {itfFile->bruteForce(itfFile->height,itfFile->width,128, 128, 0);});
 }
 
 ProgWindow::~ProgWindow()
@@ -61,18 +56,79 @@ ProgWindow::~ProgWindow()
     delete ui;
 }
 
+void ProgWindow::dropdownSelectChange(){
+    if (fileMode == "ITF"){
+        itfFile->populatePalette();
+    }
+}
+
+void ProgWindow::createMultiRadios(){
+    if(radioSingle == nullptr){
+        radioSingle = new QRadioButton("Single file output", this);
+        radioSingle -> setGeometry(QRect(QPoint(440,120), QSize(100,30)));
+        radioSingle-> toggle();
+        radioSingle->show();
+    }
+    if(radioMultiple == nullptr){
+        radioMultiple = new QRadioButton("Multi-file output", this);
+        radioMultiple -> setGeometry(QRect(QPoint(540,120), QSize(120,30)));
+        radioMultiple->show();
+    }
+}
+
+void ProgWindow::deleteMultiRadios(){
+    if(radioSingle != nullptr){
+        delete(radioSingle);
+        radioSingle = nullptr;
+    }
+    if(radioMultiple != nullptr){
+        delete(radioMultiple);
+        radioMultiple = nullptr;
+    }
+}
 
 void ProgWindow::createTable(int rows, int columns){
-    if(this->PaletteTable == nullptr){
+    if(PaletteTable == nullptr){
         qDebug() << "The table does not already exist.";
         PaletteTable = new QTableWidget(rows, columns, this);
         PaletteTable->setGeometry(QRect(QPoint(50,250), QSize(125*columns,300)));
+        connect(PaletteTable, &QTableWidget::cellChanged, this, [this](int row, int column) {itfFile->editPalette(row, column);});
+        PaletteTable->show();
     } else {
         qDebug() << "The table already exists.";
+        PaletteTable->setGeometry(QRect(QPoint(50,250), QSize(125*columns,300)));
+        PaletteTable->show();
         //clear and resize table
     }
 }
 
+void::ProgWindow::createDropdown(int levels){
+    if(ListLevels == nullptr){
+           qDebug() << Q_FUNC_INFO << "The dropdown does not exist.";
+        ListLevels = new QComboBox(this);
+        ListLevels -> setGeometry(QRect(QPoint(250,50), QSize(150,30)));
+        if (levels == 0){
+            ListLevels->insertItem(0, "1");
+        } else {
+            for(int i=0; i<levels; ++i){
+                ListLevels->insertItem(i, QString::number(i+1));
+            }
+        }
+        connect(ListLevels, &QComboBox::currentIndexChanged, this, [this] {dropdownSelectChange();});
+        ListLevels->show();
+    } else {
+        ListLevels->clear();
+        ListLevels -> setGeometry(QRect(QPoint(250,50), QSize(150,30)));
+        if (levels == 0){
+            ListLevels->insertItem(0, "1");
+        } else {
+            for(int i=0; i<levels; ++i){
+                ListLevels->insertItem(i, QString::number(i+1));
+            }
+        }
+        ListLevels->show();
+    }
+}
 
 
 

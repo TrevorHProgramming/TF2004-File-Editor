@@ -82,6 +82,7 @@ public:
     std::vector<SceneNode> nodeList;
     std::vector<Mesh> meshList;
     ProgWindow *parent;
+    int highestLOD;
 
     std::vector<int> getIndexArrays(int posCount, int chosenLOD, int location);
     void makeTriangles(std::vector<int> indArrays, int whichArray, int location, QTextStream *stream);
