@@ -85,6 +85,7 @@ void SceneNode::getModifications(){
     offset = QVector3D();
     rotation = QQuaternion();
     scale = 1;
+    //qDebug() << Q_FUNC_INFO << file->parent->fileData;
 
     long currentPosition = this->fileLocation+12; //reads after 12 bytes, length of "~SceneNode" + 2
     QByteArray readData = file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2);
@@ -155,6 +156,7 @@ void VBIN::getSceneNodeTree(long searchStart){
     //qDebug() << Q_FUNC_INFO << "Found SceneNode at: " << sceneLocation;
     while (sceneLocation != -1){
         sceneNode.clear();
+        sceneNode.file = this;
         sceneNode.fileLocation = sceneLocation;
         sceneNode.getModifications();
         searchFile.setPattern(fileSections[3].toUtf8());
@@ -173,12 +175,14 @@ void VBIN::getSceneNodeTree(long searchStart){
     meshLocation = searchFile.indexIn(parent->fileData, searchStart);
     while (meshLocation != -1) {
         mesh.clear();
+        mesh.file = this;
         mesh.fileLocation = meshLocation;
         nameLength = parent->binChanger.reverse_input(parent->fileData.mid(meshLocation + meshStr.length(), 4).toHex(), 2).toInt(nullptr, 16);
         mesh.name = parent->fileData.mid(meshLocation + meshStr.length()+4, nameLength);
 
         searchFile.setPattern(fileSections[1].toUtf8());
         positionLocation = searchFile.indexIn(parent->fileData, mesh.fileLocation);
+        mesh.posArray.file = this;
         mesh.posArray.fileLocation = positionLocation;
         mesh.posArray.getIndexArrays();
         positionLocation += fileSections[1].length()+2;
@@ -196,6 +200,7 @@ void VBIN::getSceneNodeTree(long searchStart){
 
         searchFile.setPattern(fileSections[2].toUtf8());
         lodLocation = searchFile.indexIn(parent->fileData, positionLocation);
+        mesh.lodInfo.file = this;
         if (lodLocation != -1) {
             mesh.lodInfo.fileLocation = lodLocation + fileSections[2].length()+2;
             mesh.lodInfo.populateLevels();
@@ -209,6 +214,7 @@ void VBIN::getSceneNodeTree(long searchStart){
 
         searchFile.setPattern(fileSections[3].toUtf8());
         boundingLocation = searchFile.indexIn(parent->fileData, positionLocation);
+        mesh.boundVol.file=this;
         mesh.boundVol.fileLocation = boundingLocation;
         mesh.boundVol.populateData();
 
@@ -266,7 +272,7 @@ void VBIN::writeData(){
 //            for (int p = 0; p<int(allowedMeshes.size()); p++) {
 //                int i = allowedMeshes[p];
             for (int i = 0; i < int(this->meshList.size()); i++) {
-                chosenLOD = meshList[i].lodInfo.targetIndecies[parent->ListLODLevels->currentText().toInt(nullptr, 10)-1];
+                chosenLOD = meshList[i].lodInfo.targetIndecies[parent->ListLevels->currentText().toInt(nullptr, 10)-1];
                 //qDebug() << Q_FUNC_INFO << "chosen LOD: " << chosenLOD << " for node " << i << " and mesh " << j;
                 for (int n = chosenLOD[0]; n <= chosenLOD[1]; n++){
                     for (int k = 0; k < int(meshList[i].posArray.indexArrays[n].triangleStrips.size());k++){
@@ -309,7 +315,7 @@ void VBIN::writeData(){
                 stream << "solid Default" << Qt::endl;
                 //qDebug() << Q_FUNC_INFO << "Position Array length: " << nodeList[i].meshList[j].posArray.vertexCount;
                 //qDebug() << Q_FUNC_INFO << "Index Array length: " << nodeList[i].meshList[j].posArray.indexArrays[0].arrayLength;
-                chosenLOD = meshList[j].lodInfo.targetIndecies[parent->ListLODLevels->currentText().toInt(nullptr, 10)-1];
+                chosenLOD = meshList[j].lodInfo.targetIndecies[parent->ListLevels->currentText().toInt(nullptr, 10)-1];
                 //qDebug() << Q_FUNC_INFO << "chosen LOD: " << chosenLOD << " for node " << i << " and mesh " << j;
                 for (int n = chosenLOD[0]; n <= chosenLOD[1]; n++){
                     for (int k = 0; k < int(meshList[j].posArray.indexArrays[n].triangleStrips.size());k++){

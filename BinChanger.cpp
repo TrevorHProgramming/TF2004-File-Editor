@@ -174,6 +174,15 @@ std::tuple<int8_t,int8_t> BinChanger::byte_to_nib(QByteArray input){
     return nibTup;
 }
 
+int BinChanger::nib_to_byte(std::tuple<int8_t, int8_t> input){
+    int tempInt = 0;
+    tempInt += std::get<0>(input);
+    tempInt += std::get<1>(input)<<4;
+    //qDebug() << Q_FUNC_INFO << "input lower nib: " << std::get<0>(input) << " upper nib: " << std::get<1>(input) << " tempInt: " << tempInt;
+
+    return tempInt;
+}
+
 float BinChanger::hex_to_float(QByteArray array){
     bool ok;
     int sign = 1;
@@ -198,4 +207,44 @@ float BinChanger::hex_to_float(QByteArray array){
     exponent -= 127;     //claculate the exponent
     //qDebug() << Q_FUNC_INFO << "number= "<< QString::number( sign*pow(2,exponent)*(mantissa+1.0),'f', 5 );
     return sign*pow(2,exponent)*(mantissa+1.0);
-   }
+}
+
+qint64 BinChanger::byteWrite(QFile& file, int8_t var) {
+  qint64 toWrite = sizeof(decltype (var));
+  qint64  written = file.write(reinterpret_cast<const char*>(&var), toWrite);
+  if (written != toWrite) {
+    qDebug() << "write error";
+  }
+   //qDebug () << "out: " << written;
+  return written;
+}
+
+qint64 BinChanger::shortWrite( QFile& file, int16_t var ) {
+  qint64 toWrite = sizeof(decltype (var));
+  qint64 written = file.write(reinterpret_cast<const char*>(&var), toWrite);
+  if (written != toWrite) {
+    qDebug () << "write error";
+  }
+   //qDebug () << "out: " << written;
+  return written;
+}
+
+qint64 BinChanger::intWrite( QFile& file, int32_t var ) {
+  qint64 toWrite = sizeof(decltype (var));
+  qint64  written = file.write(reinterpret_cast<const char*>(&var), toWrite);
+  if (written != toWrite) {
+    qDebug () << "write error";
+  }
+   //qDebug () << "out: " << written;
+  return written;
+}
+
+qint64 BinChanger::longWrite( QFile& file, int64_t var ) {
+  qint64 toWrite = sizeof(decltype (var));
+  qint64  written = file.write(reinterpret_cast<const char*>(&var), toWrite);
+  if (written != toWrite) {
+    qDebug () << "write error";
+  }
+   //qDebug () << "out: " << written;
+  return written;
+}

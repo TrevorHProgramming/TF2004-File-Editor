@@ -4,6 +4,7 @@ void LODInfo::clear(){
     levels= 0;
     targetIndecies.clear();
     fileLocation = 0;
+    file = nullptr;
 }
 
 void PositionArray::clear(){
@@ -13,6 +14,7 @@ void PositionArray::clear(){
     meshName = "";
     positionList.clear();
     indexArrays.clear();
+    file = nullptr;
 }
 
 void Mesh::clear(){
@@ -22,6 +24,7 @@ void Mesh::clear(){
     offset = QVector3D();
     rotation = QQuaternion();
     scale = 1;
+    file = nullptr;
 }
 
 void Mesh::getModifications(){
@@ -80,9 +83,9 @@ void Mesh::getModifications(){
 
 void LODInfo::populateLevels(){
     long currentPosition = this->fileLocation+4;
-    this->levels = file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2).toInt(nullptr, 16);
-    if (levels > file->parent->highestLOD){
-        file->parent->highestLOD = levels;
+    levels = file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2).toInt(nullptr, 16);
+    if (levels > file->highestLOD){
+        file->highestLOD = levels;
     }
     //qDebug() << Q_FUNC_INFO << "LOD levels: " << levels << " from hex: " << file->parent->binChanger.reverse_input(file->parent->fileData.mid(currentPosition, 4).toHex(), 2);
     currentPosition += 4;
@@ -135,14 +138,15 @@ void PositionArray::getIndexArrays(){
     location = searchFile.indexIn(file->parent->fileData, startSearch);
     while (location < endSearch & location != -1) {
         startSearch = location + 13; //increase by length of "~IndexArray" + 2
-        this->indexArrays.resize(indexArrayIndex+1);
-        this->indexArrays[indexArrayIndex].arrayID = indexArrayIndex;
-        this->indexArrays[indexArrayIndex].fileLocation = startSearch;
-        this->indexArrays[indexArrayIndex].arrayLength = (file->parent->binChanger.reverse_input(file->parent->fileData.mid(startSearch, 4).toHex(), 2).toUInt(nullptr, 16)-4)/2; //-4 to remove itself, /2 for short length
+        indexArrays.resize(indexArrayIndex+1);
+        indexArrays[indexArrayIndex].file=file;
+        indexArrays[indexArrayIndex].arrayID = indexArrayIndex;
+        indexArrays[indexArrayIndex].fileLocation = startSearch;
+        indexArrays[indexArrayIndex].arrayLength = (file->parent->binChanger.reverse_input(file->parent->fileData.mid(startSearch, 4).toHex(), 2).toUInt(nullptr, 16)-4)/2; //-4 to remove itself, /2 for short length
         //qDebug() << Q_FUNC_INFO << "Array length: " << file->parent->binChanger.reverse_input(file->parent->fileData.mid(startSearch, 4).toHex(), 2).toUInt(nullptr, 16) << " from hex: " << file->parent->binChanger.reverse_input(file->parent->fileData.mid(startSearch, 4).toHex(), 2);
 
         startSearch += 4;
-        this->indexArrays[indexArrayIndex].populateTriangleStrips();
+        indexArrays[indexArrayIndex].populateTriangleStrips();
 
         location = searchFile.indexIn(file->parent->fileData, startSearch);
         ++indexArrayIndex;

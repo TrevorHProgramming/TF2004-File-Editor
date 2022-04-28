@@ -48,6 +48,8 @@ public:
     ITF* itfFile;
     GeometrySet* geometrySet;
 
+    QString fileMode;
+
     Ui::MainWindow *ui;
 
     QPushButton *ButtonVBINtoSTL;
@@ -58,12 +60,10 @@ public:
     QPushButton *ButtonITFtoBMP;
     QRadioButton *radioSingle;
     QRadioButton *radioMultiple;
-    QComboBox *ListLODLevels;
+    QComboBox *ListLevels;
     QPushButton *ButtonSaveITF;
     QByteArray fileData;
     QTableWidget *PaletteTable;
-    int highestLOD;
-    long fileLength;
     int numColors;
     QString whichModel;
     std::vector<std::vector<std::vector<int>>> lodArrays;
@@ -71,6 +71,10 @@ public:
 
 
     void createTable(int rows, int columns);
+    void createDropdown(int levels);
+    void createMultiRadios();
+    void deleteMultiRadios();
+    void dropdownSelectChange();
 
 public slots:
     void convertVBINToSTL();
