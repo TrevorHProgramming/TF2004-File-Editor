@@ -71,6 +71,8 @@ public:
     QString whichModel;
     std::vector<std::vector<std::vector<int>>> lodArrays;
     std::vector<int> usedIndecies;
+    QPixmap background;
+    QPalette palette;
 
 
     void createTable(int rows, int columns);
@@ -78,6 +80,9 @@ public:
     void createMultiRadios();
     void deleteMultiRadios();
     void dropdownSelectChange();
+
+private:
+    void resizeEvent(QResizeEvent* event);
 
 public slots:
     void convertVBINToSTL();
