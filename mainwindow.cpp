@@ -8,6 +8,10 @@ ProgWindow::ProgWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    background.load(QCoreApplication::applicationDirPath() + "/assets/background.png");
+    background = background.scaled(this->size());
+    palette.setBrush(QPalette::Window, background);
+    this->setPalette(palette);
 
     vbinFile = new VBIN;
     vbinFile->parent = this;
@@ -18,6 +22,7 @@ ProgWindow::ProgWindow(QWidget *parent)
     geometrySet = new GeometrySet;
     geometrySet->parent = this;
     PaletteTable = nullptr;
+    ListLevels = nullptr;
     radioSingle = nullptr;
     radioMultiple = nullptr;
 
@@ -136,6 +141,17 @@ void::ProgWindow::createDropdown(int levels){
         ListLevels->show();
     }
 }
+
+
+void ProgWindow::resizeEvent(QResizeEvent* event){
+    /*Resizes the background to fit the window. Will eventually add element placements so it doesn't look terrible if full-screened.*/
+    QMainWindow::resizeEvent(event);
+    background.load(QCoreApplication::applicationDirPath() + "/assets/background.png");
+    background = background.scaled(this->size());
+    palette.setBrush(QPalette::Window, background);
+    this->setPalette(palette);
+}
+
 
 
 
