@@ -13,9 +13,13 @@ ProgWindow::ProgWindow(QWidget *parent)
     vbinFile->parent = this;
     itfFile = new ITF;
     itfFile->parent = this;
+    tmdFile = new TMDFile;
+    tmdFile->parent = this;
     geometrySet = new GeometrySet;
     geometrySet->parent = this;
     PaletteTable = nullptr;
+    radioSingle = nullptr;
+    radioMultiple = nullptr;
 
     ButtonVBINtoSTL = new QPushButton("Convert VBIN to STL", this);
     ButtonVBINtoSTL -> setGeometry(QRect(QPoint(50,50), QSize(150,30)));
@@ -31,6 +35,8 @@ ProgWindow::ProgWindow(QWidget *parent)
     ButtonITFtoBMP -> setGeometry(QRect(QPoint(50,170), QSize(150,30)));
     ButtonOpenITF = new QPushButton("Open ITF File", this);
     ButtonOpenITF -> setGeometry(QRect(QPoint(50,140), QSize(150,30)));
+    ButtonOpenTMD = new QPushButton("Open TMD File", this);
+    ButtonOpenTMD -> setGeometry(QRect(QPoint(50,230), QSize(150,30)));
 
     //PaletteTable = new QTableView(this);
     //PaletteTable->setGeometry(QRect(QPoint(250,250), QSize(150,30)));
@@ -48,6 +54,7 @@ ProgWindow::ProgWindow(QWidget *parent)
     connect(ButtonOpenITF, &QPushButton::released, this, &ProgWindow::openITF);
     connect(ButtonSaveITF, &QPushButton::released, this, [this] {itfFile->writeITF();});
     connect(ButtonITFtoBMP, &QPushButton::released, this, [this] {itfFile->writeBMP();});
+    connect(ButtonOpenTMD, &QPushButton::released, this, &ProgWindow::openTMD);
     //connect(ButtonITFtoBMP, &QPushButton::released, this, [this] {itfFile->bruteForce(itfFile->height,itfFile->width,128, 128, 0);});
 }
 

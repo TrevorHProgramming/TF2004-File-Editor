@@ -27,6 +27,7 @@
 #include "BinChanger.h"
 #include "FileHandler.h"
 #include "LevelGeo.h"
+#include "TMD.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -46,6 +47,7 @@ public:
     BinChanger binChanger;
     VBIN* vbinFile;
     ITF* itfFile;
+    TMDFile* tmdFile;
     GeometrySet* geometrySet;
 
     QString fileMode;
@@ -58,6 +60,7 @@ public:
     QPushButton *ButtonMeshtoSTL;
     QPushButton *ButtonOpenITF;
     QPushButton *ButtonITFtoBMP;
+    QPushButton *ButtonOpenTMD;
     QRadioButton *radioSingle;
     QRadioButton *radioMultiple;
     QComboBox *ListLevels;
@@ -82,6 +85,7 @@ public slots:
     //void convertBMPtoPNG(QString bmpPath);
     void openVBIN();
     void openITF();
+    void openTMD();
 };
 
 
