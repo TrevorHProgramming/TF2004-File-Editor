@@ -6,6 +6,8 @@ An editor for the various proprietary file formats used in Transformers (2004) (
 
 This program will be able to convert model, texture, and other binary files used in Transformers to a more conventional form so they can be edited and converted back to the game's files. So far there are three file types that are understood well enough for this to be a possibility. 
 
+A background image is supported but not currently in this repo. Any "background.png" kept in an "Assets" folder in the same directory as the exe will work.
+
 File types:
 
 VBIN: Most likely "Vertex Binary". The game's model files for characters. The majority can be converted to STL, but animation and texture data needs to be handled differently. Possible that .3ds or another format works better, but STL is simpler and far more portable.
