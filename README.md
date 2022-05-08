@@ -14,5 +14,5 @@ VBIN.Mesh: The game's model files for levels. These are structured significantly
 
 ITF: Might be "Infogrames Texture Format/File". The game's texture files, fairly similar to standard .BMPs. 
 
-BDB: "Binary Database." Stores data for enemies, pickups, command nodes, etc for each level. Fairly simple but work on these has barely started. Tied closely with the TDB files, "Text Database," which store the same information but more human-friendly.
+TMD, BDB, TDB: "Text something Defintion." "Binary Database," "Text Database." Stores a significant amount of data used by the game. The definition file contains file types and default values for their corresponding database files, and as such are required to be opened before a database file.
 
