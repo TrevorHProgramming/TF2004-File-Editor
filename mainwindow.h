@@ -27,7 +27,7 @@
 #include "BinChanger.h"
 #include "FileHandler.h"
 #include "LevelGeo.h"
-#include "TMD.h"
+#include "Database.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -48,6 +48,7 @@ public:
     VBIN* vbinFile;
     ITF* itfFile;
     TMDFile* tmdFile;
+    TDBFile* tdbFile;
     GeometrySet* geometrySet;
 
     QString fileMode;
@@ -61,6 +62,7 @@ public:
     QPushButton *ButtonOpenITF;
     QPushButton *ButtonITFtoBMP;
     QPushButton *ButtonOpenTMD;
+    QPushButton *ButtonOpenTDB;
     QRadioButton *radioSingle;
     QRadioButton *radioMultiple;
     QComboBox *ListLevels;
@@ -79,6 +81,7 @@ public:
     void createDropdown(int levels);
     void createMultiRadios();
     void deleteMultiRadios();
+    void createDBButtons();
     void dropdownSelectChange();
 
 private:
@@ -91,6 +94,7 @@ public slots:
     void openVBIN();
     void openITF();
     void openTMD();
+    void openTDB();
 };
 
 

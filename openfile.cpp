@@ -76,5 +76,33 @@ void ProgWindow::openTMD(){
         tmdFile->readData();
         qDebug() << Q_FUNC_INFO << "File data read.";
         //after verifying the TMD data is good, create the TDB and BDB file buttons
+        createDBButtons();
+    }
+}
+
+void ProgWindow::openTDB(){
+    fileMode = "TDB";
+    deleteMultiRadios();
+    if (PaletteTable != nullptr) {
+        PaletteTable->clear();
+        PaletteTable->hide();
+    }
+    if (ListLevels != nullptr) {
+        ListLevels->clear();
+        ListLevels->hide();
+    }
+    QString fileIn = QFileDialog::getOpenFileName(this, tr("Select TDB"), QDir::currentPath() + "/TDB/", tr("Text Database Files (*.TDB)"));
+    if (!fileIn.isNull()){
+        tdbFile->filePath = fileIn;
+        fileData.clear();
+
+        QFile inputFile(fileIn);
+        inputFile.open(QIODevice::ReadOnly);
+        fileData = inputFile.readAll();
+
+        qDebug() << Q_FUNC_INFO << "File data loaded.";
+        tdbFile->readData();
+        qDebug() << Q_FUNC_INFO << "File data read.";
+        //after verifying the TMD data is good, create the TDB and BDB file buttons
     }
 }

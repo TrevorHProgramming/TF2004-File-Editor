@@ -19,12 +19,15 @@ ProgWindow::ProgWindow(QWidget *parent)
     itfFile->parent = this;
     tmdFile = new TMDFile;
     tmdFile->parent = this;
+    tdbFile = new TDBFile;
+    tdbFile->parent = this;
     geometrySet = new GeometrySet;
     geometrySet->parent = this;
     PaletteTable = nullptr;
     ListLevels = nullptr;
     radioSingle = nullptr;
     radioMultiple = nullptr;
+    ButtonOpenTDB = nullptr;
 
     ButtonVBINtoSTL = new QPushButton("Convert VBIN to STL", this);
     ButtonVBINtoSTL -> setGeometry(QRect(QPoint(50,50), QSize(150,30)));
@@ -139,6 +142,15 @@ void::ProgWindow::createDropdown(int levels){
             }
         }
         ListLevels->show();
+    }
+}
+
+void ProgWindow::createDBButtons(){
+    if(ButtonOpenTDB == nullptr){
+        ButtonOpenTDB = new QPushButton("Open TDB File",this);
+        ButtonOpenTDB->setGeometry(QRect(QPoint(50,260), QSize(150,30)));
+        connect(ButtonOpenTDB, &QPushButton::released, this, &ProgWindow::openTDB);
+        ButtonOpenTDB->show();
     }
 }
 
