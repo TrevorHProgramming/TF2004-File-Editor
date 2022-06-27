@@ -1,10 +1,8 @@
 #include "mainwindow.h"
 
-/*THE PLAN
-The original code looped through the file to find all position arrays and the associated LODinfo sections. Now that we know that SceneNodes are
-more important, this will instead loop through and look for those. The issue with this is that a scene node can contain 0 positionarrays
-but have a child scenenode, so we have to check for that. Organize these scene nodes and preserve the parent-child structure, since the offsets
-for each scenenode will be applied to the points in the positionarrays.
+/*Each SceneNode and Mesh stand on equal footing - they're the major elements of the VBIN tree. 
+Modifications for SceneNodes and Meshes are passed down to other nodes and meshes as the tree goes on. The exact details for this are still being worked on.
+There's likely some conflicts between worldspace-oriented transformations and parent-oriented transformations but I haven't seen any indication of when to use one or the other.
 */
 
 void SceneNode::clear(){
