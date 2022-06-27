@@ -27,7 +27,7 @@ public:
     ProgWindow *parent;
     QString filePath;
     int fileLength;
-    int unknownByte1;
+    int versionNum;
     int headerLength;
     int propertyByte;
     int unknown4Byte1;

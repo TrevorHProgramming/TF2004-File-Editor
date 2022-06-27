@@ -11,12 +11,21 @@
 #include <QComboBox>
 #include <QTextStream>
 #include <QFileDialog>
+#include <QInputDialog>
 #include <QRadioButton>
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QHeaderView>
 #include <QQuaternion>
 #include <QLabel>
+#include <QListWidget>
+#include <QLineEdit>
+#include <QTreeView>
+#include <QStandardItem>
+#include <QStandardItemModel>
+#include <QMessageBox>
+#include <QMenu>
+#include <QMenuBar>
 
 
 #include <vector>
@@ -43,13 +52,17 @@ class ProgWindow : public QMainWindow
 public:
     ProgWindow(QWidget *parent = nullptr);
     ~ProgWindow();
+    QMenuBar *menuMain;
 
     BinChanger binChanger;
     VBIN* vbinFile;
     ITF* itfFile;
-    TMDFile* tmdFile;
+    std::vector<TMDFile*> tmdFile;
+    std::vector<BMDFile*> bmdFile;
     TDBFile* tdbFile;
     GeometrySet* geometrySet;
+    int hSize = 1200;
+    int vSize = 768;
 
     QString fileMode;
 
@@ -63,12 +76,21 @@ public:
     QPushButton *ButtonITFtoBMP;
     QPushButton *ButtonOpenTMD;
     QPushButton *ButtonOpenTDB;
+    QPushButton *ButtonWriteTMD;
+    QPushButton *ButtonClear;
+    QPushButton *ButtonEditDB;
+    QLineEdit *DBNewValue;
     QRadioButton *radioSingle;
     QRadioButton *radioMultiple;
     QComboBox *ListLevels;
     QPushButton *ButtonSaveITF;
     QByteArray fileData;
     QTableWidget *PaletteTable;
+    QListWidget *DBClassList;
+    QListWidget *DBItemList;
+    QListWidget *DBDetailList;
+    QListWidget *DBValueList;
+    QMessageBox *MessagePopup;
     int numColors;
     QString whichModel;
     std::vector<std::vector<std::vector<int>>> lodArrays;
@@ -76,6 +98,12 @@ public:
     QPixmap background;
     QPalette palette;
 
+    QTreeView *testView;
+    QStandardItemModel *testModel;
+
+
+    void messageError(QString message);
+    void messageSuccess(QString message);
 
     void createTable(int rows, int columns);
     void createDropdown(int levels);
@@ -83,9 +111,11 @@ public:
     void deleteMultiRadios();
     void createDBButtons();
     void dropdownSelectChange();
+    void clearWindow();
 
 private:
     void resizeEvent(QResizeEvent* event);
+    void editDatabaseItem(QModelIndex item, int itemIndex);
 
 public slots:
     void convertVBINToSTL();
@@ -95,6 +125,7 @@ public slots:
     void openITF();
     void openTMD();
     void openTDB();
+    void openBMD();
 };
 
 

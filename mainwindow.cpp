@@ -13,12 +13,35 @@ ProgWindow::ProgWindow(QWidget *parent)
     palette.setBrush(QPalette::Window, background);
     this->setPalette(palette);
 
+    menuMain = new QMenuBar(this);
+    MessagePopup = new QMessageBox(this);
+    menuMain->setGeometry(QRect(QPoint(int(hSize*0),int(vSize*0)), QSize(int(hSize*1),int(vSize*0.03))));
+
+    QMenu *menuVBIN = menuMain->addMenu("VBIN");
+    QMenu *menuITF = menuMain->addMenu("ITF");
+    QMenu *menuDatabase = menuMain -> addMenu("Database");
+    QMenu *menuSettings = menuMain->addMenu("Settings");
+    QAction *actionLoadVBIN = menuVBIN->addAction("Load VBIN");
+    QAction *actionSaveSTL = menuVBIN ->addAction("Export to STL");
+    QAction *actionLoadMeshVBIN = menuVBIN->addAction("Load Mesh VBIN");
+    QAction *actionLoadITF = menuITF ->addAction("Load ITF");
+    QAction *actionSaveITF = menuITF->addAction("Save ITF");
+    QAction *actionSaveBMP = menuITF ->addAction("Export to BMP");
+    QAction *actionLoadTMD = menuDatabase ->addAction("Load TMD");
+    QAction *actionSaveTMD = menuDatabase ->addAction("Save TMD");
+    QAction *actionLoadTDB = menuDatabase ->addAction("Load TDB");
+    QAction *actionSaveTDB = menuDatabase ->addAction("Save TDB");
+    QAction *actionLoadBMD = menuDatabase ->addAction("Load BMD");
+    QAction *actionSettings = menuSettings -> addAction("Settings");
+
     vbinFile = new VBIN;
     vbinFile->parent = this;
     itfFile = new ITF;
     itfFile->parent = this;
-    tmdFile = new TMDFile;
-    tmdFile->parent = this;
+    tmdFile.push_back(new TMDFile);
+    tmdFile[0]->parent = this;
+    bmdFile.push_back(new BMDFile);
+    bmdFile[0]->parent = this;
     tdbFile = new TDBFile;
     tdbFile->parent = this;
     geometrySet = new GeometrySet;
@@ -28,42 +51,30 @@ ProgWindow::ProgWindow(QWidget *parent)
     radioSingle = nullptr;
     radioMultiple = nullptr;
     ButtonOpenTDB = nullptr;
+    ButtonWriteTMD = nullptr;
+    DBClassList = nullptr;
+    DBItemList = nullptr;
+    DBDetailList = nullptr;
+    DBValueList = nullptr;
+    ButtonEditDB = nullptr;
+    DBNewValue = nullptr;
+    testView = nullptr;
+    testModel = nullptr;
 
-    ButtonVBINtoSTL = new QPushButton("Convert VBIN to STL", this);
-    ButtonVBINtoSTL -> setGeometry(QRect(QPoint(50,50), QSize(150,30)));
-    ButtonOpenVBIN = new QPushButton("Open VBIN File", this);
-    ButtonOpenVBIN -> setGeometry(QRect(QPoint(50,20), QSize(150,30)));
-    ButtonMeshtoSTL = new QPushButton("Convert .Mesh.VBIN to STL", this);
-    ButtonMeshtoSTL -> setGeometry(QRect(QPoint(50,110), QSize(150,30)));
-    ButtonOpenMeshVBIN = new QPushButton("Open .Mesh.VBIN File", this);
-    ButtonOpenMeshVBIN -> setGeometry(QRect(QPoint(50,80), QSize(150,30)));
-    ButtonSaveITF = new QPushButton("Save ITF File", this);
-    ButtonSaveITF -> setGeometry(QRect(QPoint(50,200), QSize(150,30)));
-    ButtonITFtoBMP = new QPushButton("Convert ITF to BMP", this);
-    ButtonITFtoBMP -> setGeometry(QRect(QPoint(50,170), QSize(150,30)));
-    ButtonOpenITF = new QPushButton("Open ITF File", this);
-    ButtonOpenITF -> setGeometry(QRect(QPoint(50,140), QSize(150,30)));
-    ButtonOpenTMD = new QPushButton("Open TMD File", this);
-    ButtonOpenTMD -> setGeometry(QRect(QPoint(50,230), QSize(150,30)));
-
-    //PaletteTable = new QTableView(this);
-    //PaletteTable->setGeometry(QRect(QPoint(250,250), QSize(150,30)));
-
-    //createTable(4,4, *this);
-
-    //try a QTableView for palette editing
-    //check for max 255/min 0 value
-    //then try QImage for the bmp display
-
-    connect(ButtonVBINtoSTL, &QPushButton::released, this, &ProgWindow::convertVBINToSTL);
-    connect(ButtonOpenVBIN, &QPushButton::released, this, &ProgWindow::openVBIN);
-    connect(ButtonOpenMeshVBIN, &QPushButton::released, this, [this] {geometrySet->openMeshVBINFile();});
+    connect(actionSaveSTL, &QAction::triggered, this, &ProgWindow::convertVBINToSTL);
+    connect(actionLoadVBIN, &QAction::triggered, this, &ProgWindow::openVBIN);
+    connect(actionLoadMeshVBIN, &QAction::triggered, this, [this] {geometrySet->openMeshVBINFile();});
     //connect(ButtonITFtoBMP, &QPushButton::released, this, &ProgWindow::convertITFToBMP);
-    connect(ButtonOpenITF, &QPushButton::released, this, &ProgWindow::openITF);
-    connect(ButtonSaveITF, &QPushButton::released, this, [this] {itfFile->writeITF();});
-    connect(ButtonITFtoBMP, &QPushButton::released, this, [this] {itfFile->writeBMP();});
-    connect(ButtonOpenTMD, &QPushButton::released, this, &ProgWindow::openTMD);
-    //connect(ButtonITFtoBMP, &QPushButton::released, this, [this] {itfFile->bruteForce(itfFile->height,itfFile->width,128, 128, 0);});
+    connect(actionLoadITF, &QAction::triggered, this, &ProgWindow::openITF);
+    connect(actionSaveITF, &QAction::triggered, this, [this] {itfFile->writeITF();});
+    connect(actionSaveBMP, &QAction::triggered, this, [this] {itfFile->writeBMP();});
+    connect(actionLoadTMD, &QAction::triggered, this, &ProgWindow::openTMD);
+    connect(actionLoadTDB, &QAction::triggered, this, &ProgWindow::openTDB);
+    connect(actionLoadBMD, &QAction::triggered, this, &ProgWindow::openBMD);
+    connect(actionSaveTMD, &QAction::triggered, this, [this] {tmdFile[0]->writeData();});
+    connect(actionSaveTDB, &QAction::triggered, this, [this] {tdbFile->writeData();});
+    //uncomment once this function actually exists
+    //connect(actionSaveTDB, &QAction::triggered, this, [this] {tdbFile->writeData();});
 }
 
 ProgWindow::~ProgWindow()
@@ -80,13 +91,15 @@ void ProgWindow::dropdownSelectChange(){
 void ProgWindow::createMultiRadios(){
     if(radioSingle == nullptr){
         radioSingle = new QRadioButton("Single file output", this);
-        radioSingle -> setGeometry(QRect(QPoint(440,120), QSize(100,30)));
+        radioSingle -> setGeometry(QRect(QPoint(340,120), QSize(200,30)));
+        radioSingle->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
         radioSingle-> toggle();
         radioSingle->show();
     }
     if(radioMultiple == nullptr){
         radioMultiple = new QRadioButton("Multi-file output", this);
         radioMultiple -> setGeometry(QRect(QPoint(540,120), QSize(120,30)));
+        radioMultiple->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
         radioMultiple->show();
     }
 }
@@ -117,12 +130,13 @@ void ProgWindow::createTable(int rows, int columns){
     }
 }
 
-void::ProgWindow::createDropdown(int levels){
+void ProgWindow::createDropdown(int levels){
+    qDebug() << Q_FUNC_INFO << "CREATING THE LIST WITH " << levels << "LEVELS";
     if(ListLevels == nullptr){
            qDebug() << Q_FUNC_INFO << "The dropdown does not exist.";
         ListLevels = new QComboBox(this);
         ListLevels -> setGeometry(QRect(QPoint(250,50), QSize(150,30)));
-        if (levels == 0){
+        if (levels <= 0){
             ListLevels->insertItem(0, "1");
         } else {
             for(int i=0; i<levels; ++i){
@@ -134,7 +148,7 @@ void::ProgWindow::createDropdown(int levels){
     } else {
         ListLevels->clear();
         ListLevels -> setGeometry(QRect(QPoint(250,50), QSize(150,30)));
-        if (levels == 0){
+        if (levels <= 0){
             ListLevels->insertItem(0, "1");
         } else {
             for(int i=0; i<levels; ++i){
@@ -146,24 +160,58 @@ void::ProgWindow::createDropdown(int levels){
 }
 
 void ProgWindow::createDBButtons(){
-    if(ButtonOpenTDB == nullptr){
-        ButtonOpenTDB = new QPushButton("Open TDB File",this);
-        ButtonOpenTDB->setGeometry(QRect(QPoint(50,260), QSize(150,30)));
-        connect(ButtonOpenTDB, &QPushButton::released, this, &ProgWindow::openTDB);
-        ButtonOpenTDB->show();
+    if(ButtonEditDB == nullptr){
+        ButtonEditDB = new QPushButton("Edit TMD Data", this);
+        ButtonEditDB->setGeometry(QRect(QPoint(50,320), QSize(150,30)));
+        connect(ButtonEditDB, &QPushButton::released, this, [this]{editDatabaseItem(testView->currentIndex(), testView->currentIndex().row());});
+        //connect(ButtonEditDB, &QPushButton::released, this, [this]{tmdFile[0]->editItem(testView->currentIndex().parent().data().toString(), testView->currentIndex().row());});
+        ButtonEditDB->show();
     }
 }
 
+void ProgWindow::editDatabaseItem(QModelIndex item, int itemIndex){
+    QStringList newValue; //using a qstringlist to make things easier on myself
+    for(int i = 0; i < tmdFile.size(); i++){
+        if(item.parent().parent().data().toString() == tmdFile[i]->fileName){
+            newValue = tmdFile[i]->editItem(item.parent().data().toString(), itemIndex);
+        }
+    }
+    if(item.parent().parent().data().toString() == tdbFile->fileName){
+        newValue = tdbFile->editItem(item.parent().siblingAtColumn(1).data().toInt(), itemIndex);
+    }
+
+    if(newValue[1] == "SINGLEVALUE"){
+        testModel->setData(item.siblingAtColumn(2), newValue[0]);
+    } else if (newValue[0] == "ENUM"){
+        testModel->setData(item.siblingAtColumn(2), newValue[1]);
+        newValue.remove(0,2);
+        testModel->setData(item.siblingAtColumn(3), newValue.join(','));
+    } else {
+        testModel->setData(item.siblingAtColumn(3), newValue.join(','));
+    }
+
+}
 
 void ProgWindow::resizeEvent(QResizeEvent* event){
     /*Resizes the background to fit the window. Will eventually add element placements so it doesn't look terrible if full-screened.*/
     QMainWindow::resizeEvent(event);
+    hSize = this->size().width();
+    vSize = this->size().height();
     background.load(QCoreApplication::applicationDirPath() + "/assets/background.png");
     background = background.scaled(this->size());
     palette.setBrush(QPalette::Window, background);
     this->setPalette(palette);
 }
 
+void ProgWindow::messageError(QString message){
+    MessagePopup->setText(message);
+    MessagePopup->setWindowTitle("Error!");
+    MessagePopup->open();
+}
 
-
+void ProgWindow::messageSuccess(QString message){
+    MessagePopup->setText(message);
+    MessagePopup->setWindowTitle("Success.");
+    MessagePopup->open();
+}
 

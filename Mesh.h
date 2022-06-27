@@ -39,6 +39,7 @@ public:
   void Transform();
   void getIndexArrays();
   void clear();
+  const void operator=(PositionArray input);
 };
 
 class VertexSet{
@@ -54,24 +55,18 @@ public:
     void getArrayLocations();
 };
 
-class Mesh{
+class Mesh : public FileSection{
 public:
-    long fileLocation;
     BoundingVolume boundVol;
     PositionArray posArray;
     LODInfo lodInfo;
-    QString name;
-    int modifications;
-    QVector3D offset;
-    QQuaternion rotation;
-    float scale;
-    VBIN *file;
 
     void clear();
+    void readData(long meshLocation);
+    //void modifyPosArrays(Modifications mods);
     void getModifications();
+    const void operator=(Mesh input);
 };
-
-
 
 
 

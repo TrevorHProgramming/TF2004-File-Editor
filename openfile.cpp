@@ -26,6 +26,8 @@ void ProgWindow::openVBIN(){
 
         createDropdown(vbinFile->highestLOD);
         createMultiRadios();
+    } else {
+        messageError("There was an error opening the file.");
     }
 
 }
@@ -49,11 +51,13 @@ void ProgWindow::openITF(){
         qDebug() << Q_FUNC_INFO << "File data loaded.";
         itfFile->readData();
         qDebug() << Q_FUNC_INFO << "File data read.";
+    } else {
+        messageError("There was an error opening the file.");
     }
 }
 
 void ProgWindow::openTMD(){
-    fileMode = "TMD";
+    int passed=0;
     deleteMultiRadios();
     if (PaletteTable != nullptr) {
         PaletteTable->clear();
@@ -65,23 +69,38 @@ void ProgWindow::openTMD(){
     }
     QString fileIn = QFileDialog::getOpenFileName(this, tr("Select TMD"), QDir::currentPath() + "/TMD/", tr("Database Definition Files (*.TMD)"));
     if (!fileIn.isNull()){
-        tmdFile->filePath = fileIn;
+        tmdFile[0]->filePath = fileIn;
         fileData.clear();
 
         QFile inputFile(fileIn);
         inputFile.open(QIODevice::ReadOnly);
+        QFileInfo fileInfo(inputFile);
+        tmdFile[0]->fileName = fileInfo.fileName();
+        tmdFile[0]->fileType = "TMD";
         fileData = inputFile.readAll();
 
         qDebug() << Q_FUNC_INFO << "File data loaded.";
-        tmdFile->readData();
+        passed = tmdFile[0]->readData();
         qDebug() << Q_FUNC_INFO << "File data read.";
         //after verifying the TMD data is good, create the TDB and BDB file buttons
-        createDBButtons();
+        if (passed != -1){
+            createDBButtons();
+//            DBClassList->clear();
+//            for (int i = 0; i < tmdFile->classList.size(); i++) {
+//                DBClassList->addItem(tmdFile->classList[i].name);
+//            }
+            tmdFile[0]->createDBTree();
+        } else {
+            messageError("There was an error reading the file.");
+        }
+
+    } else {
+        messageError("There was an error opening the file.");
     }
 }
 
 void ProgWindow::openTDB(){
-    fileMode = "TDB";
+    int passed = 0;
     deleteMultiRadios();
     if (PaletteTable != nullptr) {
         PaletteTable->clear();
@@ -98,11 +117,64 @@ void ProgWindow::openTDB(){
 
         QFile inputFile(fileIn);
         inputFile.open(QIODevice::ReadOnly);
+        QFileInfo fileInfo(inputFile);
+        tdbFile->fileName = fileInfo.fileName();
+        tdbFile->fileType = "TDB";
         fileData = inputFile.readAll();
 
         qDebug() << Q_FUNC_INFO << "File data loaded.";
-        tdbFile->readData();
+        passed = tdbFile->readData();
         qDebug() << Q_FUNC_INFO << "File data read.";
         //after verifying the TMD data is good, create the TDB and BDB file buttons
+       if (passed != -1) {
+           tdbFile->createDBTree();
+       } else {
+           messageError("There was an error reading the file.");
+       }
+    } else {
+        messageError("There was an error opening the file.");
+    }
+}
+
+void ProgWindow::openBMD(){
+    int passed=0;
+    deleteMultiRadios();
+    if (PaletteTable != nullptr) {
+        PaletteTable->clear();
+        PaletteTable->hide();
+    }
+    if (ListLevels != nullptr) {
+        ListLevels->clear();
+        ListLevels->hide();
+    }
+    QString fileIn = QFileDialog::getOpenFileName(this, tr("Select BMD"), QDir::currentPath() + "/BMD/", tr("Binary Database Definition Files (*.BMD)"));
+    if (!fileIn.isNull()){
+        bmdFile[0]->filePath = fileIn;
+        fileData.clear();
+
+        QFile inputFile(fileIn);
+        inputFile.open(QIODevice::ReadOnly);
+        QFileInfo fileInfo(inputFile);
+        bmdFile[0]->fileName = fileInfo.fileName();
+        bmdFile[0]->fileType = "TMD";
+        fileData = inputFile.readAll();
+
+        qDebug() << Q_FUNC_INFO << "File data loaded.";
+        passed = bmdFile[0]->readData();
+        qDebug() << Q_FUNC_INFO << "File data read.";
+        //after verifying the TMD data is good, create the TDB and BDB file buttons
+        /*if (passed != -1){
+            createDBButtons();
+//            DBClassList->clear();
+//            for (int i = 0; i < tmdFile->classList.size(); i++) {
+//                DBClassList->addItem(tmdFile->classList[i].name);
+//            }
+            bmdFile[0]->createDBTree();
+        } else {
+            messageError("There was an error reading the file.");
+        }*/
+
+    } else {
+        messageError("There was an error opening the file.");
     }
 }

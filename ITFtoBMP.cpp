@@ -24,7 +24,7 @@ void ITF::readData(){
 
     /*Load header data*/
     currentPos = 15;
-    unknownByte1 = parent->fileData.mid(currentPos, 1).toHex().toInt(nullptr, 16);
+    versionNum = parent->fileData.mid(currentPos, 1).toHex().toInt(nullptr, 16);
     headerLength = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+1, 4).toHex(),2).toInt(nullptr, 16);
     currentPos += 8;
     propertyByte = parent->fileData.mid(currentPos, 1).toHex().toInt(nullptr, 16);
@@ -33,6 +33,7 @@ void ITF::readData(){
     height = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+9, 4).toHex(),2).toInt(nullptr, 16);
     unknown4Byte2 = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+13, 4).toHex(),2).toInt(nullptr, 16);
     paletteCount = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+17, 4).toHex(),2).toInt(nullptr, 16);
+    //qDebug() << Q_FUNC_INFO << "palette count:" << paletteCount << " found at " << currentPos+17;
     unknown4Byte3 = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+21, 4).toHex(),2).toInt(nullptr, 16);
     unknown4Byte4 = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+25, 4).toHex(),2).toInt(nullptr, 16);
     /*End header data. Now we can remake the file with any edits.*/
@@ -44,7 +45,7 @@ void ITF::readData(){
     } else {
         colorCount = 16;
     }
-    //qDebug() << Q_FUNC_INFO << "Color count: " << colorCount;
+    qDebug() << Q_FUNC_INFO << "Color count: " << colorCount;
     location = matcher.indexIn(parent->fileData, 0)+4;
     startLocation = location; //this will be used later to remove the palette from the content
     dataLength = parent->binChanger.reverse_input(parent->fileData.mid(location, 4).toHex(),2).toInt(nullptr, 16);
@@ -188,7 +189,7 @@ void ITF::writeITF(){
         itfOut.write("FORM");
         parent->binChanger.intWrite(itfOut, fileLength);
         itfOut.write("ITF0HDR");
-        parent->binChanger.byteWrite(itfOut, unknownByte1);
+        parent->binChanger.byteWrite(itfOut, versionNum);
         parent->binChanger.intWrite(itfOut, headerLength);
         itfOut.write("PS2");
         parent->binChanger.byteWrite(itfOut, propertyByte);

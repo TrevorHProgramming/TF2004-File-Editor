@@ -9,8 +9,9 @@
 
 class ProgWindow;
 
-class Mesh;
 class VBIN;
+class Mesh;
+class SceneNode;
 
 class Triangles{
   public:
@@ -34,6 +35,7 @@ public:
     VBIN *file;
 
     void populateData();
+    const void operator=(BoundingVolume input);
 };
 
 class NormalArray{
@@ -56,42 +58,68 @@ public:
 
 class TextureCoords{};
 
-class SceneNode{
+class Modifications{
 public:
-    long fileLocation;
-    BoundingVolume boundVol;
-    //std::vector<SceneNode> sceneNode;
-    std::vector<Mesh> meshList;
-    //PositionArray posArray;
-    int modifications;
+    int modByte;
     QVector3D offset;
     QQuaternion rotation;
     float scale;
-    QString name;
-    VBIN *file;
 
-    void getModifications();
-    void modifyPosArrays();
     void clear();
+};
 
+class FileSection{
+public:
+    VBIN *file;
+    long fileLocation;
+    QString name;
+    long trueLength;
+    BoundingVolume boundVol;
+
+    Modifications mods;
+
+    QStringList sectionTypes;
+    std::vector<std::variant<Mesh, SceneNode>> sectionList;
+
+    void readData(long sceneLocation);
+    void getSceneNodeTree(long searchStart, long searchEnd, int depth);
+    void getModifications();
+    void modifyPosArrays(std::vector<Modifications> addedMods);
+    void printInfo(int depth); // for debugging
+    const void operator=(FileSection input);
+    void writeData(QTextStream &file);
+    void writeData(QString path);
+    // void modifyPosArrays(); //this might go somewhere else, just
+    // commenting out for now
+    void clear();
+};
+
+class SceneNode : public FileSection{
+public:
+    void readData(long sceneLocation);
+    //void getModifications(); //inherited version should be workable
+    //void modifyPosArrays();
+    void clear();
 };
 
 class VBIN{
 public:
+    const QByteArray meshStr = QByteArray::fromHex("7E4D6573680001");
+    const QStringList sectionNames = {"~SceneNode", "~PositionArray", "~LODinfo", "~BoundingVolume", "~VertexSet"};
     QString filePath;
-    std::vector<SceneNode> nodeList;
-    std::vector<Mesh> meshList;
     ProgWindow *parent;
     int highestLOD;
+    long currentLocation;
+    FileSection base;
 
     std::vector<int> getIndexArrays(int posCount, int chosenLOD, int location);
     void makeTriangles(std::vector<int> indArrays, int whichArray, int location, QTextStream *stream);
     void readData();
     void writeData();
 private:
-    void modifyPosArrays();
+    //void modifyPosArrays();
     void outputPositionList(int location);
-    void getSceneNodeTree(long searchStart);
+    void getSceneNodeTree(long searchStart, long searchEnd, int depth);
     void analyzeTriangles(std::vector<int> indArrays, int whichArray);
     QVector3D needOffset(int offsetLocation);
     QQuaternion getRotation(int offsetLocation);

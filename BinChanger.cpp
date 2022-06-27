@@ -18,6 +18,16 @@ QString BinChanger::signExtend(QString input, int length){
     return output;
 }
 
+QVector3D BinChanger::forcedRotate(QMatrix3x3 rotMatrix, QVector3D offset, QVector3D point){
+    float rotX = (rotMatrix(0,0)*point.x())+(rotMatrix(0,1)*point.y())+(rotMatrix(0,2)*point.z())+offset.x();
+    float rotY = (rotMatrix(1,0)*point.x())+(rotMatrix(1,1)*point.y())+(rotMatrix(1,2)*point.z())+offset.y();
+    float rotZ = (rotMatrix(2,0)*point.x())+(rotMatrix(2,1)*point.y())+(rotMatrix(2,2)*point.z())+offset.z();
+    QVector3D changedPoint = QVector3D(rotX, rotY, rotZ);
+
+
+    return changedPoint;
+}
+
 QByteArray BinChanger::remakeImm(QString tempRead, long immediate){
     QString replacement;
     QByteArray replacementArray;
