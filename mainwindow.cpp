@@ -17,6 +17,8 @@ ProgWindow::ProgWindow(QWidget *parent)
     MessagePopup = new QMessageBox(this);
     menuMain->setGeometry(QRect(QPoint(int(hSize*0),int(vSize*0)), QSize(int(hSize*1),int(vSize*0.03))));
 
+    fileData.parent = this;
+
     QMenu *menuVBIN = menuMain->addMenu("VBIN");
     QMenu *menuITF = menuMain->addMenu("ITF");
     QMenu *menuDatabase = menuMain -> addMenu("Database");
@@ -38,8 +40,8 @@ ProgWindow::ProgWindow(QWidget *parent)
     vbinFile->parent = this;
     itfFile = new ITF;
     itfFile->parent = this;
-    tmdFile.push_back(new TMDFile);
-    tmdFile[0]->parent = this;
+    //tmdFile.push_back(new TMDFile);
+    //tmdFile[0]->parent = this;
     bmdFile.push_back(new BMDFile);
     bmdFile[0]->parent = this;
     tdbFile = new TDBFile;
@@ -72,6 +74,10 @@ ProgWindow::ProgWindow(QWidget *parent)
     connect(actionLoadTDB, &QAction::triggered, this, &ProgWindow::openTDB);
     connect(actionLoadBMD, &QAction::triggered, this, &ProgWindow::openBMD);
     connect(actionSaveTMD, &QAction::triggered, this, [this] {tmdFile[0]->writeData();});
+    /*going to need a ProgWindow function for writing TMD and BMD files since they're in lists
+    use this:
+    bool cancelled;
+    QInputDialog::getInt(parent, parent->tr("Enter New Value:"), parent->tr("Value:"), QLineEdit::Normal,0, parent->tmdFile.size(), 1, &cancelled);*/
     connect(actionSaveTDB, &QAction::triggered, this, [this] {tdbFile->writeData();});
     //uncomment once this function actually exists
     //connect(actionSaveTDB, &QAction::triggered, this, [this] {tdbFile->writeData();});
@@ -206,12 +212,12 @@ void ProgWindow::resizeEvent(QResizeEvent* event){
 void ProgWindow::messageError(QString message){
     MessagePopup->setText(message);
     MessagePopup->setWindowTitle("Error!");
-    MessagePopup->open();
+    MessagePopup->exec();
 }
 
 void ProgWindow::messageSuccess(QString message){
     MessagePopup->setText(message);
     MessagePopup->setWindowTitle("Success.");
-    MessagePopup->open();
+    MessagePopup->exec();
 }
 

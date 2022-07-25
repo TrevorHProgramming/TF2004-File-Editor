@@ -43,9 +43,9 @@ QString TMDFile::getNextLine(){
     long spaceLocation =0;
     long startLine = 0;
 
-    location = findBreak.indexIn(parent->fileData, location+1);
-    startLine = findBreak.indexIn(parent->fileData, location)+1; //get start of a line
-    spaceLocation = findSpace.indexIn(parent->fileData, startLine)+1; //find the line type, using the space
+    location = findBreak.indexIn(parent->fileData.dataBytes, location+1);
+    startLine = findBreak.indexIn(parent->fileData.dataBytes, location)+1; //get start of a line
+    spaceLocation = findSpace.indexIn(parent->fileData.dataBytes, startLine)+1; //find the line type, using the space
     location = startLine;
     return parent->fileData.mid(startLine, spaceLocation-startLine).trimmed();
 
@@ -62,10 +62,10 @@ QString TMDFile::getName(){
     long nameLocation = 0;
     long spaceLocation = 0;
 
-    nameLocation = findTilde.indexIn(parent->fileData, location)+1;
-    spaceLocation = findSpace.indexIn(parent->fileData, nameLocation);
-    location = findStartBrackets.indexIn(parent->fileData, location+1);
-    //qDebug() << Q_FUNC_INFO << "Name read as: " << parent->fileData.mid(nameLocation, spaceLocation-nameLocation);
+    nameLocation = findTilde.indexIn(parent->fileData.dataBytes, location)+1;
+    spaceLocation = findSpace.indexIn(parent->fileData.dataBytes, nameLocation);
+    location = findStartBrackets.indexIn(parent->fileData.dataBytes, location+1);
+    qDebug() << Q_FUNC_INFO << "Name read as: " << parent->fileData.mid(nameLocation, spaceLocation-nameLocation);
     return parent->fileData.mid(nameLocation, spaceLocation-nameLocation);
 }
 
@@ -80,14 +80,14 @@ QString BMDFile::getName(){
 
     qDebug() <<Q_FUNC_INFO << "looking for name at" << location;
 
-    nameLocation = findTilde.indexIn(parent->fileData, location);
+    nameLocation = findTilde.indexIn(parent->fileData.dataBytes, location);
     if(nameLocation == -1 or location == -1){
         location = -1;
         return "";
     } else {
         nameLocation += 1;
     }
-    nameEndLocation = findStringEnd.indexIn(parent->fileData, nameLocation);
+    nameEndLocation = findStringEnd.indexIn(parent->fileData.dataBytes, nameLocation);
     location = nameEndLocation+2;
     //parent->binChanger.reverse_input(parent->fileData.mid(nameEndLocation+2, 4).toHex(),2).toLong(nullptr, 16);
     qDebug() << Q_FUNC_INFO << "Name read as: " << parent->fileData.mid(nameLocation, nameEndLocation-nameLocation) << "and new location" << location;
@@ -181,24 +181,24 @@ int BMDFile::readData(){
     location = 0;
     while (location != -1){
         name = getName();
-        endSection = location + parent->binChanger.reverse_input(parent->fileData.mid(location, 4).toHex(),2).toLong(nullptr, 16);
+        endSection = location + parent->binChanger.reverse_input(parent->fileData.dataBytes.mid(location, 4).toHex(),2).toLong(nullptr, 16);
         qDebug() << Q_FUNC_INFO << "section name: " << name << "and endSection" << endSection;
         if (name == "IncludedFiles") {
             //read TMD file name, verify that we're using the right TMD
             //since some TMD files need other TMD files, we'll need to have a list of files instead of just one.
             location += 4;
             if(location != endSection){
-                endLocation = location + parent->binChanger.reverse_input(parent->fileData.mid(location, 4).toHex(),2).toLong(nullptr, 16);
+                endLocation = location + parent->binChanger.reverse_input(parent->fileData.dataBytes.mid(location, 4).toHex(),2).toLong(nullptr, 16);
                 location += 4;
-                fullRead = parent->fileData.mid(location, endLocation-location).trimmed();
+                fullRead = parent->fileData.dataBytes.mid(location, endLocation-location).trimmed();
                 //fullRead = fullRead.removeIf(quoteRemover).removeIf(pathRemover).trimmed();
                 includedFile = fullRead;
                 if (fullRead != "") {
                     if(fullRead.toUpper() == parent->tmdFile[0]->fileName.toUpper()){
                         qDebug() << "The TDB file includes the loaded TMD file. We can continue.";
                     } else {
-                        qDebug() << Q_FUNC_INFO << "The file does not include the loaded TMD file. Please verify that the correct files are loaded.";
-                        qDebug() << Q_FUNC_INFO << "Currently loaded TMD file:" << parent->tmdFile[0]->fileName << " | TDB file includes:" << fullRead;
+                        parent->messageError("The file does not include the loaded TMD file. Please verify that the correct files are loaded."
+                                             "Currently loaded TMD file:" + parent->tmdFile[0]->fileName + " | TDB file includes:" + fullRead);
                         return -1;
                     }
                 }
@@ -212,7 +212,7 @@ int BMDFile::readData(){
                 classList.resize(foundSections+1);
                 classList[foundSections].name = name;
                 //qDebug() << Q_FUNC_INFO << location << nameLocation << "seciton name: " << name;
-                endLocation = location + parent->binChanger.reverse_input(parent->fileData.mid(location, 4).toHex(),2).toLong(nullptr, 16);
+                endLocation = location + parent->fileData.readLong(location); // parent->binChanger.reverse_input(parent->fileData.mid(location, 4).toHex(),2).toLong(nullptr, 16);
                 location += 4;
                 //tempRead = getNextLine();
                 while(location > 0 and location < endLocation){
@@ -451,17 +451,18 @@ int TMDFile::readData(){
     Split that QString into a QStringList along /n and iterate through that
     */
     QString name;
+    qDebug() << Q_FUNC_INFO << "THE FUNCTION RUNS";
 
     location = 0;
     while (location != -1){
         name = getName();
         qDebug() << Q_FUNC_INFO << "section name: " << name;
         findSectionEnd.setPattern(name.toUtf8());
-        endSection = findSectionEnd.indexIn(parent->fileData, location);
+        endSection = findSectionEnd.indexIn(parent->fileData.dataBytes, location);
         if (name == "IncludedFiles") {
             //read TMD file name, verify that we're using the right TMD
             //since some TMD files need other TMD files, we'll need to have a list of files instead of just one.
-            endLocation = findEndBrackets.indexIn(parent->fileData, location);
+            endLocation = findEndBrackets.indexIn(parent->fileData.dataBytes, location);
             fullRead = parent->fileData.mid(location+1, endLocation-location-1);
             includedFile = fullRead;
             fullRead = fullRead.remove(quoteRemover).remove(pathRemover).trimmed();
@@ -469,8 +470,8 @@ int TMDFile::readData(){
                 if(fullRead.toUpper() == parent->tmdFile[0]->fileName.toUpper()){
                     qDebug() << "The TDB file includes the loaded TMD file. We can continue.";
                 } else {
-                    qDebug() << Q_FUNC_INFO << "The file does not include the loaded TMD file. Please verify that the correct files are loaded.";
-                    qDebug() << Q_FUNC_INFO << "Currently loaded TMD file:" << parent->tmdFile[0]->fileName << " | TDB file includes:" << fullRead;
+                    parent->messageError("The file does not include the loaded TMD file. Please verify that the correct files are loaded."
+                                         "Currently loaded TMD file:" + parent->tmdFile[0]->fileName + " | TDB file includes:" + fullRead);
                     return -1;
                 }
             }
@@ -482,7 +483,7 @@ int TMDFile::readData(){
                 classList.resize(foundSections+1);
                 classList[foundSections].name = name;
                 //qDebug() << Q_FUNC_INFO << location << nameLocation << "seciton name: " << name;
-                endLocation = findEndBrackets.indexIn(parent->fileData, location);
+                endLocation = findEndBrackets.indexIn(parent->fileData.dataBytes, location);
                 tempRead = getNextLine();
                 //qDebug() << Q_FUNC_INFO << "endlocation: " << endLocation;
                 fullRead = parent->fileData.mid(location, endLocation-location);
@@ -539,9 +540,9 @@ int TMDFile::readData(){
         } else if (name == "FileDictionary") {
             //read section and affected attributes
             name = getName();
-            nextLocation = findStartBrackets.indexIn(parent->fileData, location+1);
+            nextLocation = findStartBrackets.indexIn(parent->fileData.dataBytes, location+1);
             foundSections = 0;
-            endLocation = findEndBrackets.indexIn(parent->fileData, location);
+            endLocation = findEndBrackets.indexIn(parent->fileData.dataBytes, location);
             while(nextLocation != -1 and (nextLocation < endSection or endLocation < endSection)){
                 classList.resize(foundSections+1);
                 classList[foundSections].name = name;
@@ -579,8 +580,8 @@ int TMDFile::readData(){
                     classList[foundSections].itemList.push_back(itemDetails);
                 }
                 name = getName();
-                nextLocation = findStartBrackets.indexIn(parent->fileData, location+1);
-                endLocation = findEndBrackets.indexIn(parent->fileData, location);
+                nextLocation = findStartBrackets.indexIn(parent->fileData.dataBytes, location+1);
+                endLocation = findEndBrackets.indexIn(parent->fileData.dataBytes, location);
                 foundSections++;
             }
             location = endSection;
@@ -590,8 +591,8 @@ int TMDFile::readData(){
             //then find NotDefault values and change them in the instance
             //read section and affected attributes
             name = getName();
-            nextLocation = findStartBrackets.indexIn(parent->fileData, location+1);
-            endLocation = findEndBrackets.indexIn(parent->fileData, location);
+            nextLocation = findStartBrackets.indexIn(parent->fileData.dataBytes, location+1);
+            endLocation = findEndBrackets.indexIn(parent->fileData.dataBytes, location);
             foundSections = 0;
             while(location!= -1 and (nextLocation != -1 or endLocation !=-1) and (nextLocation < endSection or endLocation < endSection)){
                 //location = nextLocation;
@@ -604,8 +605,8 @@ int TMDFile::readData(){
                 }
                 //qDebug() << Q_FUNC_INFO << "seciton name: " << name << " index " << typeIndexTMD << "TDB index" << typeIndexTDB;
                 //location = findBreak.indexIn(parent->fileData, location);
-                startLine = findBreak.indexIn(parent->fileData, location)+1; //get start of a line
-                spaceLocation = findSpace.indexIn(parent->fileData, startLine)+1; //find the line type, using the space
+                startLine = findBreak.indexIn(parent->fileData.dataBytes, location)+1; //get start of a line
+                spaceLocation = findSpace.indexIn(parent->fileData.dataBytes, startLine)+1; //find the line type, using the space
                 tempRead = parent->fileData.mid(startLine, spaceLocation-startLine).trimmed();
                 location = startLine;
                 fullRead = parent->fileData.mid(location, endLocation-location);
@@ -655,8 +656,8 @@ int TMDFile::readData(){
                 }
 
                 name = getName();
-                nextLocation = findStartBrackets.indexIn(parent->fileData, location+1); //finds next line break after dict section name
-                endLocation = findEndBrackets.indexIn(parent->fileData, location);
+                nextLocation = findStartBrackets.indexIn(parent->fileData.dataBytes, location+1); //finds next line break after dict section name
+                endLocation = findEndBrackets.indexIn(parent->fileData.dataBytes, location);
                 qDebug() << Q_FUNC_INFO << "found section" << name << "and next location" << nextLocation << "and endsection" << endSection << "found from location" << location << "and endlocation" << endLocation;
                 foundSections++;
             }
@@ -666,9 +667,9 @@ int TMDFile::readData(){
 
     for(int i = 0; i < classList.size();i++){
         //parent->DatabaseEdit->addItem(classList[i].name);
-        //qDebug() << Q_FUNC_INFO << "Section" << i << "name: " << classList[i].name;
+        qDebug() << Q_FUNC_INFO << "Section" << i << "name: " << classList[i].name;
         for (int j = 0; j<classList[i].itemList.size();j++){
-            //qDebug() << Q_FUNC_INFO << "index" << j << "Item name: " << classList[i].itemList[j].name << "item type: " << classList[i].itemList[j].type;
+            qDebug() << Q_FUNC_INFO << "index" << j << "Item name: " << classList[i].itemList[j].name << "item type: " << classList[i].itemList[j].type;
         }
     }
 

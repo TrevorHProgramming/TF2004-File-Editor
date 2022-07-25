@@ -7,8 +7,8 @@ void GeometrySet::getVerticies(){
     //return;
 
     QByteArrayMatcher findGeoSet("~GeometrySet");
-    long startPos = findGeoSet.indexIn(parent->fileData, 0) +2;
-    long endPos = findGeoSet.indexIn(parent->fileData, startPos + 12);
+    long startPos = findGeoSet.indexIn(parent->fileData.dataBytes, 0) +2;
+    long endPos = findGeoSet.indexIn(parent->fileData.dataBytes, startPos + 12);
     int index[3];
     std::vector<QVector3D> tempVec;
     long currentPosition = startPos;
@@ -29,10 +29,10 @@ void GeometrySet::getVerticies(){
 //                int i = allowedMeshes[p];
         for (long i = 0; i < ((endPos-startPos)/4); i++){
             if (currentPosition + (i*4) > 173 and currentPosition + (i*4) < 490) {
-                geoSetVerticies[i] = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.mid(currentPosition + (i*4), 4).toHex(), 2));
-                index[0] = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.mid(currentPosition + (i*4), 4).toHex(), 2));
-                index[1] = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.mid(currentPosition+4 + (i*4), 4).toHex(), 2));
-                index[2] = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.mid(currentPosition+8 + (i*4), 4).toHex(), 2));
+                geoSetVerticies[i] = parent->fileData.readFloat();
+                index[0] = parent->fileData.readFloat();
+                index[1] = parent->fileData.readFloat();
+                index[2] = parent->fileData.readFloat();
                 qDebug() << Q_FUNC_INFO << "current position" <<  QString::number(currentPosition+(i*4), 16) << " Current float: " << geoSetVerticies[i];
                 tempVec.push_back(QVector3D(index[0], index[1], index[2]));
                 qDebug() << Q_FUNC_INFO << "created vector: " << QVector3D(index[0], index[1], index[2]);
@@ -56,11 +56,12 @@ void GeometrySet::openMeshVBINFile(){
 
     QString fileIn = QFileDialog::getOpenFileName(parent, parent->tr("Select VBIN"), QDir::currentPath() + "/VBIN/", parent->tr("Model Files (*.vbin)"));
     filePath = fileIn;
-    parent->fileData.clear();
+    parent->fileData.readFile(fileIn);
+//    parent->fileData.dataBytes.clear();
 
-    QFile inputFile(fileIn);
-    inputFile.open(QIODevice::ReadOnly);
-    parent->fileData = inputFile.readAll();
+//    QFile inputFile(fileIn);
+//    inputFile.open(QIODevice::ReadOnly);
+//    parent->fileData.dataBytes = inputFile.readAll();
 
     qDebug() << Q_FUNC_INFO << "File data loaded.";
     getVerticies();
