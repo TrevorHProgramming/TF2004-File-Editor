@@ -34,7 +34,6 @@
 #include "itf.h"
 #include "Mesh.h"
 #include "BinChanger.h"
-#include "FileHandler.h"
 #include "LevelGeo.h"
 #include "Database.h"
 
@@ -84,7 +83,7 @@ public:
     QRadioButton *radioMultiple;
     QComboBox *ListLevels;
     QPushButton *ButtonSaveITF;
-    QByteArray fileData;
+    FileData fileData;
     QTableWidget *PaletteTable;
     QListWidget *DBClassList;
     QListWidget *DBItemList;

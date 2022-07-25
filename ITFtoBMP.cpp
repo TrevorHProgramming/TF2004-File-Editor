@@ -14,29 +14,33 @@ void ITF::readData(){
     long contentLength = 0;
     int colorCount = 0;
     std::tuple <int8_t, int8_t> nibTup;
-    parent->fileData.clear();
+    parent->fileData.dataBytes.clear();
     QFile inputFile(this->filePath);
     inputFile.open(QIODevice::ReadOnly);
-    parent->fileData = inputFile.readAll();
-    fileLength = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+4, 4).toHex(),2).toInt(nullptr, 16);
+    parent->fileData.dataBytes = inputFile.readAll();
+    fileLength = parent->fileData.readInt(4, 4);
     inputFile.close();
-    qDebug() << Q_FUNC_INFO << fileLength;
+    //qDebug() << Q_FUNC_INFO << fileLength;
 
     /*Load header data*/
-    currentPos = 15;
-    versionNum = parent->fileData.mid(currentPos, 1).toHex().toInt(nullptr, 16);
-    headerLength = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+1, 4).toHex(),2).toInt(nullptr, 16);
-    currentPos += 8;
-    propertyByte = parent->fileData.mid(currentPos, 1).toHex().toInt(nullptr, 16);
-    unknown4Byte1 = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+1, 4).toHex(),2).toInt(nullptr, 16);
-    width = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+5, 4).toHex(),2).toInt(nullptr, 16);
-    height = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+9, 4).toHex(),2).toInt(nullptr, 16);
-    unknown4Byte2 = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+13, 4).toHex(),2).toInt(nullptr, 16);
-    paletteCount = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+17, 4).toHex(),2).toInt(nullptr, 16);
-    //qDebug() << Q_FUNC_INFO << "palette count:" << paletteCount << " found at " << currentPos+17;
-    unknown4Byte3 = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+21, 4).toHex(),2).toInt(nullptr, 16);
-    unknown4Byte4 = parent->binChanger.reverse_input(parent->fileData.mid(currentPos+25, 4).toHex(),2).toInt(nullptr, 16);
+    parent->fileData.currentPosition = 15;
+    versionNum = parent->fileData.readInt(1);
+    headerLength = parent->fileData.readInt();
+    parent->fileData.currentPosition += 3; //skip the "PS2" label
+    propertyByte = parent->fileData.readInt(1);
+    unknown4Byte1 = parent->fileData.readHex(4).toInt(nullptr, 16);
+    width = parent->fileData.readInt();
+    height = parent->fileData.readInt();
+    unknown4Byte2 = parent->fileData.readHex(4).toInt(nullptr, 16);
+    paletteCount = parent->fileData.readInt();
+    //qDebug() << Q_FUNC_INFO << "palette count:" << paletteCount << " found at " << parent->fileData.currentPosition;
+    unknown4Byte3 = parent->fileData.readHex(4).toInt(nullptr, 16);
+    unknown4Byte4 = parent->fileData.readHex(4).toInt(nullptr, 16);
     /*End header data. Now we can remake the file with any edits.*/
+
+    if(paletteCount == 0){
+        paletteCount = 1;
+    }
 
     paletteList.resize(paletteCount);
     parent->createDropdown(paletteCount);
@@ -45,22 +49,20 @@ void ITF::readData(){
     } else {
         colorCount = 16;
     }
-    qDebug() << Q_FUNC_INFO << "Color count: " << colorCount;
-    location = matcher.indexIn(parent->fileData, 0)+4;
-    startLocation = location; //this will be used later to remove the palette from the content
-    dataLength = parent->binChanger.reverse_input(parent->fileData.mid(location, 4).toHex(),2).toInt(nullptr, 16);
+    //qDebug() << Q_FUNC_INFO << "Color count: " << colorCount;
+    parent->fileData.currentPosition = matcher.indexIn(parent->fileData.dataBytes, 0)+4;
+    startLocation = parent->fileData.currentPosition; //this will be used later to remove the palette from the content
+    dataLength = parent->fileData.readInt();
     contentLength = dataLength;
-    location += 4;
     //qDebug() << Q_FUNC_INFO << "content length: " << contentLength;
     for (int i = 0; i<paletteCount;i++){
         paletteList[i].size = colorCount;
         paletteList[i].paletteColors.resize(colorCount);
         for (int j = 0; j<colorCount; j++){
-            paletteList[i].paletteColors[j].R = parent->fileData.mid(location, 1).toHex().toInt(nullptr, 16);
-            paletteList[i].paletteColors[j].G = parent->fileData.mid(location+1, 1).toHex().toInt(nullptr, 16);
-            paletteList[i].paletteColors[j].B = parent->fileData.mid(location+2, 1).toHex().toInt(nullptr, 16);
-            paletteList[i].paletteColors[j].A = parent->fileData.mid(location+3, 1).toHex().toInt(nullptr, 16);
-            location += 4;
+            paletteList[i].paletteColors[j].R = parent->fileData.readInt(1);
+            paletteList[i].paletteColors[j].G = parent->fileData.readInt(1);
+            paletteList[i].paletteColors[j].B = parent->fileData.readInt(1);
+            paletteList[i].paletteColors[j].A = parent->fileData.readInt(1);
         }
     }
 
@@ -70,8 +72,7 @@ void ITF::readData(){
         contentLength -= (paletteCount*1024); //remove the length of the palette section before getting to the pixels
         pixelList.resize(contentLength);
         for (int i = 0; i < contentLength; i++){
-            pixelList[i] = parent->fileData.mid(location, 1).toHex().toInt(nullptr, 16);
-            location += 1;
+            pixelList[i] = parent->fileData.readInt(1);
         }
     } else {
         //16 palette case. this is tougher since each pixel is only half a byte (nibble?) and we can only refer to whole bytes.
@@ -89,7 +90,7 @@ void ITF::readData(){
         }
     }
 
-    qDebug() << Q_FUNC_INFO << "Pixel list length: " << pixelList.size() << "vs content length" << contentLength;
+    //qDebug() << Q_FUNC_INFO << "Pixel list length: " << pixelList.size() << "vs content length" << contentLength;
 
     populatePalette();
 

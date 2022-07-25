@@ -14,11 +14,14 @@ void ProgWindow::openVBIN(){
     QString fileIn = QFileDialog::getOpenFileName(this, tr("Select VBIN"), QDir::currentPath() + "/VBIN/", tr("Model Files (*.vbin)"));
     if (!fileIn.isNull()){
         vbinFile->filePath = fileIn;
-        fileData.clear();
+        vbinFile->highestLOD = 0;
+        vbinFile->parent = this;
+        fileData.readFile(fileIn);
+//        fileData.dataBytes.clear();
 
-        QFile inputFile(fileIn);
-        inputFile.open(QIODevice::ReadOnly);
-        fileData = inputFile.readAll();
+//        QFile inputFile(fileIn);
+//        inputFile.open(QIODevice::ReadOnly);
+//        fileData.dataBytes = inputFile.readAll();
 
         qDebug() << Q_FUNC_INFO << "File data loaded.";
         vbinFile->readData();
@@ -42,11 +45,13 @@ void ProgWindow::openITF(){
     QString fileIn = QFileDialog::getOpenFileName(this, tr("Select ITF"), QDir::currentPath() + "/ITF/", tr("Texture Files (*.itf)"));
     if (!fileIn.isNull()){
         itfFile->filePath = fileIn;
-        fileData.clear();
+        fileData.readFile(fileIn);
+//        fileData.dataBytes.clear();
 
-        QFile inputFile(fileIn);
-        inputFile.open(QIODevice::ReadOnly);
-        fileData = inputFile.readAll();
+//        QFile inputFile(fileIn);
+//        inputFile.open(QIODevice::ReadOnly);
+//        fileData.dataBytes = inputFile.readAll();
+
 
         qDebug() << Q_FUNC_INFO << "File data loaded.";
         itfFile->readData();
@@ -58,6 +63,7 @@ void ProgWindow::openITF(){
 
 void ProgWindow::openTMD(){
     int passed=0;
+    TMDFile openedFile;
     deleteMultiRadios();
     if (PaletteTable != nullptr) {
         PaletteTable->clear();
@@ -69,27 +75,31 @@ void ProgWindow::openTMD(){
     }
     QString fileIn = QFileDialog::getOpenFileName(this, tr("Select TMD"), QDir::currentPath() + "/TMD/", tr("Database Definition Files (*.TMD)"));
     if (!fileIn.isNull()){
-        tmdFile[0]->filePath = fileIn;
-        fileData.clear();
+        //tmdFile[0]->filePath = fileIn;
+        openedFile.filePath = fileIn;
+        openedFile.parent = this;
+        fileData.readFile(fileIn);
+//        fileData.dataBytes.clear();
 
         QFile inputFile(fileIn);
         inputFile.open(QIODevice::ReadOnly);
         QFileInfo fileInfo(inputFile);
-        tmdFile[0]->fileName = fileInfo.fileName();
-        tmdFile[0]->fileType = "TMD";
-        fileData = inputFile.readAll();
+        //tmdFile[0]->fileName = fileInfo.fileName();
+        //tmdFile[0]->fileType = "TMD";
+        openedFile.fileName = fileInfo.fileName();
+        openedFile.fileType = "TMD";
+        fileData.dataBytes = inputFile.readAll();
 
         qDebug() << Q_FUNC_INFO << "File data loaded.";
-        passed = tmdFile[0]->readData();
+        //passed = tmdFile[0]->readData();
+        passed = openedFile.readData();
         qDebug() << Q_FUNC_INFO << "File data read.";
         //after verifying the TMD data is good, create the TDB and BDB file buttons
         if (passed != -1){
             createDBButtons();
-//            DBClassList->clear();
-//            for (int i = 0; i < tmdFile->classList.size(); i++) {
-//                DBClassList->addItem(tmdFile->classList[i].name);
-//            }
-            tmdFile[0]->createDBTree();
+            //tmdFile[0]->createDBTree();
+            openedFile.createDBTree();
+            tmdFile.push_back(&openedFile);
         } else {
             messageError("There was an error reading the file.");
         }
@@ -113,17 +123,18 @@ void ProgWindow::openTDB(){
     QString fileIn = QFileDialog::getOpenFileName(this, tr("Select TDB"), QDir::currentPath() + "/TDB/", tr("Text Database Files (*.TDB)"));
     if (!fileIn.isNull()){
         tdbFile->filePath = fileIn;
-        fileData.clear();
+        fileData.readFile(fileIn);
+        //fileData.dataBytes.clear();
 
         QFile inputFile(fileIn);
         inputFile.open(QIODevice::ReadOnly);
         QFileInfo fileInfo(inputFile);
         tdbFile->fileName = fileInfo.fileName();
         tdbFile->fileType = "TDB";
-        fileData = inputFile.readAll();
+        //fileData.dataBytes = inputFile.readAll();
 
         qDebug() << Q_FUNC_INFO << "File data loaded.";
-        passed = tdbFile->readData();
+        //passed = tdbFile->readData();
         qDebug() << Q_FUNC_INFO << "File data read.";
         //after verifying the TMD data is good, create the TDB and BDB file buttons
        if (passed != -1) {
@@ -150,17 +161,18 @@ void ProgWindow::openBMD(){
     QString fileIn = QFileDialog::getOpenFileName(this, tr("Select BMD"), QDir::currentPath() + "/BMD/", tr("Binary Database Definition Files (*.BMD)"));
     if (!fileIn.isNull()){
         bmdFile[0]->filePath = fileIn;
-        fileData.clear();
+        fileData.readFile(fileIn);
+        //fileData.dataBytes.clear();
 
         QFile inputFile(fileIn);
         inputFile.open(QIODevice::ReadOnly);
         QFileInfo fileInfo(inputFile);
         bmdFile[0]->fileName = fileInfo.fileName();
         bmdFile[0]->fileType = "TMD";
-        fileData = inputFile.readAll();
+        //fileData.dataBytes = inputFile.readAll();
 
         qDebug() << Q_FUNC_INFO << "File data loaded.";
-        passed = bmdFile[0]->readData();
+        //passed = bmdFile[0]->readData();
         qDebug() << Q_FUNC_INFO << "File data read.";
         //after verifying the TMD data is good, create the TDB and BDB file buttons
         /*if (passed != -1){

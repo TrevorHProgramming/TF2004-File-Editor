@@ -1,4 +1,56 @@
-#include "BinChanger.h"
+#include "mainwindow.h"
+
+long FileData::readLong(int length, long location){
+    long readValue = parent->binChanger.reverse_input(parent->fileData.dataBytes.mid(currentPosition + location, length).toHex(),2).toLong(nullptr, 16);
+    currentPosition += length;
+    return readValue;
+}
+
+int FileData::readInt(int length, long location){
+    int readValue = parent->binChanger.reverse_input(parent->fileData.dataBytes.mid(currentPosition + location, length).toHex(),2).toInt(nullptr, 16);
+    currentPosition += length;
+    return readValue;
+}
+
+int FileData::readUInt(int length, long location){
+    int readValue = parent->binChanger.reverse_input(parent->fileData.dataBytes.mid(currentPosition + location, length).toHex(),2).toUInt(nullptr, 16);
+    currentPosition += length;
+    return readValue;
+}
+
+bool FileData::readBool(int length, long location){
+    bool readValue = parent->fileData.dataBytes.mid(currentPosition + location, length).toHex().toInt(nullptr, 16);
+    currentPosition += length;
+    return readValue;
+}
+
+float FileData::readFloat(int length, long location){
+    float readValue = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.dataBytes.mid(currentPosition + location, length).toHex(), 2));
+    currentPosition += length;
+    return readValue;
+}
+
+QByteArray FileData::readHex(int length, long location){
+    QByteArray readValue = dataBytes.mid(currentPosition + location, length);
+    currentPosition += length;
+    return readValue;
+}
+
+QByteArray FileData::mid(long location, int length){
+    QByteArray readValue = dataBytes.mid(location, length);
+    currentPosition += length;
+    return readValue;
+}
+
+void FileData::readFile(QString filePath){
+    dataBytes.clear();
+
+    QFile inputFile(filePath);
+    inputFile.open(QIODevice::ReadOnly);
+    dataBytes = inputFile.readAll();
+    qDebug() << Q_FUNC_INFO << "file data read length:" << dataBytes.size();
+    currentPosition = 0;
+}
 
 QString BinChanger::signExtend(QString input, int length){
     bool signBit;

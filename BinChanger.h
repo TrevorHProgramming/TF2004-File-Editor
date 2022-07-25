@@ -30,4 +30,21 @@ class BinChanger{
     QVector3D forcedRotate(QMatrix3x3 rotMatrix, QVector3D offset, QVector3D point);
 };
 
+class FileData{
+  public:
+    QByteArray dataBytes;
+    ProgWindow *parent;
+    long currentPosition;
+
+
+    void readFile(QString filePath);
+    long readLong(int length = 4, long location = 0);
+    int readInt(int length = 4, long location = 0);
+    int readUInt(int length = 4, long location = 0);
+    bool readBool(int length = 1, long location = 0);
+    float readFloat(int length = 4, long location = 0);
+    QByteArray readHex(int length, long location = 0);
+    QByteArray mid(long location, int length);
+};
+
 #endif // BINCHANGER_H
