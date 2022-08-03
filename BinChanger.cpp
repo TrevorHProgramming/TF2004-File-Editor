@@ -38,7 +38,6 @@ QByteArray FileData::readHex(int length, long location){
 
 QByteArray FileData::mid(long location, int length){
     QByteArray readValue = dataBytes.mid(location, length);
-    currentPosition += length;
     return readValue;
 }
 

@@ -35,17 +35,15 @@ dictItem BMDFile::addItem(dictItem itemDetails){
             break;
         case 2:
             //bool
-            if(parent->fileData.readInt(location, 1) == 1){
+            if(parent->fileData.readInt(1) == 1){
                 itemDetails.value = "true";
             } else {
                 itemDetails.value = "false";
             }
-            location += 1;
             break;
         case 3:
             nameLength = parent->fileData.readInt();
             itemDetails.value = parent->fileData.readHex(nameLength);
-            location += nameLength;
             break;
         }
     } else {
@@ -61,18 +59,15 @@ dictItem BMDFile::addItem(dictItem itemDetails){
 
                 } else {
                     itemDetails.value = QString::number(parent->fileData.readInt());
-                    location +=4;
                 }
             } else {
                 if(arrayTypes.contains(itemDetails.type)){
                     //read one item, then read that many items
                     itemDetails.value = QString::number(parent->fileData.readInt());
-                    location +=4;
                 } else {
                     //read however many items we're supposed to read
                     for(int j = 0; j < mapItems[i]; j++){
                         itemDetails.valueList.push_back(QString::number(parent->fileData.readFloat()));
-                        location +=4;
                     }
                 }
             }
@@ -200,28 +195,45 @@ QString TMDFile::displayValue(dictItem itemDetails){
     return itemDetails.value;
 }
 
+dictItem TDBFile::addItem(dictItem itemDetails, QString tempRead){
+    QStringList readListItems;
+
+    //qDebug() << "name " << itemDetails.name << "type" << itemDetails.type << "tempread" << tempRead;
+    if(itemDetails.file->multiTypes.contains(itemDetails.type)){
+        if(itemDetails.type == "Enum"){
+            itemDetails.value = itemDetails.valueList[tempRead.mid(0, tempRead.indexOf(" ")).toInt(nullptr, 10)];
+        } else {
+            itemDetails.valueList.clear();
+            itemDetails.value = tempRead.mid(0, tempRead.indexOf(" "));
+            tempRead = tempRead.mid(tempRead.indexOf(" ")+1, tempRead.length() - tempRead.indexOf(" "));
+            readListItems = tempRead.split(" ");
+            for (int i = 0; i < readListItems.length(); i++) {
+                itemDetails.valueList.push_back(readListItems[i]);
+            }
+        }
+    } else if(itemDetails.file->singleTypes.contains(itemDetails.type)){
+        itemDetails.value = tempRead;
+        //itemDetails.value = tempRead.mid(0, tempRead.indexOf(" "));
+        //qDebug() << Q_FUNC_INFO << "single type fed value" << tempRead << "and saved" << itemDetails.value;
+        tempRead = tempRead.mid(tempRead.indexOf(" ")+1, tempRead.length() - tempRead.indexOf(" "));
+    }
+    //qDebug() << Q_FUNC_INFO << "value: " << itemDetails.value << "valueList " << itemDetails.valueList;
+    return itemDetails;
+}
+
 dictItem TMDFile::addItem(dictItem itemDetails, QString tempRead){
     QStringList readListItems;
 
     //qDebug() << "name " << itemDetails.name << "type" << itemDetails.type << "tempread" << tempRead;
     if(itemDetails.file->multiTypes.contains(itemDetails.type)){
         if(itemDetails.type == "Enum"){
-            if(fileType == "TDB"){
-                itemDetails.value = itemDetails.valueList[tempRead.mid(0, tempRead.indexOf(" ")).toInt(nullptr, 10)];
-            } else {
-                itemDetails.value = tempRead.mid(0, tempRead.indexOf(" "));
-                tempRead = tempRead.mid(tempRead.indexOf(" ")+1, tempRead.length() - tempRead.indexOf(" "));
-                readListItems = tempRead.split(",");
-                for (int i = 0; i < readListItems.length(); i++) {
-                    itemDetails.valueList.push_back(readListItems[i]);
-                }
+            itemDetails.value = tempRead.mid(0, tempRead.indexOf(" "));
+            tempRead = tempRead.mid(tempRead.indexOf(" ")+1, tempRead.length() - tempRead.indexOf(" "));
+            readListItems = tempRead.split(",");
+            for (int i = 0; i < readListItems.length(); i++) {
+                itemDetails.valueList.push_back(readListItems[i]);
             }
         } else {
-            if(fileType == "TDB"){
-                itemDetails.valueList.clear();
-                itemDetails.value = tempRead.mid(0, tempRead.indexOf(" "));
-                tempRead = tempRead.mid(tempRead.indexOf(" ")+1, tempRead.length() - tempRead.indexOf(" "));
-            }
             readListItems = tempRead.split(" ");
             for (int i = 0; i < readListItems.length(); i++) {
                 itemDetails.valueList.push_back(readListItems[i]);
