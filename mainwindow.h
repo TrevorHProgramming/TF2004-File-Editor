@@ -56,9 +56,9 @@ public:
     BinChanger binChanger;
     VBIN* vbinFile;
     ITF* itfFile;
-    std::vector<TMDFile*> tmdFile;
-    std::vector<BMDFile*> bmdFile;
-    TDBFile* tdbFile;
+    std::vector<TMDFile> tmdFile;
+    std::vector<BMDFile> bmdFile;
+    std::vector<TDBFile> tdbFile;
     GeometrySet* geometrySet;
     int hSize = 1200;
     int vSize = 768;
@@ -115,6 +115,8 @@ public:
 private:
     void resizeEvent(QResizeEvent* event);
     void editDatabaseItem(QModelIndex item, int itemIndex);
+    void saveTMDFile();
+    void saveTDBFile();
 
 public slots:
     void convertVBINToSTL();

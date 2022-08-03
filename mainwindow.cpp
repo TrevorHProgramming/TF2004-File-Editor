@@ -42,10 +42,6 @@ ProgWindow::ProgWindow(QWidget *parent)
     itfFile->parent = this;
     //tmdFile.push_back(new TMDFile);
     //tmdFile[0]->parent = this;
-    bmdFile.push_back(new BMDFile);
-    bmdFile[0]->parent = this;
-    tdbFile = new TDBFile;
-    tdbFile->parent = this;
     geometrySet = new GeometrySet;
     geometrySet->parent = this;
     PaletteTable = nullptr;
@@ -73,12 +69,14 @@ ProgWindow::ProgWindow(QWidget *parent)
     connect(actionLoadTMD, &QAction::triggered, this, &ProgWindow::openTMD);
     connect(actionLoadTDB, &QAction::triggered, this, &ProgWindow::openTDB);
     connect(actionLoadBMD, &QAction::triggered, this, &ProgWindow::openBMD);
-    connect(actionSaveTMD, &QAction::triggered, this, [this] {tmdFile[0]->writeData();});
+    connect(actionSaveTMD, &QAction::triggered, this, &ProgWindow::saveTMDFile);
+    //connect(actionSaveTMD, &QAction::triggered, this, [this] {tmdFile[0].writeData();});
     /*going to need a ProgWindow function for writing TMD and BMD files since they're in lists
     use this:
     bool cancelled;
     QInputDialog::getInt(parent, parent->tr("Enter New Value:"), parent->tr("Value:"), QLineEdit::Normal,0, parent->tmdFile.size(), 1, &cancelled);*/
-    connect(actionSaveTDB, &QAction::triggered, this, [this] {tdbFile->writeData();});
+    //connect(actionSaveTDB, &QAction::triggered, this, [this] {tdbFile[0].writeData();});
+    connect(actionSaveTDB, &QAction::triggered, this, &ProgWindow::saveTDBFile);
     //uncomment once this function actually exists
     //connect(actionSaveTDB, &QAction::triggered, this, [this] {tdbFile->writeData();});
 }
@@ -178,12 +176,12 @@ void ProgWindow::createDBButtons(){
 void ProgWindow::editDatabaseItem(QModelIndex item, int itemIndex){
     QStringList newValue; //using a qstringlist to make things easier on myself
     for(int i = 0; i < tmdFile.size(); i++){
-        if(item.parent().parent().data().toString() == tmdFile[i]->fileName){
-            newValue = tmdFile[i]->editItem(item.parent().data().toString(), itemIndex);
+        if(item.parent().parent().data().toString() == tmdFile[i].fileName){
+            newValue = tmdFile[i].editItem(item.parent().data().toString(), itemIndex);
         }
     }
-    if(item.parent().parent().data().toString() == tdbFile->fileName){
-        newValue = tdbFile->editItem(item.parent().siblingAtColumn(1).data().toInt(), itemIndex);
+    if(item.parent().parent().data().toString() == tdbFile[0].fileName){
+        newValue = tdbFile[0].editItem(item.parent().siblingAtColumn(1).data().toInt(), itemIndex);
     }
 
     if(newValue[1] == "SINGLEVALUE"){
@@ -219,5 +217,60 @@ void ProgWindow::messageSuccess(QString message){
     MessagePopup->setText(message);
     MessagePopup->setWindowTitle("Success.");
     MessagePopup->exec();
+}
+
+void ProgWindow::saveTMDFile(){
+    if(tmdFile.empty()){
+       messageError("No TMD files available to save. Please load a TMD file.");
+       return;
+    }
+
+    bool cancelled;
+    QStringList options;
+    for(int i = 0; i < tmdFile.size(); i++){
+        options.append(tmdFile[i].fileName);
+    }
+
+    QString chosenFile = QInputDialog::getItem(this, this->tr("Select TMD File:"), this->tr("File Name:"), options, 0, false, &cancelled);
+    qDebug() << Q_FUNC_INFO << "chosen file:" << chosenFile << cancelled;
+
+    if(!cancelled){
+        return;
+    }
+
+    for(int i = 0; i < tmdFile.size(); i++){
+        if(tmdFile[i].fileName == chosenFile){
+            tmdFile[i].writeData();
+        }
+    }
+
+}
+
+
+void ProgWindow::saveTDBFile(){
+    if(tdbFile.empty()){
+       messageError("No TDB files available to save. Please load a TDB file.");
+       return;
+    }
+
+    bool cancelled;
+    QStringList options;
+    for(int i = 0; i < tdbFile.size(); i++){
+        options.append(tdbFile[i].fileName);
+    }
+
+    QString chosenFile = QInputDialog::getItem(this, this->tr("Select TDB File:"), this->tr("File Name:"), options, 0, false, &cancelled);
+    qDebug() << Q_FUNC_INFO << "chosen file:" << chosenFile << cancelled;
+
+    if(!cancelled){
+        return;
+    }
+
+    for(int i = 0; i < tdbFile.size(); i++){
+        if(tdbFile[i].fileName == chosenFile){
+            tdbFile[i].writeData();
+        }
+    }
+
 }
 

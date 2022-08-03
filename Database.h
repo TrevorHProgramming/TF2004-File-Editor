@@ -62,7 +62,7 @@ class TMDFile{
     const QStringList sectionList{"IncludedFiles","Dictionary","FileDictionary","Instances"};
     const QStringList singleTypes{"Enum","Float","Bool","String","Integer", "Link"};
     const QStringList multiTypes{"Enum","Point","Quaternion","IntegerArray","StringArray","Color", "FloatArray", "LinkArray","VectorArray"};
-    const QStringList arrayTypes{"IntegerArray","StringArray", "FloatArray", "LinkArray","VectorArray"}; //need for bmd abd bdb
+    const QStringList arrayTypes{"IntegerArray","StringArray", "FloatArray", "LinkArray","VectorArray"}; //need for bmd and bdb
     const QStringList stringTypes{"String","StringArray","LinkArray"};
     static QMap<int, QStringList> bdbTypeLength;
     ProgWindow *parent;
@@ -71,9 +71,9 @@ class TMDFile{
     QString fileType;
     QString includedFile;
     QString includedFileIndex;
-    long location;
     std::vector<dictClass> classList;
     std::vector<dictInstance> instanceList;
+    int inheritedFileIndex;
 
     int readData();
     void writeData();
@@ -84,6 +84,10 @@ class TMDFile{
     dictItem addItem(dictItem itemDetails, QString tempRead);
     QString outputValue(dictItem itemDetails);
     QString displayValue(dictItem itemDetails);
+    int readIncludedFiles(QString fullRead); //note that includedfiles only needs fullread, not partsplit
+    void readDictionary(QStringList partSplit, int sectionIndex);
+    void readFileDictionary(QStringList partSplit, int sectionIndex);
+    void readInstances(QStringList partSplit, int sectionIndex, QString instanceName);
     void createDBTree();
     //void editItem(int dictIndex, int itemIndex, QString valueType, QString newValue);
     QStringList editItem(QString className, int itemIndex);
