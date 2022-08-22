@@ -56,9 +56,8 @@ public:
     BinChanger binChanger;
     VBIN* vbinFile;
     ITF* itfFile;
-    std::vector<TMDFile> tmdFile;
-    std::vector<BMDFile> bmdFile;
-    std::vector<TDBFile> tdbFile;
+    std::vector<DefinitionFile> definitions;
+    std::vector<DatabaseFile> databases;
     GeometrySet* geometrySet;
     int hSize = 1200;
     int vSize = 768;
@@ -78,6 +77,8 @@ public:
     QPushButton *ButtonWriteTMD;
     QPushButton *ButtonClear;
     QPushButton *ButtonEditDB;
+    QPushButton *ButtonRemoveItem;
+    QPushButton *ButtonRemoveClass;
     QLineEdit *DBNewValue;
     QRadioButton *radioSingle;
     QRadioButton *radioMultiple;
@@ -115,8 +116,10 @@ public:
 private:
     void resizeEvent(QResizeEvent* event);
     void editDatabaseItem(QModelIndex item, int itemIndex);
-    void saveTMDFile();
-    void saveTDBFile();
+    void removeDatabaseItem(QModelIndex item, int itemIndex);
+    void removeDatabaseClass(QModelIndex item);
+    void saveDefinitionFile(bool binary);
+    void saveDatabaseFile(bool binary);
 
 public slots:
     void convertVBINToSTL();
@@ -124,9 +127,12 @@ public slots:
     //void convertBMPtoPNG(QString bmpPath);
     void openVBIN();
     void openITF();
-    void openTMD();
+    void openDefinition(bool binary);
+    void openDatabase(bool binary);
+    /*void openTMD();
     void openTDB();
     void openBMD();
+    void openBDB();*/
 };
 
 

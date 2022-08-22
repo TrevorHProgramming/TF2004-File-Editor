@@ -59,10 +59,10 @@ void VBIN::readData(){
     for(int i = 0; i < base.sectionList.size(); i++){
         qDebug() << Q_FUNC_INFO << "item" << i << "list type" << base.sectionTypes[i];
         if(base.sectionTypes[i] == "Mesh"){
-            qDebug() << Q_FUNC_INFO << "layer 0," << i <<"is" << std::get<Mesh>(base.sectionList[i]).name << "with rotation" << std::get<Mesh>(base.sectionList[i]).mods.rotation;
+            qDebug() << Q_FUNC_INFO << "layer 0," << i <<"is" << std::get<Mesh>(base.sectionList[i]).name << "with rotation" << std::get<Mesh>(base.sectionList[i]).mods.rotation << "and scale" << std::get<Mesh>(base.sectionList[i]).mods.scale;
             std::get<Mesh>(base.sectionList[i]).printInfo(1);
         } else {
-            qDebug() << Q_FUNC_INFO << "layer 0," << i <<"is" << std::get<SceneNode>(base.sectionList[i]).name << "with rotation" << std::get<SceneNode>(base.sectionList[i]).mods.rotation;
+            qDebug() << Q_FUNC_INFO << "layer 0," << i <<"is" << std::get<SceneNode>(base.sectionList[i]).name << "with rotation" << std::get<SceneNode>(base.sectionList[i]).mods.rotation << "and scale" << std::get<SceneNode>(base.sectionList[i]).mods.scale;
             std::get<SceneNode>(base.sectionList[i]).printInfo(1);
         }
     }
@@ -87,12 +87,12 @@ void VBIN::readData(){
 void FileSection::printInfo(int depth){
     for(int i = 0; i < sectionList.size(); i++){
         if(sectionTypes[i] == "Mesh"){
-            qDebug() << Q_FUNC_INFO << "layer" << depth << ","<< i <<"is" << std::get<Mesh>(sectionList[i]).name << "with rotation" << std::get<Mesh>(sectionList[i]).mods.rotation;
+            qDebug() << Q_FUNC_INFO << "layer" << depth << ","<< i <<"is" << std::get<Mesh>(sectionList[i]).name << "with rotation" << std::get<Mesh>(sectionList[i]).mods.rotation << "and scale" << std::get<Mesh>(sectionList[i]).mods.scale;
             if(std::get<Mesh>(sectionList[i]).sectionList.size() > 0){
                 std::get<Mesh>(sectionList[i]).printInfo(depth+1);
             }
         } else {
-            qDebug() << Q_FUNC_INFO << "layer" << depth << ","<< i <<"is" << std::get<SceneNode>(sectionList[i]).name << "with rotation" << std::get<SceneNode>(sectionList[i]).mods.rotation;
+            qDebug() << Q_FUNC_INFO << "layer" << depth << ","<< i <<"is" << std::get<SceneNode>(sectionList[i]).name << "with rotation" << std::get<SceneNode>(sectionList[i]).mods.rotation << "and scale" << std::get<SceneNode>(sectionList[i]).mods.scale;
             if(std::get<SceneNode>(sectionList[i]).sectionList.size() > 0){
                 std::get<SceneNode>(sectionList[i]).printInfo(depth+1);
             }
@@ -175,7 +175,8 @@ void FileSection::getModifications(){
     int lengthOfName = file->parent->fileData.readUInt();
     name = file->parent->fileData.readHex(lengthOfName);
     mods.modByte = file->parent->fileData.readUInt(1);
-    //qDebug() << Q_FUNC_INFO << "Reading at: " << currentPosition << " node: " << this->name << " with modifications: " << modifications << " from hex: " << readData;
+    file->parent->fileData.currentPosition += 7;
+    qDebug() << Q_FUNC_INFO << "Reading at: " << file->parent->fileData.currentPosition << " node: " << name << " with modifications: " << mods.modByte;
     if (!(mods.modByte & 1)) {
         //not default position, read 3 sets of 4 bytes, convert to float, and make vector
         float x_offset = file->parent->fileData.readFloat();
@@ -197,9 +198,12 @@ void FileSection::getModifications(){
     if (!(mods.modByte & 4)) {
         //not default scale, read set of 4 bytes, convert to float
         mods.scale = file->parent->fileData.readFloat();
+        if (mods.scale < 0.0001){ //turbohack
+            mods.scale = 1;
+        }
     }
 
-    //qDebug() << Q_FUNC_INFO << "Getting modifications for " << name << " rotation: " << mods.rotation  << " scale: " << mods.scale << "offset" << mods.offset;
+    qDebug() << Q_FUNC_INFO << "Getting modifications for " << name << " rotation: " << mods.rotation  << " scale: " << mods.scale << "offset" << mods.offset;
     //qDebug() << Q_FUNC_INFO << "Getting modifications for " << name << "scale: " << mods.scale;
     //qDebug() << Q_FUNC_INFO << "Offset: " << mods.offset;
     //qDebug() << Q_FUNC_INFO << "Rotation: " << mods.rotation;
@@ -249,7 +253,7 @@ void FileSection::getSceneNodeTree(long searchStart, long searchEnd, int depth){
         sceneLocation = searchFile.indexIn(file->parent->fileData.dataBytes, searchStart);
         searchFile.setPattern(file->meshStr);
         meshLocation = searchFile.indexIn(file->parent->fileData.dataBytes, searchStart);
-        qDebug()<<Q_FUNC_INFO << "from" << searchStart << "mesh location" << meshLocation << "scene location" << sceneLocation;
+        //qDebug()<<Q_FUNC_INFO << "from" << searchStart << "mesh location" << meshLocation << "scene location" << sceneLocation;
         if((sceneLocation < meshLocation or meshLocation == -1) and sceneLocation != -1){
             //found a scenenode before a mesh, so read the scene node and determine what to do from there
             file->currentLocation = sceneLocation;
@@ -260,7 +264,7 @@ void FileSection::getSceneNodeTree(long searchStart, long searchEnd, int depth){
             sceneNode.readData(sceneLocation);
 
             file->currentLocation = sceneNode.boundVol.fileLocation + (file->sectionNames[3].length()*2) + 58 + 4;
-            qDebug() << Q_FUNC_INFO << depth << "node" << sceneNode.name << "current location" << file->currentLocation << " OR " << file->parent->fileData.currentPosition <<  "with original length" << searchEnd << "and new length" << sceneNode.trueLength;
+            //qDebug() << Q_FUNC_INFO << depth << "node" << sceneNode.name << "current location" << file->currentLocation << " OR " << file->parent->fileData.currentPosition <<  "with original length" << searchEnd << "and new length" << sceneNode.trueLength;
             if(file->currentLocation < sceneNode.trueLength){
                 depth++;
                 sceneNode.getSceneNodeTree(file->currentLocation, sceneNode.trueLength, depth);
@@ -271,16 +275,16 @@ void FileSection::getSceneNodeTree(long searchStart, long searchEnd, int depth){
             sectionTypes.push_back("node");
             sectionList.push_back(sceneNode);
         } else if ((meshLocation < sceneLocation or sceneLocation == -1) and meshLocation != -1) {
-            qDebug() << Q_FUNC_INFO << "READING MESH";
+            //qDebug() << Q_FUNC_INFO << "READING MESH";
             file->currentLocation = meshLocation;
             mesh.clear();
             mesh.file = file;
             mesh.fileLocation = meshLocation;
             mesh.readData(meshLocation);
 
-            qDebug() << Q_FUNC_INFO << "mesh name" << mesh.name << "at location" << mesh.fileLocation << "and bounding" << mesh.boundVol.fileLocation;
+            //qDebug() << Q_FUNC_INFO << "mesh name" << mesh.name << "at location" << mesh.fileLocation << "and bounding" << mesh.boundVol.fileLocation;
             file->currentLocation = mesh.boundVol.fileLocation + (file->sectionNames[3].length()*2) + 58 + 4;
-            qDebug() << Q_FUNC_INFO << depth << "mesh" << mesh.name << "current location" << file->currentLocation << "with original length" << searchEnd << "and new length" << mesh.trueLength;
+            //qDebug() << Q_FUNC_INFO << depth << "mesh" << mesh.name << "current location" << file->currentLocation << "with original length" << searchEnd << "and new length" << mesh.trueLength;
             if(file->currentLocation < mesh.trueLength){
                 depth++;
                 mesh.getSceneNodeTree(file->currentLocation, mesh.trueLength, depth);

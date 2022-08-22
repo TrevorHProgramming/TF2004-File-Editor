@@ -15,6 +15,7 @@ ProgWindow::ProgWindow(QWidget *parent)
 
     menuMain = new QMenuBar(this);
     MessagePopup = new QMessageBox(this);
+    MessagePopup->setGeometry(QRect(QPoint(int(hSize*0.5),int(vSize*0.5)), QSize(120,30)));
     menuMain->setGeometry(QRect(QPoint(int(hSize*0),int(vSize*0)), QSize(int(hSize*1),int(vSize*0.03))));
 
     fileData.parent = this;
@@ -30,10 +31,13 @@ ProgWindow::ProgWindow(QWidget *parent)
     QAction *actionSaveITF = menuITF->addAction("Save ITF");
     QAction *actionSaveBMP = menuITF ->addAction("Export to BMP");
     QAction *actionLoadTMD = menuDatabase ->addAction("Load TMD");
-    QAction *actionSaveTMD = menuDatabase ->addAction("Save TMD");
     QAction *actionLoadTDB = menuDatabase ->addAction("Load TDB");
-    QAction *actionSaveTDB = menuDatabase ->addAction("Save TDB");
     QAction *actionLoadBMD = menuDatabase ->addAction("Load BMD");
+    QAction *actionLoadBDB = menuDatabase ->addAction("Load BDB");
+    QAction *actionSaveTMD = menuDatabase ->addAction("Save TMD");
+    QAction *actionSaveTDB = menuDatabase ->addAction("Save TDB");
+    QAction *actionSaveBMD = menuDatabase ->addAction("Save BMD");
+    QAction *actionSaveBDB = menuDatabase ->addAction("Save BDB");
     QAction *actionSettings = menuSettings -> addAction("Settings");
 
     vbinFile = new VBIN;
@@ -66,17 +70,19 @@ ProgWindow::ProgWindow(QWidget *parent)
     connect(actionLoadITF, &QAction::triggered, this, &ProgWindow::openITF);
     connect(actionSaveITF, &QAction::triggered, this, [this] {itfFile->writeITF();});
     connect(actionSaveBMP, &QAction::triggered, this, [this] {itfFile->writeBMP();});
-    connect(actionLoadTMD, &QAction::triggered, this, &ProgWindow::openTMD);
-    connect(actionLoadTDB, &QAction::triggered, this, &ProgWindow::openTDB);
-    connect(actionLoadBMD, &QAction::triggered, this, &ProgWindow::openBMD);
-    connect(actionSaveTMD, &QAction::triggered, this, &ProgWindow::saveTMDFile);
-    //connect(actionSaveTMD, &QAction::triggered, this, [this] {tmdFile[0].writeData();});
+    connect(actionLoadTMD, &QAction::triggered, this, [this] {openDefinition(false);});
+    connect(actionLoadBMD, &QAction::triggered, this, [this] {openDefinition(true);});
+    connect(actionLoadTDB, &QAction::triggered, this, [this] {openDatabase(false);});
+    connect(actionLoadBDB, &QAction::triggered, this, [this] {openDatabase(true);});
+    connect(actionSaveTMD, &QAction::triggered, this, [this] {saveDefinitionFile(false);});
+    connect(actionSaveBMD, &QAction::triggered, this, [this] {saveDefinitionFile(true);});
+    connect(actionSaveBDB, &QAction::triggered, this, [this] {saveDatabaseFile(true);});
     /*going to need a ProgWindow function for writing TMD and BMD files since they're in lists
     use this:
     bool cancelled;
     QInputDialog::getInt(parent, parent->tr("Enter New Value:"), parent->tr("Value:"), QLineEdit::Normal,0, parent->tmdFile.size(), 1, &cancelled);*/
     //connect(actionSaveTDB, &QAction::triggered, this, [this] {tdbFile[0].writeData();});
-    connect(actionSaveTDB, &QAction::triggered, this, &ProgWindow::saveTDBFile);
+    connect(actionSaveTDB, &QAction::triggered, this, &ProgWindow::saveDatabaseFile);
     //uncomment once this function actually exists
     //connect(actionSaveTDB, &QAction::triggered, this, [this] {tdbFile->writeData();});
 }
@@ -165,31 +171,74 @@ void ProgWindow::createDropdown(int levels){
 
 void ProgWindow::createDBButtons(){
     if(ButtonEditDB == nullptr){
-        ButtonEditDB = new QPushButton("Edit TMD Data", this);
+        ButtonEditDB = new QPushButton("Edit item Data", this);
         ButtonEditDB->setGeometry(QRect(QPoint(50,320), QSize(150,30)));
         connect(ButtonEditDB, &QPushButton::released, this, [this]{editDatabaseItem(testView->currentIndex(), testView->currentIndex().row());});
-        //connect(ButtonEditDB, &QPushButton::released, this, [this]{tmdFile[0]->editItem(testView->currentIndex().parent().data().toString(), testView->currentIndex().row());});
         ButtonEditDB->show();
+        //I don't think this button is really that useful
+        /*ButtonRemoveItem = new QPushButton("Remove item", this);
+        ButtonRemoveItem->setGeometry(QRect(QPoint(50,370), QSize(150,30)));
+        connect(ButtonRemoveItem, &QPushButton::released, this, [this]{removeDatabaseItem(testView->currentIndex(), testView->currentIndex().row());});
+        ButtonRemoveItem->show();*/
+        ButtonRemoveClass = new QPushButton("Remove class/instance", this);
+        ButtonRemoveClass->setGeometry(QRect(QPoint(50,420), QSize(150,30)));
+        connect(ButtonRemoveClass, &QPushButton::released, this, [this]{removeDatabaseClass(testView->currentIndex());});
+        ButtonRemoveClass->show();
     }
+}
+
+void ProgWindow::removeDatabaseClass(QModelIndex item){
+    for(int i = 0; i < definitions.size(); i++){
+        if(item.parent().data().toString() == definitions[i].fileName){
+            definitions[i].removeClass(item.row());
+        }
+    }
+    for(int i = 0; i < databases.size(); i++){
+        if(item.parent().data().toString() == databases[0].fileName){
+            databases[i].removeInstance(item.row());
+        }
+    }
+    testModel->removeRows(item.row(), 1, item.parent());
+}
+
+void ProgWindow::removeDatabaseItem(QModelIndex item, int itemIndex){
+    for(int i = 0; i < definitions.size(); i++){
+        if(item.parent().parent().data().toString() == definitions[i].fileName){
+            definitions[i].removeItem(item.parent().data().toString(), itemIndex);
+        }
+    }
+    for(int i = 0; i < databases.size(); i++){
+        if(item.parent().parent().data().toString() == databases[0].fileName){
+            databases[i].removeItem(item.parent().siblingAtColumn(1).data().toInt(), itemIndex);
+        }
+    }
+
+    testModel->removeRows(item.row(), 1, item.parent());
+
+    //then update DB Tree
 }
 
 void ProgWindow::editDatabaseItem(QModelIndex item, int itemIndex){
     QStringList newValue; //using a qstringlist to make things easier on myself
-    for(int i = 0; i < tmdFile.size(); i++){
-        if(item.parent().parent().data().toString() == tmdFile[i].fileName){
-            newValue = tmdFile[i].editItem(item.parent().data().toString(), itemIndex);
+    for(int i = 0; i < definitions.size(); i++){
+        if(item.parent().parent().data().toString() == definitions[i].fileName){
+            newValue = definitions[i].editItem(item.parent().data().toString(), itemIndex);
         }
     }
-    if(item.parent().parent().data().toString() == tdbFile[0].fileName){
-        newValue = tdbFile[0].editItem(item.parent().siblingAtColumn(1).data().toInt(), itemIndex);
+    for(int i = 0; i < databases.size(); i++){
+        if(item.parent().parent().data().toString() == databases[0].fileName){
+            newValue = databases[i].editItem(item.parent().siblingAtColumn(1).data().toInt(), itemIndex);
+        }
     }
 
-    if(newValue[1] == "SINGLEVALUE"){
-        testModel->setData(item.siblingAtColumn(2), newValue[0]);
+    if(newValue[0] == "SINGLEVALUE"){
+        testModel->setData(item.siblingAtColumn(2), newValue[1]);
     } else if (newValue[0] == "ENUM"){
         testModel->setData(item.siblingAtColumn(2), newValue[1]);
         newValue.remove(0,2);
         testModel->setData(item.siblingAtColumn(3), newValue.join(','));
+    } else if (newValue[0] == "SETDEFAULT"){
+        testModel->setData(item.siblingAtColumn(4), true);
     } else {
         testModel->setData(item.siblingAtColumn(3), newValue.join(','));
     }
@@ -219,16 +268,16 @@ void ProgWindow::messageSuccess(QString message){
     MessagePopup->exec();
 }
 
-void ProgWindow::saveTMDFile(){
-    if(tmdFile.empty()){
-       messageError("No TMD files available to save. Please load a TMD file.");
+void ProgWindow::saveDefinitionFile(bool binary){
+    if(definitions.empty()){
+       messageError("No definition files available to save. Please load a definition file.");
        return;
     }
 
     bool cancelled;
     QStringList options;
-    for(int i = 0; i < tmdFile.size(); i++){
-        options.append(tmdFile[i].fileName);
+    for(int i = 0; i < definitions.size(); i++){
+        options.append(definitions[i].fileName);
     }
 
     QString chosenFile = QInputDialog::getItem(this, this->tr("Select TMD File:"), this->tr("File Name:"), options, 0, false, &cancelled);
@@ -238,25 +287,30 @@ void ProgWindow::saveTMDFile(){
         return;
     }
 
-    for(int i = 0; i < tmdFile.size(); i++){
-        if(tmdFile[i].fileName == chosenFile){
-            tmdFile[i].writeData();
+    for(int i = 0; i < definitions.size(); i++){
+        if(definitions[i].fileName == chosenFile){
+            if(binary){
+                definitions[i].writeBinary();
+            } else {
+                definitions[i].writeText();
+            }
         }
     }
+    qDebug() << Q_FUNC_INFO << "Definition output complete.";
 
 }
 
 
-void ProgWindow::saveTDBFile(){
-    if(tdbFile.empty()){
-       messageError("No TDB files available to save. Please load a TDB file.");
+void ProgWindow::saveDatabaseFile(bool binary){
+    if(databases.empty()){
+       messageError("No database files available to save. Please load a database file.");
        return;
     }
 
     bool cancelled;
     QStringList options;
-    for(int i = 0; i < tdbFile.size(); i++){
-        options.append(tdbFile[i].fileName);
+    for(int i = 0; i < databases.size(); i++){
+        options.append(databases[i].fileName);
     }
 
     QString chosenFile = QInputDialog::getItem(this, this->tr("Select TDB File:"), this->tr("File Name:"), options, 0, false, &cancelled);
@@ -266,11 +320,16 @@ void ProgWindow::saveTDBFile(){
         return;
     }
 
-    for(int i = 0; i < tdbFile.size(); i++){
-        if(tdbFile[i].fileName == chosenFile){
-            tdbFile[i].writeData();
+    for(int i = 0; i < databases.size(); i++){
+        if(databases[i].fileName == chosenFile){
+            if(binary){
+                databases[i].writeBinary();
+            } else {
+                databases[i].writeText();
+            }
         }
     }
+    qDebug() << Q_FUNC_INFO << "Database output complete.";
 
 }
 
