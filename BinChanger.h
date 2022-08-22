@@ -23,6 +23,7 @@ class BinChanger{
     std::tuple<int8_t,int8_t> byte_to_nib(QByteArray input);
     int nib_to_byte(std::tuple<int8_t, int8_t> input);
     float hex_to_float(QByteArray array);
+    QByteArray float_to_hex(float input);
     qint64 byteWrite(QFile& file, int8_t var);
     qint64 shortWrite(QFile& file, int16_t var);
     qint64 intWrite(QFile& file, int32_t var);
@@ -34,7 +35,7 @@ class FileData{
   public:
     QByteArray dataBytes;
     ProgWindow *parent;
-    long currentPosition;
+    long currentPosition = 0;
 
 
     void readFile(QString filePath);

@@ -1,31 +1,38 @@
 #include "mainwindow.h"
 
 long FileData::readLong(int length, long location){
-    long readValue = parent->binChanger.reverse_input(parent->fileData.dataBytes.mid(currentPosition + location, length).toHex(),2).toLong(nullptr, 16);
+    long readValue = parent->binChanger.reverse_input(dataBytes.mid(currentPosition + location, length).toHex(),2).toLong(nullptr, 16);
     currentPosition += length;
     return readValue;
 }
 
 int FileData::readInt(int length, long location){
-    int readValue = parent->binChanger.reverse_input(parent->fileData.dataBytes.mid(currentPosition + location, length).toHex(),2).toInt(nullptr, 16);
+    QString readBin = parent->binChanger.reverse_input(parent->binChanger.hex_to_bin(dataBytes.mid(currentPosition + location, length)), 8);
+    int twoscompread = parent->binChanger.twosCompConv(readBin, 8);
+    //qDebug() << Q_FUNC_INFO << "hex read:" << dataBytes.mid(currentPosition + location, length).toHex() << "read as" << readBin << "then" << twoscompread;
     currentPosition += length;
-    return readValue;
+    return twoscompread;
 }
 
 int FileData::readUInt(int length, long location){
-    int readValue = parent->binChanger.reverse_input(parent->fileData.dataBytes.mid(currentPosition + location, length).toHex(),2).toUInt(nullptr, 16);
+    int readValue = parent->binChanger.reverse_input(dataBytes.mid(currentPosition + location, length).toHex(),2).toUInt(nullptr, 16);
     currentPosition += length;
     return readValue;
 }
 
 bool FileData::readBool(int length, long location){
-    bool readValue = parent->fileData.dataBytes.mid(currentPosition + location, length).toHex().toInt(nullptr, 16);
+    bool readValue = dataBytes.mid(currentPosition + location, length).toHex().toInt(nullptr, 16);
     currentPosition += length;
     return readValue;
 }
 
 float FileData::readFloat(int length, long location){
-    float readValue = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(parent->fileData.dataBytes.mid(currentPosition + location, length).toHex(), 2));
+    //qDebug() << Q_FUNC_INFO << "full read" << dataBytes;
+    //qDebug() << Q_FUNC_INFO << "current position" << currentPosition << "hex read:" << dataBytes.mid(currentPosition + location, length);
+    float readValue = parent->binChanger.hex_to_float(parent->binChanger.reverse_input(dataBytes.mid(currentPosition + location, length).toHex(), 2));
+    if(readValue < 0.00001 and readValue > -0.00001){ //also turbohack
+        readValue = 0;
+    }
     currentPosition += length;
     return readValue;
 }
@@ -230,7 +237,7 @@ std::tuple<int8_t,int8_t> BinChanger::byte_to_nib(QByteArray input){
 
     tempNib &= 240;
     std::get<1>(nibTup) = tempNib >> 4;
-    //qDebug() << Q_FUNC_INFO << "input: " << input.toHex() << " tempNib: " << tempNib << " lower nib: " << std::get<0>(nibTup) << " upper nib: " << std::get<1>(nibTup);
+    qDebug() << Q_FUNC_INFO << "input: " << input.toHex() << " tempNib: " << tempNib << " lower nib: " << std::get<0>(nibTup) << " upper nib: " << std::get<1>(nibTup);
 
     return nibTup;
 }
@@ -268,6 +275,18 @@ float BinChanger::hex_to_float(QByteArray array){
     exponent -= 127;     //claculate the exponent
     //qDebug() << Q_FUNC_INFO << "number= "<< QString::number( sign*pow(2,exponent)*(mantissa+1.0),'f', 5 );
     return sign*pow(2,exponent)*(mantissa+1.0);
+}
+
+QByteArray BinChanger::float_to_hex(float input){
+    QByteArray array;
+    const unsigned char * pf = reinterpret_cast<const unsigned char*>(&input);
+
+    for (size_t i = 0; i != sizeof(float); ++i)
+    {
+        array.push_back(pf[i]);
+
+    }
+    return array;
 }
 
 qint64 BinChanger::byteWrite(QFile& file, int8_t var) {
@@ -309,3 +328,4 @@ qint64 BinChanger::longWrite( QFile& file, int64_t var ) {
    //qDebug () << "out: " << written;
   return written;
 }
+

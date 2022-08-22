@@ -118,24 +118,22 @@ void Mesh::readData(long meshLocation){
 
 void Mesh::getModifications(){
     //initialize and set default values
-    mods.offset = QVector3D();
-    mods.rotation = QQuaternion();
+    mods.offset = QVector3D(0,0,0);
+    mods.rotation = QQuaternion(1,0,0,0);
     mods.scale = 1;
 
     file->parent->fileData.currentPosition = lodInfo.fileLocation;
-    QByteArray readData = file->parent->fileData.readHex(4);
-    int lengthOfLod = readData.toUInt(nullptr, 16);
-    //qDebug() << Q_FUNC_INFO << "length of LOD: " << lengthOfLod << " from hex " << readData;
+    int lengthOfLod = file->parent->fileData.readUInt()-4;
+    //qDebug() << Q_FUNC_INFO << "current location" << file->parent->fileData.currentPosition << "length of LOD: " << lengthOfLod;
     file->parent->fileData.currentPosition += lengthOfLod;
     mods.modByte = file->parent->fileData.readUInt(1);
-    //qDebug() << Q_FUNC_INFO << "Reading at: " << currentPosition << " mesh: " << this->name << " with modifications: " << modifications << " from hex: " << readData;
+    //qDebug() << Q_FUNC_INFO << "Reading at: " << file->parent->fileData.currentPosition << " node: " << name << " with modifications: " << mods.modByte;
     if (!(mods.modByte & 1)) {
         //not default position, read 3 sets of 4 bytes, convert to float, and make vector
         float x_offset = file->parent->fileData.readFloat();
         float y_offset = file->parent->fileData.readFloat();
         float z_offset = file->parent->fileData.readFloat();
         mods.offset = QVector3D(x_offset, y_offset, z_offset);
-        //qDebug() << Q_FUNC_INFO << this->offset;
     }
     if (!(mods.modByte & 2)) {
         //not default rotation, read 4 sets of 4 bytes, convert to float, and make quaternion
