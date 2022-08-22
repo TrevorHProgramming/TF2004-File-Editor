@@ -1,6 +1,6 @@
 # TF2004-File-Editor
 
-Current version: 0.2
+Current version: 0.4
 
 An editor for the various proprietary file formats used in Transformers (2004) (PS2). 
 
@@ -16,5 +16,7 @@ VBIN.Mesh: The game's model files for levels. These are structured significantly
 
 ITF: Might be "Infogrames Texture Format/File". The game's texture files, fairly similar to standard .BMPs. 
 
-TMD, BMD, BDB, TDB: "Text something Defintion." "Binary Database," "Text Database." Stores a significant amount of data used by the game. The definition file contains data types and default values for their corresponding database files, and as such are required to be opened before database files and some other definition files. Currently, values in TMD and TDB files can be edited and saved as a new file to be used by the game. BMD and BDB files are still a work in progress. 
+TMD, BMD, BDB, TDB: "Text Defintion," "Binary Definition," "Binary Database," "Text Database." Stores a significant amount of data used by the game. The definition file contains data types and default values for their corresponding database files, and as such are required to be opened before database files and some other definition files. This program can read all of these file types. Values for individual items can be edited, instances of objects can be removed, and the changed file can be saved as a usable MD/DB file. The addition of new classes or instances is not currently available. 
+
+TLA, TLB, VAC: Compressed audio libraries. TLB files contain a text list of sound effects and their properties, and reference a matching .vac file to pull the audio information from. TLA files contain both the audio data normally present in a .vac and a binary list of the sound effects and their properties. Currently this program does not support these files, but they should be relatively simple to add when the time comes. 
 
