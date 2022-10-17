@@ -111,6 +111,7 @@ public:
     void readFileDictionary(QByteArray splitLine, int sectionIndex, QString instanceName); //binary
     void readInstances(QByteArray splitLine, int sectionIndex, QString instanceName); //binary
     void createDBTree();
+    void sortDBTree(int column);
     //void editItem(int dictIndex, int itemIndex, QString valueType, QString newValue);
     QStringList editItem(QString className, int itemIndex);
     void clear();
@@ -127,78 +128,10 @@ public:
     QString outputValue(dictItem itemDetails);
     int instanceIndexIn(int searchIndex);
     void createDBTree();
+    void createItem();
     QStringList editItem(int instanceIndex, int itemIndex);
     void removeItem(int instanceIndex, int itemIndex);
     void removeInstance(int instanceIndex);
 };
-
-/*class TMDFile{
-  public:
-    const QStringList sectionList{"IncludedFiles","Dictionary","FileDictionary","Instances"};
-    const QStringList singleTypes{"Enum","Float","Bool","String","Integer", "Link", "Flag"};
-    const QStringList multiTypes{"Enum","Point","Quaternion","IntegerArray","StringArray","Color", "FloatArray", "LinkArray","VectorArray"};
-    const QStringList arrayTypes{"IntegerArray","StringArray", "FloatArray", "LinkArray","VectorArray"}; //need for bmd and bdb
-    const QStringList stringTypes{"String","StringArray","LinkArray"};
-    static QMap<int, QStringList> bdbTypeLength;
-    ProgWindow *parent;
-    QString filePath;
-    QString fileName;
-    QString fileType;
-    QString includedFile;
-    QString includedFileIndex;
-    std::vector<dictClass> classList;
-    std::vector<dictInstance> instanceList;
-    int inheritedFileIndex;
-
-    int readData();
-    void writeData();
-    int indexIn(QString searchName);
-    QString getNextLine();
-    QString getName();
-    int dictItemIndex(int dictIndex, QString searchName);
-    dictItem addItem(dictItem itemDetails, QString tempRead);
-    QString outputValue(dictItem itemDetails);
-    QString displayValue(dictItem itemDetails);
-    int readIncludedFiles(QString fullRead); //note that includedfiles only needs fullread, not partsplit
-    void readDictionary(QStringList partSplit, int sectionIndex);
-    void readFileDictionary(QStringList partSplit, int sectionIndex);
-    void readInstances(QStringList partSplit, int sectionIndex, QString instanceName);
-    void createDBTree();
-    //void editItem(int dictIndex, int itemIndex, QString valueType, QString newValue);
-    QStringList editItem(QString className, int itemIndex);
-    void clear();
-};
-
-class BMDFile : public TMDFile{
-public:
-    int readData();
-    QString getName();
-    dictItem addItem(dictItem itemDetails, FileData *tempRead);
-    void writeData();
-    QString outputValue(dictItem itemDetails);
-    void readDictionary(QByteArray splitLine, int sectionIndex, QString instanceName);
-    void readFileDictionary(QByteArray splitLine, int sectionIndex, QString instanceName);
-    void readInstances(QByteArray splitLine, int sectionIndex, QString instanceName);
-};
-
-class TDBFile : public TMDFile{
-public:
-    //int readData();
-    dictItem addItem(dictItem itemDetails, QString tempRead);
-    void writeData();
-    QString outputValue(dictItem itemDetails);
-    int instanceIndexIn(int searchIndex);
-    QStringList editItem(int instanceIndex, int itemIndex);
-
-};
-
-class BDBFile : public BMDFile {
-    //inheriting tdb for access to instanceIndexIn and editItem
-    dictItem addItem(dictItem itemDetails, QByteArray tempRead);
-    void writeData();
-    QString outputValue(dictItem itemDetails);
-    int instanceIndexIn(int searchIndex);
-    QStringList editItem(int instanceIndex, int itemIndex);
-};*/
 
 #endif // DATABASE_H

@@ -1,9 +1,12 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+//https://ps2linux.no-ip.info/playstation2-linux.com/docs/howto/display_docef7c.html?docid=75
+
 void ITF::readData(){
     //TODO: add capability to change which palette is displayed.
 
+    swizzled = true; //if loading an ITF, the data will be swizzled
 
     QByteArray txtrString = "TXTR";
     QByteArrayMatcher matcher(txtrString);
@@ -59,20 +62,22 @@ void ITF::readData(){
         paletteList[i].size = colorCount;
         paletteList[i].paletteColors.resize(colorCount);
         for (int j = 0; j<colorCount; j++){
-            paletteList[i].paletteColors[j].R = parent->fileData.readInt(1);
-            paletteList[i].paletteColors[j].G = parent->fileData.readInt(1);
-            paletteList[i].paletteColors[j].B = parent->fileData.readInt(1);
-            paletteList[i].paletteColors[j].A = parent->fileData.readInt(1);
+            paletteList[i].paletteColors[j].R = parent->fileData.readUInt(1);
+            paletteList[i].paletteColors[j].G = parent->fileData.readUInt(1);
+            paletteList[i].paletteColors[j].B = parent->fileData.readUInt(1);
+            paletteList[i].paletteColors[j].A = parent->fileData.readUInt(1);
         }
     }
 
 
+    int pixelIndex = 0;
     if (propertyByte & 1){
         //256 palette case. nice and easy since each pixel uses 1 byte to refer to the palette
         contentLength -= (paletteCount*1024); //remove the length of the palette section before getting to the pixels
         pixelList.resize(contentLength);
-        for (int i = 0; i < contentLength; i++){
-            pixelList[i] = parent->fileData.readInt(1);
+        for (int i = parent->fileData.currentPosition; i < startLocation + dataLength; i++){
+            pixelList[pixelIndex] = parent->fileData.readInt(1);
+            pixelIndex += 1;
         }
     } else {
         //16 palette case. this is tougher since each pixel is only half a byte (nibble?) and we can only refer to whole bytes.
@@ -80,8 +85,7 @@ void ITF::readData(){
         //byte_to_nib here to get a tuple of both nibbles
         contentLength -= (paletteCount*64); //remove the length of the palette section before getting to the pixels
         pixelList.resize(contentLength*2);
-        int pixelIndex = 0;
-        for(int i = 0; i < contentLength; i++){
+        for(int i = parent->fileData.currentPosition; i < startLocation + dataLength; i++){
             nibTup = parent->binChanger.byte_to_nib(parent->fileData.mid(location+i, 1));
             pixelList[pixelIndex] = std::get<0>(nibTup);
             pixelIndex += 1;
@@ -92,7 +96,6 @@ void ITF::readData(){
 
     //qDebug() << Q_FUNC_INFO << "Pixel list length: " << pixelList.size() << "vs content length" << contentLength;
 
-    populatePalette();
 
     //that should be it for loading data.
     //after this, have a function catching the table cell changed slot
@@ -111,8 +114,8 @@ void ITF::populatePalette(){
     }
     qDebug() << Q_FUNC_INFO << "Function called. Palette index: " << paletteIndex;
     qDebug() << Q_FUNC_INFO << "Palette colors: " << paletteList[paletteIndex].paletteColors.size();
-    parent->createTable(paletteList[paletteIndex].paletteColors.size(), 5);
-    QStringList columnNames = {"Palette Index", "Red", "Blue", "Green", "Alpha"};
+    parent->createTable(paletteList[paletteIndex].paletteColors.size(), 7);
+    QStringList columnNames = {"Palette Index", "Red", "Green", "Blue", "Alpha", "Original", "Current"};
     parent->PaletteTable->setHorizontalHeaderLabels(columnNames);
     parent->PaletteTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     for(int i = 0; i < paletteList[paletteIndex].paletteColors.size(); i++){
@@ -148,6 +151,18 @@ void ITF::populatePalette(){
             parent->PaletteTable->setItem(i,4,cellText4);
         }
         cellText4->setText(QString::number(paletteList[paletteIndex].paletteColors[i].A));
+        QTableWidgetItem *cellText5 = parent->PaletteTable->item(i,5);
+        if (!cellText5){
+            cellText5 = new QTableWidgetItem;
+            parent->PaletteTable->setItem(i,5,cellText5);
+        }
+        cellText5->setBackground(QColor::fromRgb(paletteList[paletteIndex].paletteColors[i].R,paletteList[paletteIndex].paletteColors[i].G,paletteList[paletteIndex].paletteColors[i].B));
+        QTableWidgetItem *cellText6 = parent->PaletteTable->item(i,6);
+        if (!cellText6){
+            cellText6 = new QTableWidgetItem;
+            parent->PaletteTable->setItem(i,6,cellText6);
+        }
+        cellText6->setBackground(QColor::fromRgb(paletteList[paletteIndex].paletteColors[i].R,paletteList[paletteIndex].paletteColors[i].G,paletteList[paletteIndex].paletteColors[i].B));
         parent->PaletteTable->blockSignals(0);
     }
 }
@@ -158,12 +173,16 @@ void ITF::editPalette(int row, int column){
     qDebug() << Q_FUNC_INFO << "Changed value: " << parent->PaletteTable->item(row, column)->text();
     qDebug() << Q_FUNC_INFO << "Row: " << row << " Column " << column;
     if (changedValue < 256 and changedValue >= 0 ){
+        qDebug() << Q_FUNC_INFO << "Valid color value";
         switch (column){
         case 1: paletteList[paletteIndex].paletteColors[row].R = changedValue; break;
         case 2: paletteList[paletteIndex].paletteColors[row].G = changedValue; break;
         case 3: paletteList[paletteIndex].paletteColors[row].B = changedValue; break;
         case 4: paletteList[paletteIndex].paletteColors[row].A = changedValue; break;
         }
+        QTableWidgetItem *cellText5 = parent->PaletteTable->item(row, 6);
+        cellText5->setBackground(QColor::fromRgb(paletteList[paletteIndex].paletteColors[row].R,paletteList[paletteIndex].paletteColors[row].G,paletteList[paletteIndex].paletteColors[row].B));
+        qDebug() << Q_FUNC_INFO << "cell text" << cellText5->text();
     } else {
         qDebug() << Q_FUNC_INFO << "Not a valid color value.";
         switch (column){
@@ -184,9 +203,16 @@ void ITF::writeITF(){
 
     std::tuple<int8_t, int8_t> nibtup;
 
+    if(!swizzled){
+        //if the user exported to BMP, we'll need to re-swizzle the texture
+        //unfortunately we can't yet :)
+        //swizzle();
+    }
+
     if (itfOut.open(QIODevice::ReadWrite)){
         QDataStream fileStream(&itfOut);
 
+        qDebug() << Q_FUNC_INFO << "Writing ITF header info";
         itfOut.write("FORM");
         parent->binChanger.intWrite(itfOut, fileLength);
         itfOut.write("ITF0HDR");
@@ -197,8 +223,8 @@ void ITF::writeITF(){
         parent->binChanger.intWrite(itfOut, unknown4Byte1);
         parent->binChanger.intWrite(itfOut, height);
         parent->binChanger.intWrite(itfOut, width);
-        parent->binChanger.intWrite(itfOut, paletteCount);
         parent->binChanger.intWrite(itfOut, unknown4Byte2);
+        parent->binChanger.intWrite(itfOut, paletteCount);
         parent->binChanger.intWrite(itfOut, unknown4Byte3);
         parent->binChanger.intWrite(itfOut, unknown4Byte4);
         itfOut.write("TXTR");
@@ -222,6 +248,7 @@ void ITF::writeITF(){
             for (int i=0; i<pixelList.size();i+=2){
                 std::get<0>(nibtup) = pixelList[i];
                 std::get<1>(nibtup) = pixelList[i+1];
+                //qDebug() << Q_FUNC_INFO << parent->binChanger.nib_to_byte(nibtup);
                 parent->binChanger.byteWrite(itfOut, parent->binChanger.nib_to_byte(nibtup));
             }
         }
@@ -242,10 +269,9 @@ void ITF::writeBMP(){
     std::tuple<int8_t, int8_t> nibtup;
 
     /*Swizzling currently commented out to make sure the rest works right in the first place.*/
-    //swizzle();
-    //swizzle3();
-
-
+    if(swizzled){
+        unswizzle_4bit2();
+    }
 
     int dataOffset = 0; //this will be where the pixel data starts in the BMP
     //calculate by adding header length to palette length
@@ -359,195 +385,160 @@ void ITF::swizzle(){
 
             swizzledImage[pixelIndex] = pixelList[startBlockPos+(page*blockwidth*blockheight)+(block*blockwidth)+(column*blockheight)+cw];
 
-            //swizzledImage[block_address+x+(y*blockwidth)] = pixelList[i+(j*width)];
-            //swizzledImage[i+(j*width)] = pixelList[block_address+x+(y*blockwidth)];
         }
     }
-    for (int i = 0; i<pixelList.size(); i++) {
-        pixelList[i] = swizzledImage[i];
-    }
+    pixelList = swizzledImage;
 }
 
-void ITF::bruteForce(int imageheight, int imagewidth, int blockheight, int blockwidth, int relativeAddress){
-    QString fileOut = "D:\\TF2_RevEngineer\\VBINConverter\\VBINConverter\\BMP\\bruteforce\\x" + QString::number(blockheight) + "_y" + QString::number(blockwidth) + ".bmp";
-    QFile bmpOut(fileOut);
-    QFile file(fileOut);
-    file.open(QFile::WriteOnly|QFile::Truncate);
-    file.close();
+void ITF::unswizzle_4bit(){
+    //https://github.com/neko68k/rtftool/blob/master/RTFTool/rtfview/p6t_v2.cpp
+    std::vector<int> swizzledImage = pixelList;
+    int w = width;
+    int h = height;
+    int entry;
 
-    std::tuple<int8_t, int8_t> nibtup;
-
-    swizzledPixels.resize(pixelList.size());
-
-    unsigned int rowblocks = width/blockwidth;
-    unsigned int blockx = 0;
-    unsigned int blocky = 0;
-    unsigned int x = 0;
-    unsigned int y = 0;
-    unsigned int block_index = 0;
-    unsigned int block_address = 0;
-    for (int j = 0; j < height; j++) {
-        for (int i = 0; i < width; i++) {
-            blockx = i/blockwidth;
-            blocky = j/blockheight;
-
-            x = (i-blockx*blockwidth);
-            y = (j-blocky*blockheight);
-            block_index = blockx+(blocky*rowblocks);
-            block_address = block_index*blockheight*blockwidth;
-            swizzledPixels[block_address+x+(y*blockwidth)] = pixelList[i+(j*width)];
-        }
+    if(!swizzled){
+        return;
     }
 
-    int originalheight = blockheight;
-    while(blockheight/2>1){
-        blockheight /=2;
-        qDebug() << "writing file x " << blockheight << " y " << blockwidth;
-        bruteForce(imageheight,imagewidth,blockheight,blockwidth,relativeAddress);
-        blockwidth /=2;
-        bruteForce(imageheight,imagewidth,blockheight,blockwidth,relativeAddress);
-    }
-
-
-    int dataOffset = 0; //this will be where the pixel data starts in the BMP
-    //calculate by adding header length to palette length
-
-    int numColors = 0;
-
-    if (propertyByte&1){
-        numColors = 256;
-        dataOffset = 54 + (paletteCount*1024);
-    } else {
-        numColors = 16;
-        dataOffset = 54 + (paletteCount*64);
-    }
-
-    std::vector<int> reversePixels = swizzledPixels;
-    //::reverse(reversePixels.begin(), reversePixels.end());
-
-    if (bmpOut.open(QIODevice::ReadWrite)){
-        QDataStream fileStream(&bmpOut);
-
-        bmpOut.write("BM");
-        parent->binChanger.intWrite(bmpOut, fileLength);
-        parent->binChanger.intWrite(bmpOut, 0); //reserved
-        parent->binChanger.intWrite(bmpOut, dataOffset);
-        parent->binChanger.intWrite(bmpOut, 40);    //size of info header
-        parent->binChanger.intWrite(bmpOut, width);
-        parent->binChanger.intWrite(bmpOut, height);
-        parent->binChanger.shortWrite(bmpOut, 1);   //number of planes
-
-        if (propertyByte&1){
-            parent->binChanger.shortWrite(bmpOut, 8);
-        } else {
-            parent->binChanger.shortWrite(bmpOut, 4);
-        }
-
-        parent->binChanger.intWrite(bmpOut, 0); //compression type
-        parent->binChanger.intWrite(bmpOut, height*width/2);
-        parent->binChanger.intWrite(bmpOut, 0); //pixels per meter, x
-        parent->binChanger.intWrite(bmpOut, 0); //pixels per meter, y
-        parent->binChanger.intWrite(bmpOut, numColors);
-        parent->binChanger.intWrite(bmpOut, 0); //important colors. 0 for all.
-
-        for (int i = 0; i<numColors; i++){
-            parent->binChanger.byteWrite(bmpOut, paletteList[parent->ListLevels->currentIndex()].paletteColors[i].B);
-            parent->binChanger.byteWrite(bmpOut, paletteList[parent->ListLevels->currentIndex()].paletteColors[i].G);
-            parent->binChanger.byteWrite(bmpOut, paletteList[parent->ListLevels->currentIndex()].paletteColors[i].R);
-            parent->binChanger.byteWrite(bmpOut, 0); // no alpha in bmp.
-        }
-
-        if (propertyByte&1){
-            for (int i = 0; i<reversePixels.size(); i++) {
-                parent->binChanger.byteWrite(bmpOut, reversePixels[i]);
-            }
-        } else {
-            for (int i = 0; i<reversePixels.size(); i+=2) {
-                std::get<1>(nibtup) = reversePixels[i];
-                std::get<0>(nibtup) = reversePixels[i+1];
-                parent->binChanger.byteWrite(bmpOut, parent->binChanger.nib_to_byte(nibtup));
-            }
-        }
-    }
-
-}
-
-/*void ITF::swizzle3(int dbp, int dbw, int dsax, int dsay, int rrw, int rrh, void *data)
-{
-    std::vector<int> swizzledImage;
-    swizzledImage.resize(pixelList.size());
-    long currentIndex = 0;
-    int startBlockPos = dbp * 64;
-
-    for(int y = dsay; y < dsay + rrh; y++)
+    for (int y = 0; y < h; y++)
     {
-        for(int x = dsax; x < dsax + rrw; x++)
+        for (int x = 0; x < w; x++)
         {
-            int pageX = x / 64;
-            int pageY = y / 32;
-            int page  = pageX + pageY * dbw;
+            // get the pen
+            int index = (y * w) + x ;
 
-            int px = x - (pageX * 64);
-            int py = y - (pageY * 32);
+            // swizzle
+            int pageX = x &(~0x7f);
+            int pageY = y &(~0x7f);
 
-            int blockX = px / 8;
-            int blockY = py / 8;
-            int block  = blockX + blockY * 8;
+            int pages_horz = (w + 127) / 128;
+            int pages_vert = (h + 127) / 128;
 
-            int bx = px - blockX * 8;
-            int by = py - blockY * 8;
+            int page_number = (pageY / 128) * pages_horz + (pageX / 128);
 
-            int column = by / 2;
+            int page32Y = (page_number / pages_vert) * 32;
+            int page32X = (page_number % pages_vert) * 64;
 
-            int cx = bx;
-            int cy = by - column * 2;
-            int cw = cx + cy * 8;
+            int page_location = page32Y * h * 2 + page32X * 4;
 
-            swizzledImage[startBlockPos + page * 2048 + block * 64 + column * 16 + cw] = pixelList[currentIndex];
-            currentIndex++;
+            int locX = x & 0x7f;
+            int locY = y & 0x7f;
+
+            int block_location = ((locX & (~0x1f)) >> 1) * h + (locY & (~0xf)) * 2;
+            int swap_selector = (((y + 2) >> 2) & 0x1) * 4;
+            int posY = (((y & (~3)) >> 1) + (y & 1)) & 0x7;
+
+            int column_location = posY * h * 2 + ((x + swap_selector) & 0x7) * 4;
+
+            int byte_num = (x >> 3) & 3;     // 0,1,2,3
+
+            entry = swizzledImage[page_location + block_location + column_location + byte_num];
+            entry = (int)((entry >> ((y >> 1) & 0x01) * 4) & 0x0F);
+            pixelList[index] = entry;
         }
-    }
-    for (int i = 0; i<pixelList.size(); i++) {
-        pixelList[i] = swizzledImage[i];
     }
 }
 
-void ITF::unswizzle(int dbp, int dbw, int dsax, int dsay, int rrw, int rrh, void *data){
-    std::vector<int> unswizzledImage;
-    unswizzledImage.resize(pixelList.size());
-    int startBlockPos = dbp * 64;
-    long currentIndex = 0;
+void ITF::unswizzle(){
+    //https://gist.github.com/Fireboyd78/1546f5c86ebce52ce05e7837c697dc72
+    std::vector<int> swizzledImage = pixelList;
+    int InterlaceMatrix[] = {
+        0x00, 0x10, 0x02, 0x12,
+        0x11, 0x01, 0x13, 0x03,
+    };
 
-    for(int y = dsay; y < dsay + rrh; y++)
+    int Matrix[]        = { 0, 1, -1, 0 };
+    int TileMatrix[]    = { 4, -4 };
+
+
+    int d = 0;
+    int s = 0;
+
+    for (int y = 0; y < height; y++)
     {
-        for(int x = dsax; x < dsax + rrw; x++)
+        for (int x = 0; x < (width >> 1); x++)
         {
-            int pageX = x / 64;
-            int pageY = y / 32;
-            int page  = pageX + pageY * dbw;
+            int p = pixelList[s++];
 
-            int px = x - (pageX * 64);
-            int py = y - (pageY * 32);
-
-            int blockX = px / 8;
-            int blockY = py / 8;
-            int block  = blockX + blockY * 8;
-
-            int bx = px - blockX * 8;
-            int by = py - blockY * 8;
-
-            int column = by / 2;
-
-            int cx = bx;
-            int cy = by - column * 2;
-            int cw = cx + cy * 8;
-
-            unswizzledImage[currentIndex] = pixelList[startBlockPos + page * 2048 + block * 64 + column * 16 + cw];
-            currentIndex++;
+            swizzledImage[d++] = (int)(p & 0xF);
+            swizzledImage[d++] = (int)(p >> 4);
         }
     }
-    for (int i = 0; i<pixelList.size(); i++) {
-        pixelList[i] = unswizzledImage[i];
+
+    // not sure what this was for, but it actually causes issues
+    // we can just use width directly without issues!
+    //var mw = width;
+
+    //if ((mw % 32) > 0)
+    //    mw = ((mw / 32) * 32) + 32;
+
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
+            int oddRow = ((y & 1) != 0);
+
+            int num1 = (int)((y / 4) & 1);
+            int num2 = (int)((x / 4) & 1);
+            int num3 = (y % 4);
+
+            int num4 = ((x / 4) % 4);
+
+            if (oddRow)
+                num4 += 4;
+
+            int num5 = ((x * 4) % 16);
+            int num6 = ((x / 16) * 32);
+
+            int num7 = (oddRow) ? ((y - 1) * width) : (y * width);
+
+            int xx = x + num1 * TileMatrix[num2];
+            int yy = y + Matrix[num3];
+
+            int i = InterlaceMatrix[num4] + num5 + num6 + num7;
+            int j = yy * width + xx;
+
+            pixelList[j] = swizzledImage[i];
+        }
+    }
+
+    if(paletteList.size() == 16){
+        std::vector<int> result = pixelList;
+
+        s = 0;
+        d = 0;
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < (width >> 1); x++)
+                result[d++] = (int)((pixelList[s++] & 0xF) | (pixelList[s++] << 4));
+        }
+        pixelList = result;
     }
 }
-*/
+
+void ITF::unswizzle_8bit(){
+    //https://github.com/neko68k/rtftool/blob/master/RTFTool/rtfview/p6t_v2.cpp
+    std::vector<int> swizzledImage = pixelList;
+
+        if(!swizzled)
+        {
+            return;
+        }
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                int block_location = (y & (~0xf)) * width + (x & (~0xf)) * 2;
+                int swap_selector = (((y + 2) >> 2) & 0x1) * 4;
+                int posY = (((y & (~3)) >> 1) + (y & 1)) & 0x7;
+                int column_location = posY * width * 2 + ((x + swap_selector) & 0x7) * 4;
+
+                int byte_num = ((y >> 1) & 1) + ((x >> 2) & 2);     // 0,1,2,3
+
+                pixelList[(y * width) + x] = swizzledImage[block_location + column_location + byte_num];
+            }
+        }
+}

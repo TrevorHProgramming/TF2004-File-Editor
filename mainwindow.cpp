@@ -22,6 +22,7 @@ ProgWindow::ProgWindow(QWidget *parent)
 
     QMenu *menuVBIN = menuMain->addMenu("VBIN");
     QMenu *menuITF = menuMain->addMenu("ITF");
+    QMenu *menuSFX = menuMain->addMenu("SFX");
     QMenu *menuDatabase = menuMain -> addMenu("Database");
     QMenu *menuSettings = menuMain->addMenu("Settings");
     QAction *actionLoadVBIN = menuVBIN->addAction("Load VBIN");
@@ -29,6 +30,8 @@ ProgWindow::ProgWindow(QWidget *parent)
     QAction *actionLoadMeshVBIN = menuVBIN->addAction("Load Mesh VBIN");
     QAction *actionLoadITF = menuITF ->addAction("Load ITF");
     QAction *actionSaveITF = menuITF->addAction("Save ITF");
+    QAction *actionLoadVAC = menuSFX ->addAction("Load VAC");
+    QAction *actionSaveVAC = menuSFX->addAction("Save VAC");
     QAction *actionSaveBMP = menuITF ->addAction("Export to BMP");
     QAction *actionLoadTMD = menuDatabase ->addAction("Load TMD");
     QAction *actionLoadTDB = menuDatabase ->addAction("Load TDB");
@@ -40,10 +43,15 @@ ProgWindow::ProgWindow(QWidget *parent)
     QAction *actionSaveBDB = menuDatabase ->addAction("Save BDB");
     QAction *actionSettings = menuSettings -> addAction("Settings");
 
+    /*hiding SFX menu for this patch since this system is far from ready*/
+    //menuSFX->setVisible(false);
+
     vbinFile = new VBIN;
     vbinFile->parent = this;
     itfFile = new ITF;
     itfFile->parent = this;
+    vacFile = new VACFile;
+    vacFile->parent = this;
     //tmdFile.push_back(new TMDFile);
     //tmdFile[0]->parent = this;
     geometrySet = new GeometrySet;
@@ -62,6 +70,10 @@ ProgWindow::ProgWindow(QWidget *parent)
     DBNewValue = nullptr;
     testView = nullptr;
     testModel = nullptr;
+    LabelMode = nullptr;
+    LabelName = nullptr;
+
+    changeMode(0);
 
     connect(actionSaveSTL, &QAction::triggered, this, &ProgWindow::convertVBINToSTL);
     connect(actionLoadVBIN, &QAction::triggered, this, &ProgWindow::openVBIN);
@@ -69,6 +81,8 @@ ProgWindow::ProgWindow(QWidget *parent)
     //connect(ButtonITFtoBMP, &QPushButton::released, this, &ProgWindow::convertITFToBMP);
     connect(actionLoadITF, &QAction::triggered, this, &ProgWindow::openITF);
     connect(actionSaveITF, &QAction::triggered, this, [this] {itfFile->writeITF();});
+    connect(actionLoadVAC, &QAction::triggered, this, &ProgWindow::openVAC);
+    connect(actionSaveVAC, &QAction::triggered, this, [this] {vacFile->tempWrite();});
     connect(actionSaveBMP, &QAction::triggered, this, [this] {itfFile->writeBMP();});
     connect(actionLoadTMD, &QAction::triggered, this, [this] {openDefinition(false);});
     connect(actionLoadBMD, &QAction::triggered, this, [this] {openDefinition(true);});
@@ -90,6 +104,50 @@ ProgWindow::ProgWindow(QWidget *parent)
 ProgWindow::~ProgWindow()
 {
     delete ui;
+}
+
+void ProgWindow::changeName(QString newName){
+    if(LabelName == nullptr){
+        LabelName = new QLabel("", this);
+        LabelName->setGeometry(QRect(QPoint(50,100), QSize(150,30)));
+        LabelName->setStyleSheet("QLabel { background-color: rgb(105,140,187) }");
+        LabelName->show();
+    }
+    LabelName->setText(newName);
+}
+
+int ProgWindow::changeMode(int newMode){
+    if(LabelMode == nullptr){
+        LabelMode = new QLabel("", this);
+        LabelMode->setGeometry(QRect(QPoint(50,50), QSize(150,30)));
+        LabelMode->setStyleSheet("QLabel { background-color: rgb(105,140,187) }");
+        LabelMode->show();
+    }
+    if (newMode != mode){
+        switch(newMode){
+        case 0: mode = 0;
+            LabelMode->setText("No Mode Active");
+            break; //default mode - no file type
+        case 1: mode = 1;
+            LabelMode->setText("Texture Mode");
+            break; //ITF, Texture mode
+        case 2: mode = 2;
+            LabelMode->setText("Model Mode");
+            break; //VBIN, actor model mode
+        case 3: mode = 3;
+            LabelMode->setText("Level Mode");
+            break; //VBIN.mesh, level model mode
+        case 4: mode = 4;
+            LabelMode->setText("Database Mode");
+            break; //TMD, TDB, BMD, BDB, Database mode
+        case 5: mode = 5;
+            LabelMode->setText("Tone Mode");
+            break; //TLA, TLB, VAC, tone mode
+
+        default: return -1; //undefined type
+        }
+    }
+    return 0;
 }
 
 void ProgWindow::dropdownSelectChange(){
@@ -226,7 +284,7 @@ void ProgWindow::editDatabaseItem(QModelIndex item, int itemIndex){
         }
     }
     for(int i = 0; i < databases.size(); i++){
-        if(item.parent().parent().data().toString() == databases[0].fileName){
+        if(item.parent().parent().data().toString() == databases[i].fileName){
             newValue = databases[i].editItem(item.parent().siblingAtColumn(1).data().toInt(), itemIndex);
         }
     }
