@@ -104,10 +104,12 @@ int DefinitionFile::indexIn(QString searchName){
 int DefinitionFile::dictItemIndex(int dictIndex, QString searchName){
     //get index of the given dictItem in the given TMD dict's details
     for (int i = 0; i < classList[dictIndex].itemList.size(); i++) {
+        //qDebug() << Q_FUNC_INFO << "searching for name" << searchName << "comparing to" << classList[dictIndex].name << "'s" << classList[dictIndex].itemList[i].name;
         if (classList[dictIndex].itemList[i].name == searchName) {
             return i;
         }
     }
+    qDebug() << Q_FUNC_INFO << "item" << searchName << "not found in" << classList[dictIndex].name;
     return -1;
 }
 
@@ -437,9 +439,9 @@ void DefinitionFile::readFileDictionary(QStringList partSplit, int sectionIndex)
             //handle definition inheritence here
             typeIndexTDB = indexIn(partSplit[j].mid(1, partSplit[j].length()-1));
             classList[sectionIndex].inheritedClass = partSplit[j].mid(1, partSplit[j].length()-1);
-            //qDebug() << Q_FUNC_INFO << "inherits type " << partSplit[j].mid(1, partSplit[j].length()-1) << "at" << typeIndexTDB;
+            qDebug() << Q_FUNC_INFO << "inherits type " << partSplit[j].mid(1, partSplit[j].length()-1) << "at" << typeIndexTDB;
             for (int k = 0; k < classList[typeIndexTDB].itemList.size();k++) {
-                itemDetails = classList[typeIndexTDB].itemList[j];
+                itemDetails = classList[typeIndexTDB].itemList[k];
                 itemDetails.inherited = true;
                 itemDetails.file = this;
                 classList[sectionIndex].itemList.push_back(itemDetails);
@@ -469,6 +471,7 @@ void DefinitionFile::readInstances(QStringList partSplit, int sectionIndex, QStr
     typeIndexTMD = parent->definitions[inheritedFileIndex].indexIn(instanceName); //get index in TMD list for current instance type
     typeIndexTDB = indexIn(instanceName);
     //qDebug() << Q_FUNC_INFO << "type index tmd:" << typeIndexTMD << "type Index TDB" << typeIndexTDB << "for name" << instanceName;
+    //qDebug() << Q_FUNC_INFO << "line read" << partSplit;
     if(typeIndexTMD == -1){
         qDebug() << Q_FUNC_INFO << "Item " << instanceName << " does not exist in " << parent->definitions[inheritedFileIndex].filePath <<". Verify that the TMD and TDB are both correct.";
     }
@@ -485,6 +488,7 @@ void DefinitionFile::readInstances(QStringList partSplit, int sectionIndex, QStr
         } else if (checkDefault == "NotDefault") {
             //qDebug() << Q_FUNC_INFO << "searching tdb index" << typeIndexTDB << "named" << classList[typeIndexTDB].name << "with item list size" << classList[typeIndexTDB].itemList.size();
             itemIndexTMD = parent->definitions[inheritedFileIndex].dictItemIndex(typeIndexTMD, classList[typeIndexTDB].itemList[i-1].name);
+            //qDebug() << Q_FUNC_INFO << "item index" << itemIndexTMD << "for item" << i << classList[typeIndexTDB].itemList[i-1].name;
             itemDetails = parent->definitions[inheritedFileIndex].classList[typeIndexTMD].itemList[itemIndexTMD];
             itemDetails.isDefault = false;
             itemDetails = addItem(itemDetails, tempRead);
@@ -498,6 +502,18 @@ void DefinitionFile::readInstances(QStringList partSplit, int sectionIndex, QStr
         instanceList[sectionIndex].itemList.push_back(itemDetails);
         //classList[sectionIndex].itemList.push_back(itemDetails);
     }
+}
+
+void DatabaseFile::createItem(){
+    bool cancelled;
+    QStringList options;
+    for(int i = 0; i < classList.size(); i++){
+        options.append(classList[i].name);
+    }
+
+    QString chosenClass = QInputDialog::getItem(parent, parent->tr("Select TDB File:"), parent->tr("File Name:"), options, 0, false, &cancelled);
+    //then a dialog box for each value in that class prompting for user input
+    //give an option for "default"
 }
 
 
@@ -563,7 +579,7 @@ int DefinitionFile::readText(){
             //loop to remove blank lines, extra symbols, and leading/trailing whitespace
             for (int j = partSplit.length(); j>0; j--) {
                 partSplit[j-1] = partSplit[j-1].trimmed();
-                if (partSplit[j-1] == "" or partSplit[j-1].contains("/")) {
+                if (partSplit[j-1] == "" or partSplit[j-1].contains(" // ")) {
                     partSplit.remove(j-1);
                 }
             }
@@ -579,16 +595,17 @@ int DefinitionFile::readText(){
             }
             foundSections++;
         }
+        for(int k = 0; k < classList.size();k++){
+            //qDebug() << Q_FUNC_INFO << "Section" << k << "name: " << classList[k].name;
+            for (int m = 0; m<classList[k].itemList.size();m++){
+                //qDebug() << Q_FUNC_INFO << "index" << m << "Item name: " << classList[k].itemList[m].name << "item type: " << classList[k].itemList[m].type;
+            }
+        }
         parent->fileData.currentPosition = endSection;
         majorName = getName();
     }
 
-    for(int i = 0; i < classList.size();i++){
-        //qDebug() << Q_FUNC_INFO << "Section" << i << "name: " << classList[i].name;
-        for (int j = 0; j<classList[i].itemList.size();j++){
-            //qDebug() << Q_FUNC_INFO << "index" << j << "Item name: " << classList[i].itemList[j].name << "item type: " << classList[i].itemList[j].type << "file name" << classList[i].itemList[j].file->fileName;
-        }
-    }
+
 
     return 0;
 }
@@ -919,12 +936,18 @@ void DefinitionFile::createDBTree(){
 }
 
 void DatabaseFile::createDBTree(){
+
     if(parent->testView == nullptr){
         parent->testView = new QTreeView(parent);
     }
+    parent->testView->setSortingEnabled(false);
     if(parent->testModel == nullptr){
         parent->testModel = new QStandardItemModel;
     }
+
+    QHeaderView *headers = parent->testView->header();
+    headers->setSectionsClickable(true);
+    QObject::connect(headers, &QHeaderView::sectionClicked, [this](int logicalIndex){sortDBTree(logicalIndex);});
 
     parent->testView->setGeometry(QRect(QPoint(250,250), QSize(800,300)));
     QStandardItem *item = parent->testModel->invisibleRootItem();
@@ -958,6 +981,11 @@ void DatabaseFile::createDBTree(){
     }
 
     parent->testView->setModel(parent->testModel);
+    parent->testView->setSortingEnabled(true);
     //testView->expandAll();
     parent->testView->show();
+}
+
+void DefinitionFile::sortDBTree(int column){
+    parent->testView->sortByColumn(column, Qt::AscendingOrder);
 }

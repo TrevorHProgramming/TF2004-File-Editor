@@ -36,6 +36,7 @@
 #include "BinChanger.h"
 #include "LevelGeo.h"
 #include "Database.h"
+#include "ToneLibraries.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -56,15 +57,20 @@ public:
     BinChanger binChanger;
     VBIN* vbinFile;
     ITF* itfFile;
+    VACFile* vacFile;
     std::vector<DefinitionFile> definitions;
     std::vector<DatabaseFile> databases;
     GeometrySet* geometrySet;
     int hSize = 1200;
     int vSize = 768;
+    int mode = 0;
 
     QString fileMode;
 
     Ui::MainWindow *ui;
+
+    QLabel *LabelMode;
+    QLabel *LabelName;
 
     QPushButton *ButtonVBINtoSTL;
     QPushButton *ButtonOpenVBIN;
@@ -112,6 +118,7 @@ public:
     void createDBButtons();
     void dropdownSelectChange();
     void clearWindow();
+    void changeName(QString newName);
 
 private:
     void resizeEvent(QResizeEvent* event);
@@ -120,6 +127,7 @@ private:
     void removeDatabaseClass(QModelIndex item);
     void saveDefinitionFile(bool binary);
     void saveDatabaseFile(bool binary);
+    int changeMode(int newMode);
 
 public slots:
     void convertVBINToSTL();
@@ -127,6 +135,7 @@ public slots:
     //void convertBMPtoPNG(QString bmpPath);
     void openVBIN();
     void openITF();
+    void openVAC();
     void openDefinition(bool binary);
     void openDatabase(bool binary);
     /*void openTMD();

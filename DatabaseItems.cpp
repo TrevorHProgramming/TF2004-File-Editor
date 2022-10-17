@@ -514,9 +514,10 @@ QString DefinitionFile::displayValue(dictItem itemDetails){
 dictItem DatabaseFile::addItem(dictItem itemDetails, QString tempRead){
     QStringList readListItems;
 
-    //qDebug() << "name " << itemDetails.name << "type" << itemDetails.type << "tempread" << tempRead;
+    qDebug() << "name " << itemDetails.name << "type" << itemDetails.type << "tempread" << tempRead;
     if(multiTypes.contains(itemDetails.type)){
         if(itemDetails.type == "Enum"){
+            //qDebug() << Q_FUNC_INFO << "temp read" << tempRead << "space index" << tempRead.indexOf(" ");
             itemDetails.value = itemDetails.valueList[tempRead.mid(0, tempRead.indexOf(" ")).toInt(nullptr, 10)];
         } else if (arrayTypes.contains(itemDetails.type)){
             itemDetails.valueList.clear();

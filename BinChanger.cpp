@@ -52,6 +52,8 @@ void FileData::readFile(QString filePath){
     dataBytes.clear();
 
     QFile inputFile(filePath);
+    QFileInfo fileInfo(inputFile.fileName());
+    parent->changeName(fileInfo.fileName());
     inputFile.open(QIODevice::ReadOnly);
     dataBytes = inputFile.readAll();
     qDebug() << Q_FUNC_INFO << "file data read length:" << dataBytes.size();
@@ -237,7 +239,7 @@ std::tuple<int8_t,int8_t> BinChanger::byte_to_nib(QByteArray input){
 
     tempNib &= 240;
     std::get<1>(nibTup) = tempNib >> 4;
-    qDebug() << Q_FUNC_INFO << "input: " << input.toHex() << " tempNib: " << tempNib << " lower nib: " << std::get<0>(nibTup) << " upper nib: " << std::get<1>(nibTup);
+    //qDebug() << Q_FUNC_INFO << "input: " << input.toHex() << " tempNib: " << tempNib << " lower nib: " << std::get<0>(nibTup) << " upper nib: " << std::get<1>(nibTup);
 
     return nibTup;
 }
@@ -295,7 +297,7 @@ qint64 BinChanger::byteWrite(QFile& file, int8_t var) {
   if (written != toWrite) {
     qDebug() << "write error";
   }
-   //qDebug () << "out: " << written;
+  //qDebug () << "out: " << written;
   return written;
 }
 

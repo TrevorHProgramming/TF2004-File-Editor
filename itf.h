@@ -10,10 +10,10 @@ class ProgWindow;
 
 class Color{
 public:
-    int32_t R;
-    int32_t G;
-    int32_t B;
-    int32_t A;
+    uint32_t R;
+    uint32_t G;
+    uint32_t B;
+    uint32_t A;
 };
 
 class Palette{
@@ -38,6 +38,7 @@ public:
     int unknown4Byte3;
     int unknown4Byte4;
     int dataLength;
+    bool swizzled;
     std::vector<Palette> paletteList;
     std::vector<int> pixelList;
     std::vector<int> swizzledPixels;
@@ -51,9 +52,10 @@ public:
 
     private:
     void saveITFPalette();
-    void swizzle();
-    void swizzle3();
+    void unswizzle_8bit();
+    void unswizzle_4bit();
     void unswizzle();
+    void swizzle();
     void convertBMPtoPNG(QString bmpPath);
 };
 
