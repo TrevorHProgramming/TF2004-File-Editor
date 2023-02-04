@@ -1,6 +1,6 @@
 # TF2004-File-Editor
 
-Current version: 0.4
+Current version: 0.5
 
 An editor for the various proprietary file formats used in Transformers (2004) (PS2). 
 
