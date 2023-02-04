@@ -4,7 +4,6 @@
 //https://ps2linux.no-ip.info/playstation2-linux.com/docs/howto/display_docef7c.html?docid=75
 
 void ITF::readData(){
-    //TODO: add capability to change which palette is displayed.
 
     swizzled = true; //if loading an ITF, the data will be swizzled
 
@@ -17,13 +16,7 @@ void ITF::readData(){
     long contentLength = 0;
     int colorCount = 0;
     std::tuple <int8_t, int8_t> nibTup;
-    parent->fileData.dataBytes.clear();
-    QFile inputFile(this->filePath);
-    inputFile.open(QIODevice::ReadOnly);
-    parent->fileData.dataBytes = inputFile.readAll();
     fileLength = parent->fileData.readInt(4, 4);
-    inputFile.close();
-    //qDebug() << Q_FUNC_INFO << fileLength;
 
     /*Load header data*/
     parent->fileData.currentPosition = 15;
@@ -46,7 +39,6 @@ void ITF::readData(){
     }
 
     paletteList.resize(paletteCount);
-    parent->createDropdown(paletteCount);
     if (propertyByte & 1){
         colorCount = 256;
     } else {
@@ -270,7 +262,7 @@ void ITF::writeBMP(){
 
     /*Swizzling currently commented out to make sure the rest works right in the first place.*/
     if(swizzled){
-        unswizzle_4bit2();
+        unswizzle_4bit();
     }
 
     int dataOffset = 0; //this will be where the pixel data starts in the BMP

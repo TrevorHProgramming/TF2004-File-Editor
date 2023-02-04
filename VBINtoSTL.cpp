@@ -1,11 +1,12 @@
 #include "mainwindow.h"
 
-/*THE PLAN
-The original code looped through the file to find all position arrays and the associated LODinfo sections. Now that we know that SceneNodes are
-more important, this will instead loop through and look for those. The issue with this is that a scene node can contain 0 positionarrays
-but have a child scenenode, so we have to check for that. Organize these scene nodes and preserve the parent-child structure, since the offsets
-for each scenenode will be applied to the points in the positionarrays.
+/*
+The overall plan with VBIN files is to read through them section by section. The previous code looked for specific sections (positionarrays and indexarrays)
+and used those to build the mesh, but this is a cheap shortcut that prevented progress for quite some time.
+Reading the file in order, as you do with files, means it'll be easier to track down how mesh and node offsets are handled.
 */
+
+
 
 void SceneNode::clear(){
     fileLocation = 0;
@@ -14,7 +15,8 @@ void SceneNode::clear(){
     sectionTypes.clear();
     sectionList.clear();
     name = "";
-    trueLength = 0;
+    sectionLength = 0;
+    sectionEnd = 0;
 
     return;
 }
@@ -38,36 +40,35 @@ void BoundingVolume::populateData(){
     qDebug() << Q_FUNC_INFO << "location" << fileLocation << "radius" << radius << "hasvolume" << hasVolume << "type" << type;
 }
 
-void VBIN::readData(){
+int VBIN::readData(){
 
     //gets all scene nodes in the file, populates their PositionArrays and IndexArrays, and gets modifications
     currentLocation = 0;
     base.file = this;
-    base.getSceneNodeTree(0, parent->fileData.dataBytes.length(), 0);
-
-    qDebug() << Q_FUNC_INFO << "section list length" << base.sectionList.size() << "typelist length" << base.sectionTypes.size();
-
-
-    Modifications baseMods;
-    baseMods.clear();
-    base.mods = baseMods;
-    std::vector<Modifications> baseModList;
-    baseModList.push_back(baseMods);
-
-    qDebug() << Q_FUNC_INFO << "base mod values" << baseMods.offset << baseMods.rotation << baseMods.scale;
-
-    for(int i = 0; i < base.sectionList.size(); i++){
-        qDebug() << Q_FUNC_INFO << "item" << i << "list type" << base.sectionTypes[i];
-        if(base.sectionTypes[i] == "Mesh"){
-            qDebug() << Q_FUNC_INFO << "layer 0," << i <<"is" << std::get<Mesh>(base.sectionList[i]).name << "with rotation" << std::get<Mesh>(base.sectionList[i]).mods.rotation << "and scale" << std::get<Mesh>(base.sectionList[i]).mods.scale;
-            std::get<Mesh>(base.sectionList[i]).printInfo(1);
-        } else {
-            qDebug() << Q_FUNC_INFO << "layer 0," << i <<"is" << std::get<SceneNode>(base.sectionList[i]).name << "with rotation" << std::get<SceneNode>(base.sectionList[i]).mods.rotation << "and scale" << std::get<SceneNode>(base.sectionList[i]).mods.scale;
-            std::get<SceneNode>(base.sectionList[i]).printInfo(1);
-        }
+    //base.getSceneNodeTree(0, parent->fileData.dataBytes.length(), 0);
+    if(getSceneNodeTree()){
+        qDebug() << Q_FUNC_INFO << "Error while reading scene node tree";
+        return 1;
     }
+    //qDebug() << Q_FUNC_INFO << "section list size" << base.sectionList.size() << "mesh list size" << base.meshList.size();
+    //base.printInfo(0);
 
-    base.modifyPosArrays(baseModList);
+    //qDebug() << Q_FUNC_INFO << "section list length" << base.sectionList.size() << "typelist length" << base.sectionTypes.size();
+
+//    Modifications baseMods;
+//    baseMods.clear();
+//    base.mods = baseMods;
+//    std::vector<Modifications> baseModList;
+//    baseModList.push_back(baseMods);
+
+    //qDebug() << Q_FUNC_INFO << "base mod values" << baseMods.offset << baseMods.rotation << baseMods.scale;
+
+//    for(int i = 0; i < base.sectionList.size(); i++){
+//        qDebug() << Q_FUNC_INFO << "layer 0," << i <<"is" << base.sectionList[i]->name << "with rotation" << base.sectionList[i]->mods.rotation << "and scale" << base.sectionList[i]->mods.scale;
+//        base.sectionList[i]->printInfo(1);
+//    }
+
+    //base.modifyPosArrays(baseModList);
 
 
     qDebug() << Q_FUNC_INFO << "Successfully loaded the scene node tree.";
@@ -81,27 +82,27 @@ void VBIN::readData(){
 
     //qDebug() << Q_FUNC_INFO << "Position arrays modified.";
 
-    return;
+    return 0;
 }
 
 void FileSection::printInfo(int depth){
+    //qDebug() << Q_FUNC_INFO << name << "section list size" << sectionList.size() << "mesh list size" << meshList.size();
+    //qDebug() << Q_FUNC_INFO << "file name" << file->fileName;
+    if(depth > 0){
+        //qDebug() << Q_FUNC_INFO << "depth" << depth << "section name" << name << "with parent" << parent->name;
+    }
     for(int i = 0; i < sectionList.size(); i++){
-        if(sectionTypes[i] == "Mesh"){
-            qDebug() << Q_FUNC_INFO << "layer" << depth << ","<< i <<"is" << std::get<Mesh>(sectionList[i]).name << "with rotation" << std::get<Mesh>(sectionList[i]).mods.rotation << "and scale" << std::get<Mesh>(sectionList[i]).mods.scale;
-            if(std::get<Mesh>(sectionList[i]).sectionList.size() > 0){
-                std::get<Mesh>(sectionList[i]).printInfo(depth+1);
-            }
-        } else {
-            qDebug() << Q_FUNC_INFO << "layer" << depth << ","<< i <<"is" << std::get<SceneNode>(sectionList[i]).name << "with rotation" << std::get<SceneNode>(sectionList[i]).mods.rotation << "and scale" << std::get<SceneNode>(sectionList[i]).mods.scale;
-            if(std::get<SceneNode>(sectionList[i]).sectionList.size() > 0){
-                std::get<SceneNode>(sectionList[i]).printInfo(depth+1);
-            }
-        }
+        sectionList[i]->printInfo(depth+1);
+    }
+    for(int i = 0; i < meshList.size(); i++){
+        meshList[i]->printInfo(depth+1);
     }
 }
 
 void FileSection::modifyPosArrays(std::vector<Modifications> addedMods){
     QMatrix3x3 rotMatrix;
+    Mesh modifyMesh;
+    SceneNode modifyNode;
     //QMatrix4x4 rotMatrix4;
     //QVector4D expandVector;
     //stackedMods.rotation = mods.rotation * addedMods.rotation;
@@ -111,32 +112,33 @@ void FileSection::modifyPosArrays(std::vector<Modifications> addedMods){
 
     for(int i = 0; i < sectionList.size(); i++){
         if(sectionTypes[i] == "Mesh"){
-            if(std::get<Mesh>(sectionList[i]).sectionList.size() > 0){
-                std::get<Mesh>(sectionList[i]).modifyPosArrays(addedMods);
-            }
-            for (int j = 0; j < std::get<Mesh>(sectionList[i]).posArray.vertexCount; ++j) {
-                for(int k = 0; k < addedMods.size(); k++){
-                    //rotMatrix = std::get<Mesh>(sectionList[i]).mods.rotation.toRotationMatrix();
-                    //expandVector = QVector4D(std::get<Mesh>(sectionList[i]).posArray.positionList[i]);
-                    //rotMatrix4 = QMatrix4x4(rotMatrix);
+            sectionList[i]->modify(addedMods);
+//            if(sectionList[i].sectionList.size() > 0){
+//                sectionList[i].modifyPosArrays(addedMods);
+//            }
+//            for (int j = 0; j < sectionList[i].posArray.vertexCount; ++j) {
+//                for(int k = 0; k < addedMods.size(); k++){
+//                    //rotMatrix = std::get<Mesh>(sectionList[i]).mods.rotation.toRotationMatrix();
+//                    //expandVector = QVector4D(std::get<Mesh>(sectionList[i]).posArray.positionList[i]);
+//                    //rotMatrix4 = QMatrix4x4(rotMatrix);
 
-                    std::get<Mesh>(sectionList[i]).posArray.positionList[j] = std::get<Mesh>(sectionList[i]).posArray.positionList[j] * addedMods[k].scale;
-                    std::get<Mesh>(sectionList[i]).posArray.positionList[j] = std::get<Mesh>(sectionList[i]).posArray.positionList[j] + addedMods[k].offset;
-                    //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = file->parent->binChanger.forcedRotate(rotMatrix, addedMods[k].offset, std::get<Mesh>(sectionList[i]).posArray.positionList[j]);
-                    //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = QVector3D(expandVector*rotMatrix4);
-                    //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = mods.rotation.rotatedVector(std::get<Mesh>(sectionList[i]).posArray.positionList[j]);
-                    //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = addedMods[k].rotation * std::get<Mesh>(sectionList[i]).posArray.positionList[j];
-                    //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = mods.rotation * std::get<Mesh>(sectionList[i]).posArray.positionList[j];
-                }
-                std::get<Mesh>(sectionList[i]).posArray.positionList[j] = std::get<Mesh>(sectionList[i]).posArray.positionList[j] * std::get<Mesh>(sectionList[i]).mods.scale;
-                std::get<Mesh>(sectionList[i]).posArray.positionList[j] = std::get<Mesh>(sectionList[i]).posArray.positionList[j] + std::get<Mesh>(sectionList[i]).mods.offset;
-                //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = std::get<Mesh>(sectionList[i]).mods.rotation * std::get<Mesh>(sectionList[i]).posArray.positionList[j];
-                //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = std::get<Mesh>(sectionList[i]).mods.rotation.rotatedVector(std::get<Mesh>(sectionList[i]).posArray.positionList[j]);
-            }
+//                    sectionList[i].posArray.positionList[j] = sectionList[i].posArray.positionList[j] * addedMods[k].scale;
+//                    sectionList[i].posArray.positionList[j] = sectionList[i].posArray.positionList[j] + addedMods[k].offset;
+//                    //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = file->parent->binChanger.forcedRotate(rotMatrix, addedMods[k].offset, std::get<Mesh>(sectionList[i]).posArray.positionList[j]);
+//                    //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = QVector3D(expandVector*rotMatrix4);
+//                    //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = mods.rotation.rotatedVector(std::get<Mesh>(sectionList[i]).posArray.positionList[j]);
+//                    //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = addedMods[k].rotation * std::get<Mesh>(sectionList[i]).posArray.positionList[j];
+//                    //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = mods.rotation * std::get<Mesh>(sectionList[i]).posArray.positionList[j];
+//                }
+//                sectionList[i].posArray.positionList[j] = sectionList[i].posArray.positionList[j] * sectionList[i].mods.scale;
+//                sectionList[i].posArray.positionList[j] = sectionList[i].posArray.positionList[j] + sectionList[i].mods.offset;
+//                //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = std::get<Mesh>(sectionList[i]).mods.rotation * std::get<Mesh>(sectionList[i]).posArray.positionList[j];
+//                //std::get<Mesh>(sectionList[i]).posArray.positionList[j] = std::get<Mesh>(sectionList[i]).mods.rotation.rotatedVector(std::get<Mesh>(sectionList[i]).posArray.positionList[j]);
+//            }
 
         } else {
-            if(std::get<SceneNode>(sectionList[i]).sectionList.size() > 0){
-                std::get<SceneNode>(sectionList[i]).modifyPosArrays(addedMods);
+            if(sectionList[i]->sectionList.size() > 0){
+                sectionList[i]->modifyPosArrays(addedMods);
             }
         }
     }
@@ -161,255 +163,240 @@ const void FileSection::operator=(FileSection input){
     sectionList = input.sectionList;
     sectionTypes = input.sectionTypes;
     name = input.name;
-    trueLength = input.trueLength;
+    sectionLength = input.sectionLength;
 }
 
-void FileSection::getModifications(){
-    //initialize and set default values
-    mods.offset = QVector3D();
-    mods.rotation = QQuaternion();
-    mods.scale = 1;
-    //qDebug() << Q_FUNC_INFO << file->parent->fileData;
 
-    file->parent->fileData.currentPosition = fileLocation + 12; //reads after 12 bytes, length of "~SceneNode" + 2
-    int lengthOfName = file->parent->fileData.readUInt();
-    name = file->parent->fileData.readHex(lengthOfName);
-    mods.modByte = file->parent->fileData.readUInt(1);
-    file->parent->fileData.currentPosition += 7;
-    qDebug() << Q_FUNC_INFO << "Reading at: " << file->parent->fileData.currentPosition << " node: " << name << " with modifications: " << mods.modByte;
-    if (!(mods.modByte & 1)) {
-        //not default position, read 3 sets of 4 bytes, convert to float, and make vector
-        float x_offset = file->parent->fileData.readFloat();
-        float y_offset = file->parent->fileData.readFloat();
-        float z_offset = file->parent->fileData.readFloat();
-        mods.offset = QVector3D(x_offset, y_offset, z_offset);
-        //qDebug() << Q_FUNC_INFO << this->offset;
+void VBIN::readAnimationPrototype(){
+    QString signature;
+    int subSectionLength = 0;
+    float unknownFloat1 = parent->fileData.readFloat();
+    int unknown4Byte4 = parent->fileData.readInt();
+    int unknown4Byte5 = parent->fileData.readInt();
+
+    signature = parent->fileData.getSignature();
+    if(signature == "~NeutralData"){
+        subSectionLength = parent->fileData.readInt();
+        parent->fileData.currentPosition += subSectionLength-4;
     }
-    if (!(mods.modByte & 2)) {
-        //not default rotation, read 4 sets of 4 bytes, convert to float, and make quaternion
-        //these could be in the wrong order, we'll see
-        float x_rotation = file->parent->fileData.readFloat();
-        float y_rotation = file->parent->fileData.readFloat();
-        float z_rotation = file->parent->fileData.readFloat();
-        float scalar = file->parent->fileData.readFloat();
-        mods.rotation = QQuaternion(scalar, x_rotation, y_rotation, z_rotation).normalized();
-        //mods.rotation = QQuaternion(scalar, scalar, scalar, scalar).normalized();
+}
+
+void VBIN::readBoundingVolume(){
+    QString signature;
+    int subSectionLength = 0;
+    subSectionLength = parent->fileData.readInt();
+    //qDebug() << Q_FUNC_INFO << "bounding 1 section length read as" << subSectionLength << "at " << file->parent->fileData.currentPosition - 4;
+    parent->fileData.currentPosition += subSectionLength-4;
+
+    signature = parent->fileData.getSignature();
+    //this is such a bad way to do this but w/e
+    if(signature == "~BoundingVolume"){
+        subSectionLength = parent->fileData.readInt();
+        //qDebug() << Q_FUNC_INFO << "bounding 2 section length read as" << subSectionLength << "at " << file->parent->fileData.currentPosition - 4;
+        parent->fileData.currentPosition += subSectionLength-4;
     }
-    if (!(mods.modByte & 4)) {
-        //not default scale, read set of 4 bytes, convert to float
-        mods.scale = file->parent->fileData.readFloat();
-        if (mods.scale < 0.0001){ //turbohack
-            mods.scale = 1;
+}
+
+void VBIN::readModifications(){
+    int offsets = 0;
+    //offset properties
+    offsets = parent->fileData.readInt(1);
+    if (!(offsets & 1)) {
+        //position offset
+        parent->fileData.currentPosition += 12;
+    }
+    if (!(offsets & 2)) {
+        //rotation offset
+        parent->fileData.currentPosition += 16;
+    }
+    if (!(offsets & 4)) {
+        //scale offset
+        parent->fileData.currentPosition += 4;
+    }
+}
+
+void FileSection::readNode(){
+
+}
+
+int VBIN::getSceneNodeTree(){
+    parent->fileData.currentPosition = 4; //moving past FISH
+    //not a huge fan of while(1)'s but I'll put a loopbreaker in just to be safe
+    int loopBreaker = 0;
+    QString signature;
+    int sectionNameLength = 0;
+    QString sectionName;
+    int sectionLength = 0;
+    int unknown4Byte1 = 0;
+    int unknown4Byte2 = 0;
+    int unknown4Byte3 = 0;
+    FileSection* currentBranch;
+    FileSection* possibleBranch;
+
+    signature = parent->fileData.getSignature();
+
+    sectionNameLength = parent->fileData.readInt();
+    sectionName = parent->fileData.readHex(sectionNameLength);
+    //qDebug() << Q_FUNC_INFO << "name length " << sectionNameLength << " read as " << sectionName;
+
+    sectionLength = parent->fileData.readInt();
+    base.sectionLength = sectionLength;
+    base.sectionEnd = parent->fileData.currentPosition -4 + sectionLength;
+    qDebug() << Q_FUNC_INFO << "end of tree excpeted at" << base.sectionEnd;
+    base.fileLocation = 0;
+    currentBranch = &base;
+
+    while(1){
+        if(signature == "~anAnimationSourceSet"){
+            qDebug() << Q_FUNC_INFO << "End of tree located - leaving at Animation Data";
+            break;
         }
-    }
 
-    qDebug() << Q_FUNC_INFO << "Getting modifications for " << name << " rotation: " << mods.rotation  << " scale: " << mods.scale << "offset" << mods.offset;
-    //qDebug() << Q_FUNC_INFO << "Getting modifications for " << name << "scale: " << mods.scale;
-    //qDebug() << Q_FUNC_INFO << "Offset: " << mods.offset;
-    //qDebug() << Q_FUNC_INFO << "Rotation: " << mods.rotation;
+        if(signature == "~Mesh"){
+            Mesh *meshSection = new Mesh();
+            meshSection->file = this; //file will need to be reassigned later as the current VBIN object is temporary
+            meshSection->parent = currentBranch;
+            meshSection->fileLocation = parent->fileData.currentPosition-4;
+            meshSection->sectionLength = sectionLength;
+            meshSection->sectionEnd = meshSection->fileLocation + sectionLength;
+            meshSection->name = sectionName;
 
-    return;
-}
-
-void SceneNode::readData(long sceneLocation){
-    long nameLength = 0;
-    QByteArrayMatcher searchFile;
-
-    file->parent->fileData.currentPosition = sceneLocation + file->sectionNames[0].length()+2;
-    nameLength = file->parent->fileData.readInt();
-    name = file->parent->fileData.readHex(nameLength);
-    trueLength = file->parent->fileData.currentPosition + file->parent->fileData.readLong();
-    //qDebug() << Q_FUNC_INFO << "scene node" << sceneNode.name << "found at" << sceneLocation + fileSections[0].length()+6 << " with length " << sceneNode.trueLength << "and ending at " << sceneNode.fileLocation + sceneNode.trueLength;
-    getModifications();
-    searchFile.setPattern(file->sectionNames[3].toUtf8());
-    boundVol.fileLocation = searchFile.indexIn(file->parent->fileData.dataBytes, fileLocation);
-    boundVol.file = file;
-    qDebug() << Q_FUNC_INFO << "getting bounding volume for" << name;
-    boundVol.populateData();
-}
-
-
-
-void FileSection::getSceneNodeTree(long searchStart, long searchEnd, int depth){
-    SceneNode sceneNode;
-    Mesh mesh;
-    QByteArrayMatcher searchFile;
-    long sceneLocation = 0;
-    //long positionLocation = 0;
-    long meshLocation = 0;
-    //long lodLocation = 0;
-    //long boundingLocation = 0;
-    //long lengthLocation = 0;
-    //float x_position = 0;
-    //float y_position = 0;
-    //float z_position = 0;
-    //int nameLength = 0;
-    std::vector<long> locationList;
-
-    //qDebug() << Q_FUNC_INFO << depth << "starting search for item" << name << "with search start" << searchStart << "and current location" << searchEnd;
-
-    while(file->currentLocation < searchEnd and file->currentLocation != -1){
-        searchFile.setPattern(file->sectionNames[0].toUtf8());
-        sceneLocation = searchFile.indexIn(file->parent->fileData.dataBytes, searchStart);
-        searchFile.setPattern(file->meshStr);
-        meshLocation = searchFile.indexIn(file->parent->fileData.dataBytes, searchStart);
-        //qDebug()<<Q_FUNC_INFO << "from" << searchStart << "mesh location" << meshLocation << "scene location" << sceneLocation;
-        if((sceneLocation < meshLocation or meshLocation == -1) and sceneLocation != -1){
-            //found a scenenode before a mesh, so read the scene node and determine what to do from there
-            file->currentLocation = sceneLocation;
-            sceneNode.clear();
-            sceneNode.file = file;
-            sceneNode.fileLocation = sceneLocation;
-
-            sceneNode.readData(sceneLocation);
-
-            file->currentLocation = sceneNode.boundVol.fileLocation + (file->sectionNames[3].length()*2) + 58 + 4;
-            //qDebug() << Q_FUNC_INFO << depth << "node" << sceneNode.name << "current location" << file->currentLocation << " OR " << file->parent->fileData.currentPosition <<  "with original length" << searchEnd << "and new length" << sceneNode.trueLength;
-            if(file->currentLocation < sceneNode.trueLength){
-                depth++;
-                sceneNode.getSceneNodeTree(file->currentLocation, sceneNode.trueLength, depth);
-                searchStart = file->currentLocation;
-            } else {
-                searchStart = file->currentLocation;
+            if (sectionName == "CollisionMesh") {
+                parent->messageError("It looks like you're trying to read a Collision Mesh. "
+                                     "These models have weird stuff going on and are not currently compatible with this program.");
+                return 1;
             }
-            sectionTypes.push_back("node");
-            sectionList.push_back(sceneNode);
-        } else if ((meshLocation < sceneLocation or sceneLocation == -1) and meshLocation != -1) {
-            //qDebug() << Q_FUNC_INFO << "READING MESH";
-            file->currentLocation = meshLocation;
-            mesh.clear();
-            mesh.file = file;
-            mesh.fileLocation = meshLocation;
-            mesh.readData(meshLocation);
 
-            //qDebug() << Q_FUNC_INFO << "mesh name" << mesh.name << "at location" << mesh.fileLocation << "and bounding" << mesh.boundVol.fileLocation;
-            file->currentLocation = mesh.boundVol.fileLocation + (file->sectionNames[3].length()*2) + 58 + 4;
-            //qDebug() << Q_FUNC_INFO << depth << "mesh" << mesh.name << "current location" << file->currentLocation << "with original length" << searchEnd << "and new length" << mesh.trueLength;
-            if(file->currentLocation < mesh.trueLength){
-                depth++;
-                mesh.getSceneNodeTree(file->currentLocation, mesh.trueLength, depth);
-                searchStart = file->currentLocation;
-            } else {
-                searchStart = file->currentLocation;
+            if(meshSection->readMesh()){
+                qDebug() << "Error while reading mesh";
+                return 1;
             }
-            sectionTypes.push_back("Mesh");
-            sectionList.push_back(mesh);
-        } else {
-            file->currentLocation = searchEnd + 1;
+
+            currentBranch->meshList.push_back(meshSection);
+            possibleBranch = meshSection;
+            //qDebug() << Q_FUNC_INFO << "name " << meshSection->name << "with parent" << meshSection->parent->name;
         }
+
+        if(signature == "~SceneNode"){
+            SceneNode *sceneSection = new SceneNode();
+            sceneSection->file = this;
+            sceneSection->parent = currentBranch;
+            sceneSection->fileLocation = parent->fileData.currentPosition-4;
+            sceneSection->sectionLength = sectionLength;
+            sceneSection->sectionEnd = sceneSection->fileLocation + sectionLength;
+            sceneSection->name = sectionName;
+            currentBranch->sectionList.push_back(sceneSection);
+            possibleBranch = sceneSection;
+            //qDebug() << Q_FUNC_INFO << "name " << sceneSection->name << "with parent" << sceneSection->parent->name;
+        }
+
+        if(signature == "~anAnimationPrototype"){
+            readAnimationPrototype();
+        }
+
+        unknown4Byte1 = parent->fileData.readInt(); //looks like this value is always 4? I haven't found an exception to this
+            //unfortunately means it's really hard to figure out what this is for.
+        qDebug() << Q_FUNC_INFO << "section name" << sectionName << "with unknown value" << unknown4Byte1;
+
+        readModifications();
+
+        unknown4Byte2 = parent->fileData.readInt();
+        parent->fileData.currentPosition += 8;
+        unknown4Byte3 = parent->fileData.readInt(); //this should take us to the end
+
+        signature = parent->fileData.getSignature();
+
+        if(signature == "~BoundingVolume"){
+            readBoundingVolume();
+        }
+        qDebug() << Q_FUNC_INFO << "Expected end of section at location: " << parent->fileData.currentPosition;
+
+        loopBreaker++;
+        if (loopBreaker > 100 or parent->fileData.currentPosition > base.sectionEnd){
+            parent->messageError("Excessive looping detected or node tree exceeded for file " + fileName);
+            qDebug() << Q_FUNC_INFO << "Excessive looping detected or node tree exceeded.";
+            return 1;
+        }
+
+        if (parent->fileData.currentPosition == base.sectionEnd){
+            qDebug() << Q_FUNC_INFO << "File does not have animation data. Exiting now.";
+            return 0;
+        }
+
+        //Checks if we've reached the end of a branch in the scene node tree. If we're at the root of the tree, there's nowhere to go.
+        if(currentBranch->sectionEnd == parent->fileData.currentPosition && currentBranch->fileLocation !=0){
+            while(currentBranch->sectionEnd == currentBranch->parent->sectionEnd){
+                currentBranch = currentBranch->parent;
+                //qDebug() << Q_FUNC_INFO << "Branch completed, moving back up a layer";
+            }
+            currentBranch = currentBranch->parent;
+        } else if (possibleBranch->sectionEnd != parent->fileData.currentPosition) {
+            currentBranch = possibleBranch;
+        }
+
+        signature = parent->fileData.getSignature();
+
+        sectionNameLength = parent->fileData.readInt();
+        sectionName = parent->fileData.readHex(sectionNameLength);
+        //qDebug() << Q_FUNC_INFO << "name length " << sectionNameLength << " read as " << sectionName;
+
+        sectionLength = parent->fileData.readInt();
     }
-    return;
+
+    return 0; //read successfully
 }
-
-
 
 void ProgWindow::convertVBINToSTL(){
+    if(vbinFiles.empty()){
+        messageError("No VBIN files currently loaded to export.");
+        return;
+    }
 
-    this->vbinFile->writeData();
+    vbinFiles[ListFiles->currentIndex()].outputData();
 
     return;
 }
 
-void FileSection::writeData(QTextStream &fileOut){
-    std::vector<int> chosenLOD;
-    int index[3];
-    QVector3D tempVec;
-    Mesh tempMesh;
-
-    for (int i = 0; i < int(sectionList.size()); i++) {
+void FileSection::writeSectionList(QTextStream &fileOut){
+    //for writing to a single file
+    for (int i = 0; i < int(meshList.size()); i++) {
         //qDebug() << Q_FUNC_INFO << "section" << i << "is type:" << sectionTypes[i];
-        if(sectionTypes[i] == "Mesh"){
-            tempMesh = std::get<Mesh>(sectionList[i]);
-            chosenLOD = tempMesh.lodInfo.targetIndecies[file->parent->ListLevels->currentText().toInt(nullptr, 10)-1];
-            //qDebug() << Q_FUNC_INFO << "chosen LOD: " << chosenLOD << " for mesh " << name;
-            //if(allowedMeshes.indexOf(tempMesh.name) >= 0){
-            if(true){
-                for (int n = chosenLOD[0]; n <= chosenLOD[1]; n++){
-                    for (int k = 0; k < int(tempMesh.posArray.indexArrays[n].triangleStrips.size());k++){
-                        for (int m = 0; m < int(tempMesh.posArray.indexArrays[n].triangleStrips[k].stripIndecies.size()-2); m++){
-                            index[0] = tempMesh.posArray.indexArrays[n].triangleStrips[k].stripIndecies[m];
-                            index[1] = tempMesh.posArray.indexArrays[n].triangleStrips[k].stripIndecies[m+1];
-                            index[2] = tempMesh.posArray.indexArrays[n].triangleStrips[k].stripIndecies[m+2];
-                            //qDebug() << Q_FUNC_INFO << "index set: " << index[0] << ", " << index[1] << ", " << index[2];
-                            if (index[0] != index[1] and index[1] != index[2] and index[n] != index[2]) {
-                                fileOut << "  facet normal 0 0 0" << Qt::endl;
-                                fileOut << "    outer loop" << Qt::endl;
-                                for (int n = 0; n < 3; ++n) {
-                                    fileOut << "      vertex ";
-                                    tempVec = tempMesh.posArray.positionList[index[n]]; //just for readability for the next line
-                                    fileOut << QString::number(tempVec.x(), 'f', 3) << " " << QString::number(tempVec.y(), 'f', 3) << " " << QString::number(tempVec.z(), 'f', 3) << Qt::endl;
-                                }
-                                fileOut << "    endloop" << Qt::endl;
-                                fileOut << "  endfacet" << Qt::endl;
-                            }
-                        }
-                    }
-                }
-            }
-            std::get<Mesh>(sectionList[i]).writeData(fileOut);
-        } else {
-            std::get<SceneNode>(sectionList[i]).writeData(fileOut);
-        }
+        meshList[i]->file = file;
+        meshList[i]->writeData(fileOut);
+        meshList[i]->writeSectionList(fileOut);
+    }
+    for(int i = 0; i < int(sectionList.size()); i++){
+        sectionList[i]->file = file;
+        sectionList[i]->writeSectionList(fileOut);
     }
 }
 
-void FileSection::writeData(QString path){
-    std::vector<int> chosenLOD;
-    int index[3];
-    QVector3D tempVec;
-    Mesh tempMesh;
-    QFile stlOut(path);
-    QFile fileOut(path);
+void FileSection::writeSectionList(QString path){
+    //for writing to multiple files
 
-    for (int i = 0; i < int(sectionList.size()); i++) {
-        //() << Q_FUNC_INFO << "section" << i << "is type:" << sectionTypes[i];
-        if(sectionTypes[i] == "Mesh"){
-            tempMesh = std::get<Mesh>(sectionList[i]);
-            //qDebug() << Q_FUNC_INFO << "mesh name is" << tempMesh.name;
+    for (int i = 0; i < int(meshList.size()); i++) {
+        QString multiFileOut = path + "/" + meshList[i]->name + ".stl";
+        QFile stlOut(multiFileOut);
+        QFile fileOut(multiFileOut);
+        fileOut.open(QFile::WriteOnly|QFile::Truncate);
+        fileOut.close();
 
-            QString multiFileOut = path + "/" + tempMesh.name + ".stl";
-            stlOut.setFileName(multiFileOut);
-            fileOut.setFileName(multiFileOut);
-            fileOut.open(QFile::WriteOnly|QFile::Truncate);
-            fileOut.close();
-
-            if (stlOut.open(QIODevice::ReadWrite)){
-                QTextStream stream(&stlOut);
-                stream << "solid Default" << Qt::endl;
-                chosenLOD = tempMesh.lodInfo.targetIndecies[file->parent->ListLevels->currentText().toInt(nullptr, 10)-1];
-                //qDebug() << Q_FUNC_INFO << "chosen LOD: " << chosenLOD << " for mesh " << name;
-                for (int n = chosenLOD[0]; n <= chosenLOD[1]; n++){
-                    for (int k = 0; k < int(tempMesh.posArray.indexArrays[n].triangleStrips.size());k++){
-                        for (int m = 0; m < int(tempMesh.posArray.indexArrays[n].triangleStrips[k].stripIndecies.size()-2); m++){
-                            index[0] = tempMesh.posArray.indexArrays[n].triangleStrips[k].stripIndecies[m];
-                            index[1] = tempMesh.posArray.indexArrays[n].triangleStrips[k].stripIndecies[m+1];
-                            index[2] = tempMesh.posArray.indexArrays[n].triangleStrips[k].stripIndecies[m+2];
-                            //qDebug() << Q_FUNC_INFO << "index set: " << index[0] << ", " << index[1] << ", " << index[2];
-                            if (index[0] != index[1] and index[1] != index[2] and index[n] != index[2]) {
-                                stream << "  facet normal 0 0 0" << Qt::endl;
-                                stream << "    outer loop" << Qt::endl;
-                                for (int n = 0; n < 3; ++n) {
-                                    stream << "      vertex ";
-                                    tempVec = tempMesh.posArray.positionList[index[n]]; //just for readability for the next line
-                                    stream << QString::number(tempVec.x(), 'f', 3) << " " << QString::number(tempVec.y(), 'f', 3) << " " << QString::number(tempVec.z(), 'f', 3) << Qt::endl;
-                                }
-                                stream << "    endloop" << Qt::endl;
-                                stream << "  endfacet" << Qt::endl;
-                            }
-                        }
-                    }
-                }
-                stream << "endsolid Default" << Qt::endl;
-                stlOut.close();
-                std::get<Mesh>(sectionList[i]).writeData(path);
-            }
-        } else {
-            std::get<SceneNode>(sectionList[i]).writeData(path);
+        if (!stlOut.open(QIODevice::ReadWrite)){
+            continue;
         }
+        QTextStream stream(&stlOut);
+
+        meshList[i]->file = file;
+        meshList[i]->writeData(stream);
+        meshList[i]->writeSectionList(path);
+    }
+    for(int i = 0; i < int(sectionList.size()); i++){
+        sectionList[i]->file = file;
+        sectionList[i]->writeSectionList(path);
     }
 }
 
-void VBIN::writeData(){
+void VBIN::outputData(){
 
     std::vector<int> allowedMeshes = {1,2,3};
     std::vector<int> chosenLOD;
@@ -421,35 +408,37 @@ void VBIN::writeData(){
         file.open(QFile::WriteOnly|QFile::Truncate);
         file.close();
 
-        //qDebug() << Q_FUNC_INFO << Q_FUNC_INFO << "node list size (write data): " << int(this->nodeList.size());
-        if (stlOut.open(QIODevice::ReadWrite)){
-            QTextStream stream(&stlOut);
-            stream << "solid Default" << Qt::endl;
-            //qDebug() << Q_FUNC_INFO << "sections:" << base.sectionList.size();
-            for (int i = 0; i < int(base.sectionList.size()); i++) {
-                //qDebug() << Q_FUNC_INFO << "section" << i << "is type:" << base.sectionTypes[i];
-                if(base.sectionTypes[i] == "Mesh"){
-                    std::get<Mesh>(base.sectionList[i]).writeData(stream);
-                } else {
-                    std::get<SceneNode>(base.sectionList[i]).writeData(stream);
-                }
-            }
-            stream << "endsolid Default" << Qt::endl;
+        if(!stlOut.open(QIODevice::ReadWrite)){
+            return;
         }
+        QTextStream stream(&stlOut);
+        stream << "solid Default" << Qt::endl;
+        qDebug() << Q_FUNC_INFO << "sections:" << base.sectionList.size();
+        qDebug() << Q_FUNC_INFO << "meshes:" << base.meshList.size();
+        for (int i = 0; i < int(base.sectionList.size()); i++) {
+            base.sectionList[i]->file = this;
+            qDebug() << Q_FUNC_INFO << "writing mesh" << i << "named" << base.sectionList[i]->name << "with file" << base.sectionList[i]->file->fileName;
+            base.sectionList[i]->writeSectionList(stream);
+        }
+        stream << "endsolid Default" << Qt::endl;
     } else {
-        //qDebug() << Q_FUNC_INFO << "CAN'T DO THAT RIGHT NOW. FIX ME.";
         QString fileOut = QFileDialog::getExistingDirectory(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", QFileDialog::ShowDirsOnly);
         for (int i = 0; i < int(base.sectionList.size()); i++) {
+            base.sectionList[i]->file = this;
             //qDebug() << Q_FUNC_INFO << "section" << i << "is type:" << base.sectionTypes[i];
-            if(base.sectionTypes[i] == "Mesh"){
-                std::get<Mesh>(base.sectionList[i]).writeData(fileOut);
-            } else {
-                std::get<SceneNode>(base.sectionList[i]).writeData(fileOut);
-            }
+            base.sectionList[i]->writeSectionList(fileOut);
         }
     }
 
     qDebug() << Q_FUNC_INFO << "Output complete.";
 
     return;
+}
+
+void FileSection::modify(std::vector<Modifications> addedMods){
+    qDebug() << Q_FUNC_INFO << "THIS SHOULDN'T RUN";
+}
+
+void FileSection::writeData(QTextStream &fileOut){
+    qDebug() << Q_FUNC_INFO << "THIS SHOULDN'T RUN";
 }

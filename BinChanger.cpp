@@ -60,6 +60,34 @@ void FileData::readFile(QString filePath){
     currentPosition = 0;
 }
 
+QString FileData::getSignature(){
+    long signatureStart = 0;
+    long signatureEnd = 0;
+    QString signature;
+
+    QByteArrayMatcher findSignatureEnd;
+    findSignatureEnd.setPattern(QByteArray::fromHex(QString("0000").toUtf8()));
+    signatureStart = currentPosition;
+    signatureEnd = findSignatureEnd.indexIn(dataBytes, currentPosition);
+
+
+    findSignatureEnd.setPattern(QByteArray::fromHex(QString("0001").toUtf8())); //to catch the other variant
+    if(signatureEnd > findSignatureEnd.indexIn(dataBytes, currentPosition)){
+        signatureEnd = findSignatureEnd.indexIn(dataBytes, currentPosition);
+    }
+    if(signatureEnd < signatureStart){
+        qDebug()<< Q_FUNC_INFO << "Signature end was found earier than signature start. Search started at " << signatureStart;
+        return "";
+    }
+
+    //qDebug() << Q_FUNC_INFO << "reading signature at " << signatureStart;
+    signature = mid(signatureStart, signatureEnd-signatureStart);
+    //qDebug() << Q_FUNC_INFO << "signature read as " << signature;
+    currentPosition = signatureEnd+2;
+    //qDebug() << Q_FUNC_INFO << "post-signature bytes:" << readInt(2);
+    return signature;
+}
+
 QString BinChanger::signExtend(QString input, int length){
     bool signBit;
     QString output = input;

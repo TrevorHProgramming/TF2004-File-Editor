@@ -46,10 +46,10 @@ ProgWindow::ProgWindow(QWidget *parent)
     /*hiding SFX menu for this patch since this system is far from ready*/
     //menuSFX->setVisible(false);
 
-    vbinFile = new VBIN;
-    vbinFile->parent = this;
-    itfFile = new ITF;
-    itfFile->parent = this;
+    //vbinFile = new VBIN;
+    //vbinFile->parent = this;
+    //itfFile = new ITF;
+    //itfFile->parent = this;
     vacFile = new VACFile;
     vacFile->parent = this;
     //tmdFile.push_back(new TMDFile);
@@ -80,10 +80,12 @@ ProgWindow::ProgWindow(QWidget *parent)
     connect(actionLoadMeshVBIN, &QAction::triggered, this, [this] {geometrySet->openMeshVBINFile();});
     //connect(ButtonITFtoBMP, &QPushButton::released, this, &ProgWindow::convertITFToBMP);
     connect(actionLoadITF, &QAction::triggered, this, &ProgWindow::openITF);
-    connect(actionSaveITF, &QAction::triggered, this, [this] {itfFile->writeITF();});
+    connect(actionSaveITF, &QAction::triggered, this, [this] {saveITFFile();});
+    connect(actionSaveBMP, &QAction::triggered, this, [this] {saveBMPFile();});
+    //connect(actionSaveITF, &QAction::triggered, this, [this] {itfFile->writeITF();});
     connect(actionLoadVAC, &QAction::triggered, this, &ProgWindow::openVAC);
     connect(actionSaveVAC, &QAction::triggered, this, [this] {vacFile->tempWrite();});
-    connect(actionSaveBMP, &QAction::triggered, this, [this] {itfFile->writeBMP();});
+    //connect(actionSaveBMP, &QAction::triggered, this, [this] {itfFile->writeBMP();});
     connect(actionLoadTMD, &QAction::triggered, this, [this] {openDefinition(false);});
     connect(actionLoadBMD, &QAction::triggered, this, [this] {openDefinition(true);});
     connect(actionLoadTDB, &QAction::triggered, this, [this] {openDatabase(false);});
@@ -150,9 +152,19 @@ int ProgWindow::changeMode(int newMode){
     return 0;
 }
 
-void ProgWindow::dropdownSelectChange(){
+void ProgWindow::levelSelectChange(){
     if (fileMode == "ITF"){
-        itfFile->populatePalette();
+        itfFiles[ListFiles->currentIndex()].populatePalette();
+    }
+}
+
+void ProgWindow::fileSelectChange(){
+    if (fileMode == "VBIN" && ListFiles->currentIndex() >= 0) {
+        createLevelList(vbinFiles[ListFiles->currentIndex()].highestLOD);
+    } else if (fileMode == "ITF" && ListFiles->currentIndex() >= 0) {
+        createLevelList(itfFiles[ListFiles->currentIndex()].paletteCount);
+        ListLevels->setCurrentIndex(0);
+        itfFiles[ListFiles->currentIndex()].populatePalette();
     }
 }
 
@@ -188,7 +200,7 @@ void ProgWindow::createTable(int rows, int columns){
         qDebug() << "The table does not already exist.";
         PaletteTable = new QTableWidget(rows, columns, this);
         PaletteTable->setGeometry(QRect(QPoint(50,250), QSize(125*columns,300)));
-        connect(PaletteTable, &QTableWidget::cellChanged, this, [this](int row, int column) {itfFile->editPalette(row, column);});
+        connect(PaletteTable, &QTableWidget::cellChanged, this, [this](int row, int column) {itfFiles[ListFiles->currentIndex()].editPalette(row, column);});
         PaletteTable->show();
     } else {
         qDebug() << "The table already exists.";
@@ -198,7 +210,7 @@ void ProgWindow::createTable(int rows, int columns){
     }
 }
 
-void ProgWindow::createDropdown(int levels){
+void ProgWindow::createLevelList(int levels){
     qDebug() << Q_FUNC_INFO << "CREATING THE LIST WITH " << levels << "LEVELS";
     if(ListLevels == nullptr){
            qDebug() << Q_FUNC_INFO << "The dropdown does not exist.";
@@ -211,7 +223,7 @@ void ProgWindow::createDropdown(int levels){
                 ListLevels->insertItem(i, QString::number(i+1));
             }
         }
-        connect(ListLevels, &QComboBox::currentIndexChanged, this, [this] {dropdownSelectChange();});
+        connect(ListLevels, &QComboBox::currentIndexChanged, this, [this] {levelSelectChange();});
         ListLevels->show();
     } else {
         ListLevels->clear();
@@ -225,6 +237,56 @@ void ProgWindow::createDropdown(int levels){
         }
         ListLevels->show();
     }
+}
+
+void ProgWindow::createFileList(){
+    if(ListFiles == nullptr){
+           qDebug() << Q_FUNC_INFO << "The dropdown does not exist.";
+        ListFiles = new QComboBox(this);
+        ListFiles -> setGeometry(QRect(QPoint(500,50), QSize(150,30)));
+        if(fileMode == "VBIN"){
+            for (int i = 0; i < vbinFiles.size(); i++) {
+                ListFiles->insertItem(i, vbinFiles[i].fileName);
+            }
+        } else if (fileMode == "ITF"){
+            for (int i = 0; i < itfFiles.size(); i++) {
+                ListFiles->insertItem(i, itfFiles[i].fileName);
+            }
+        }
+
+        ListFiles->setCurrentIndex(ListFiles->count()-1);
+        connect(ListFiles, &QComboBox::currentIndexChanged, this, [this] {fileSelectChange();});
+        ListFiles->show();
+    } else {
+        ListFiles->clear();
+        ListFiles -> setGeometry(QRect(QPoint(500,50), QSize(150,30)));
+        if(fileMode == "VBIN"){
+            for (int i = 0; i < vbinFiles.size(); i++) {
+                ListFiles->insertItem(i, vbinFiles[i].fileName);
+            }
+        } else if (fileMode == "ITF"){
+            for (int i = 0; i < itfFiles.size(); i++) {
+                ListFiles->insertItem(i, itfFiles[i].fileName);
+            }
+        }
+        ListFiles->setCurrentIndex(ListFiles->count()-1);
+        ListFiles->show();
+    }
+}
+
+void ProgWindow::clearWindow(){
+    if (PaletteTable != nullptr) {
+        PaletteTable->clear();
+        PaletteTable->hide();
+    }
+//    if (ListLevels != nullptr) {
+//        ListLevels->clear();
+//        ListLevels->hide();
+//    }
+//    if (ListFiles != nullptr){
+//        ListFiles->clear();
+//        ListFiles->hide();
+//    }
 }
 
 void ProgWindow::createDBButtons(){
@@ -391,3 +453,10 @@ void ProgWindow::saveDatabaseFile(bool binary){
 
 }
 
+void ProgWindow::saveITFFile(){
+    itfFiles[ListFiles->currentIndex()].writeITF();
+}
+
+void ProgWindow::saveBMPFile(){
+    itfFiles[ListFiles->currentIndex()].writeBMP();
+}
