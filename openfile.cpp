@@ -3,21 +3,20 @@
 
 void ProgWindow::openVBIN(){
     fileMode = "VBIN";
-    if (PaletteTable != nullptr) {
-        PaletteTable->clear();
-        PaletteTable->hide();
-    }
-    if (ListLevels != nullptr) {
-        ListLevels->clear();
-        ListLevels->hide();
-    }
+    VBIN vbinFile;
+    //clearWindow();
     QString fileIn = QFileDialog::getOpenFileName(this, tr("Select VBIN"), QDir::currentPath() + "/VBIN/", tr("Model Files (*.vbin)"));
     if (!fileIn.isNull()){
         changeMode(2);
-        vbinFile->filePath = fileIn;
-        vbinFile->highestLOD = 0;
-        vbinFile->parent = this;
+        vbinFile.filePath = fileIn;
+        vbinFile.highestLOD = 0;
+        vbinFile.parent = this;
         fileData.readFile(fileIn);
+
+        QFile inputFile(fileIn);
+        inputFile.open(QIODevice::ReadOnly);
+        QFileInfo fileInfo(inputFile);
+        vbinFile.fileName = fileInfo.fileName();
 //        fileData.dataBytes.clear();
 
 //        QFile inputFile(fileIn);
@@ -25,10 +24,14 @@ void ProgWindow::openVBIN(){
 //        fileData.dataBytes = inputFile.readAll();
 
         qDebug() << Q_FUNC_INFO << "File data loaded.";
-        vbinFile->readData();
+        if(vbinFile.readData()){
+            messageError("There was an error reading " + vbinFile.fileName);
+            return;
+        }
         qDebug() << Q_FUNC_INFO << "File data read.";
-
-        createDropdown(vbinFile->highestLOD);
+        vbinFiles.push_back(vbinFile);
+        createLevelList(vbinFile.highestLOD);
+        createFileList();
         createMultiRadios();
     } else {
         messageError("There was an error opening the file.");
@@ -38,20 +41,27 @@ void ProgWindow::openVBIN(){
 
 void ProgWindow::openITF(){
     fileMode = "ITF";
+    ITF itfFile;
     deleteMultiRadios();
-    if (ListLevels != nullptr) {
-        ListLevels->clear();
-        ListLevels->hide();
-    }
+    clearWindow();
     QString fileIn = QFileDialog::getOpenFileName(this, tr("Select ITF"), QDir::currentPath() + "/ITF/", tr("Texture Files (*.itf)"));
     if (!fileIn.isNull()){
         changeMode(1);
-        itfFile->filePath = fileIn;
+        itfFile.filePath = fileIn;
+        itfFile.parent = this;
         fileData.readFile(fileIn);
 
+        QFile inputFile(fileIn);
+        inputFile.open(QIODevice::ReadOnly);
+        QFileInfo fileInfo(inputFile);
+        itfFile.fileName = fileInfo.fileName();
+
         qDebug() << Q_FUNC_INFO << "File data loaded.";
-        itfFile->readData();
-        itfFile->populatePalette();
+        itfFile.readData();
+        itfFiles.push_back(itfFile);
+        createLevelList(itfFile.paletteCount);
+        createFileList();
+        itfFile.populatePalette();
         qDebug() << Q_FUNC_INFO << "File data read.";
     } else {
         messageError("There was an error opening the file.");
@@ -60,14 +70,7 @@ void ProgWindow::openITF(){
 
 void ProgWindow::openVAC(){
     fileMode = "Tone";
-    if (PaletteTable != nullptr) {
-        PaletteTable->clear();
-        PaletteTable->hide();
-    }
-    if (ListLevels != nullptr) {
-        ListLevels->clear();
-        ListLevels->hide();
-    }
+    clearWindow();
     QString fileIn = QFileDialog::getOpenFileName(this, tr("Select VAC"), QDir::currentPath() + "/VAC/", tr("Audio Files (*.vac)"));
     if (!fileIn.isNull()){
         changeMode(5);
@@ -88,14 +91,7 @@ void ProgWindow::openDefinition(bool binary){
     int passed=0;
     DefinitionFile openedFile;
     QString fileIn;
-    if (PaletteTable != nullptr) {
-        PaletteTable->clear();
-        PaletteTable->hide();
-    }
-    if (ListLevels != nullptr) {
-        ListLevels->clear();
-        ListLevels->hide();
-    }
+    clearWindow();
     if(binary){
         fileIn = QFileDialog::getOpenFileName(this, tr("Select BMD"), QDir::currentPath(), tr("Database Definition Files (*.BMD)"));
     } else {
@@ -135,14 +131,7 @@ void ProgWindow::openDatabase(bool binary){
     int passed=0;
     DatabaseFile openedFile;
     QString fileIn;
-    if (PaletteTable != nullptr) {
-        PaletteTable->clear();
-        PaletteTable->hide();
-    }
-    if (ListLevels != nullptr) {
-        ListLevels->clear();
-        ListLevels->hide();
-    }
+    clearWindow();
     if(binary){
         fileIn = QFileDialog::getOpenFileName(this, tr("Select BDB"), QDir::currentPath(), tr("Database Definition Files (*.BDB)"));
     } else {

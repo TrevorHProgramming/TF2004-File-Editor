@@ -55,8 +55,10 @@ public:
     QMenuBar *menuMain;
 
     BinChanger binChanger;
-    VBIN* vbinFile;
-    ITF* itfFile;
+    std::vector<VBIN> vbinFiles;
+    std::vector<ITF> itfFiles;
+    //VBIN* vbinFile;
+    //ITF* itfFile;
     VACFile* vacFile;
     std::vector<DefinitionFile> definitions;
     std::vector<DatabaseFile> databases;
@@ -89,6 +91,7 @@ public:
     QRadioButton *radioSingle;
     QRadioButton *radioMultiple;
     QComboBox *ListLevels;
+    QComboBox *ListFiles;
     QPushButton *ButtonSaveITF;
     FileData fileData;
     QTableWidget *PaletteTable;
@@ -112,11 +115,13 @@ public:
     void messageSuccess(QString message);
 
     void createTable(int rows, int columns);
-    void createDropdown(int levels);
+    void createLevelList(int levels);
+    void createFileList();
     void createMultiRadios();
     void deleteMultiRadios();
     void createDBButtons();
-    void dropdownSelectChange();
+    void levelSelectChange();
+    void fileSelectChange();
     void clearWindow();
     void changeName(QString newName);
 
@@ -127,6 +132,8 @@ private:
     void removeDatabaseClass(QModelIndex item);
     void saveDefinitionFile(bool binary);
     void saveDatabaseFile(bool binary);
+    void saveITFFile();
+    void saveBMPFile();
     int changeMode(int newMode);
 
 public slots:

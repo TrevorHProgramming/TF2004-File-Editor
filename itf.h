@@ -26,6 +26,7 @@ class ITF{
 public:
     ProgWindow *parent;
     QString filePath;
+    QString fileName;
     int fileLength;
     int versionNum;
     int headerLength;

@@ -46,6 +46,7 @@ class FileData{
     float readFloat(int length = 4, long location = 0);
     QByteArray readHex(int length, long location = 0);
     QByteArray mid(long location, int length);
+    QString getSignature();
 };
 
 #endif // BINCHANGER_H
