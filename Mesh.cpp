@@ -212,7 +212,7 @@ int Mesh::readMesh(){
         subSectionLength = file->parent->fileData.readInt();
         element->surfaceProperties.materialRelated = file->parent->fileData.readInt();
         nameLength = file->parent->fileData.readInt();
-        name = file->parent->fileData.readHex(nameLength);
+        element->surfaceProperties.name = file->parent->fileData.readHex(nameLength);
         element->surfaceProperties.unknownProperty2 = file->parent->fileData.readInt();
 
         signature = file->parent->fileData.getSignature();
@@ -222,7 +222,7 @@ int Mesh::readMesh(){
         }
         subSectionLength = file->parent->fileData.readInt();
 
-        if(element->surfaceProperties.materialRelated & 1){
+        if(element->surfaceProperties.materialRelated == 5){
             element->surfaceProperties.material.unknownProperty1 = file->parent->fileData.readInt();
 
             element->surfaceProperties.material.nameLength = file->parent->fileData.readInt();
@@ -242,6 +242,7 @@ int Mesh::readMesh(){
         element->surfaceProperties.material.unknownFloat11 = file->parent->fileData.readFloat();
         element->surfaceProperties.material.unknownFloat12 = file->parent->fileData.readFloat();
         element->surfaceProperties.material.unknownFloat13 = file->parent->fileData.readFloat();
+
 
         signature = file->parent->fileData.getSignature();
         if (signature != "~RenderStateGroup") {
@@ -300,24 +301,44 @@ int Mesh::readMesh(){
 
 }
 
+void Mesh::modify(std::vector<Modifications> addedMods){
+    addedMods.push_back(mods);
+
+//    for (int i = 0; i < addedMods.size(); i++) {
+//        qDebug() << name << "mod" << i << "is scale" << addedMods[i].scale;
+//        qDebug() << name << "mod" << i << "is rotation" << addedMods[i].rotation;
+//        qDebug() << name << "mod" << i << "is offset" << addedMods[i].offset;
+//    }
+
+    for (int j = 0; j < vertexSet.positionArray.positionList.size(); ++j) {
+        for(int k = addedMods.size()-1; k > -1; k--){
+            vertexSet.positionArray.positionList[j] = vertexSet.positionArray.positionList[j] * addedMods[k].scale;
+            vertexSet.positionArray.positionList[j] = addedMods[k].rotation.rotatedVector(vertexSet.positionArray.positionList[j]);
+            vertexSet.positionArray.positionList[j] = vertexSet.positionArray.positionList[j] + addedMods[k].offset;
+        }
+    }
+}
+
 
 void Mesh::writeData(QTextStream &fileOut){
     std::vector<int> chosenLOD;
     int triangle[3];
     QVector3D tempVec;
 
-    qDebug() << Q_FUNC_INFO << "mesh file" << file->fileName;
-    qDebug() << Q_FUNC_INFO << "lodinfo list size" << elementArray.lodInfo.targetIndecies.size() << "chosen lod" << file->parent->ListLevels->currentIndex();
-    chosenLOD = elementArray.lodInfo.targetIndecies[file->parent->ListLevels->currentText().toInt(nullptr, 10)-1];
-    qDebug() << Q_FUNC_INFO << "chosen LOD index targets: " << chosenLOD << " for mesh " << name;
-    qDebug() << Q_FUNC_INFO << "position list size" << vertexSet.positionArray.positionList.size();
-//            if(allowedMeshes.indexOf(tempMesh.name) >= 0){
-//                continue;
-//            }
+    //qDebug() << Q_FUNC_INFO << "mesh file" << file->fileName;
+    //qDebug() << Q_FUNC_INFO << "lodinfo list size" << elementArray.lodInfo.targetIndecies.size() << "chosen lod" << file->parent->ListLevels->currentIndex();
+    if (elementArray.lodInfo.targetIndecies.size() <= file->parent->ListLevels->currentIndex()) {
+        chosenLOD = {0,static_cast<int>(elementArray.elementArray.size()-1)};
+    } else {
+        chosenLOD = elementArray.lodInfo.targetIndecies[file->parent->ListLevels->currentText().toInt(nullptr, 10)-1];
+    }
+    //qDebug() << Q_FUNC_INFO << "chosen LOD index targets: " << chosenLOD << " for mesh " << name;
+    //qDebug() << Q_FUNC_INFO << "position list size" << vertexSet.positionArray.positionList.size();
 
     for (int index = chosenLOD[0]; index <= chosenLOD[1]; index++){
-        qDebug() << Q_FUNC_INFO << "index target" << index << "has" << int(elementArray.elementArray[index].meshFaceSet.indexArray.triangleStrips.size()) << "triangle strips";
+        //qDebug() << Q_FUNC_INFO << "index target" << index << "has" << int(elementArray.elementArray[index].meshFaceSet.indexArray.triangleStrips.size()) << "triangle strips";
         for (int strip = 0; strip < int(elementArray.elementArray[index].meshFaceSet.indexArray.triangleStrips.size());strip++){
+            //qDebug() << Q_FUNC_INFO << "index" << index << "strip" << strip << "has" << int(elementArray.elementArray[index].meshFaceSet.indexArray.triangleStrips[strip].stripIndecies.size()) << "triangles";
             for (int m = 0; m < int(elementArray.elementArray[index].meshFaceSet.indexArray.triangleStrips[strip].stripIndecies.size()-2); m++){
                 triangle[0] = elementArray.elementArray[index].meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[m];
                 triangle[1] = elementArray.elementArray[index].meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[m+1];

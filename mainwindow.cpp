@@ -58,6 +58,7 @@ ProgWindow::ProgWindow(QWidget *parent)
     geometrySet->parent = this;
     PaletteTable = nullptr;
     ListLevels = nullptr;
+    ListFiles = nullptr;
     radioSingle = nullptr;
     radioMultiple = nullptr;
     ButtonOpenTDB = nullptr;

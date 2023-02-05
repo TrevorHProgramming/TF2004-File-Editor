@@ -103,12 +103,8 @@ public:
     void readData(long sceneLocation);
     void getSceneNodeTree(long searchStart, long searchEnd, int depth);
     void readNode();
-//    void readMesh();
-//    void readAnimationPrototype();
-//    void readModifications();
-//    void readBoundingVolume();
-//    void getSceneNodeTree2();
-    void getModifications();
+    void readModifications();
+    //void getModifications();
     void modifyPosArrays(std::vector<Modifications> addedMods);
     void printInfo(int depth); // for debugging
     const void operator=(FileSection input);
@@ -149,10 +145,10 @@ public:
 private:
     //void modifyPosArrays();
     void outputPositionList(int location);
-    void readModifications();
     void readAnimationPrototype();
     void readBoundingVolume();
     int getSceneNodeTree();
+    void readModifications();
     void analyzeTriangles(std::vector<int> indArrays, int whichArray);
     QVector3D needOffset(int offsetLocation);
     QQuaternion getRotation(int offsetLocation);
