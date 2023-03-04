@@ -37,6 +37,7 @@
 #include "LevelGeo.h"
 #include "Database.h"
 #include "ToneLibraries.h"
+#include "DistanceCalculations.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -66,6 +67,7 @@ public:
     int hSize = 1200;
     int vSize = 768;
     int mode = 0;
+    float version = 5.4;
 
     QString fileMode;
 
@@ -73,6 +75,7 @@ public:
 
     QLabel *LabelMode;
     QLabel *LabelName;
+    QLabel *ClosestWarpgate;
 
     QPushButton *ButtonVBINtoSTL;
     QPushButton *ButtonOpenVBIN;
@@ -87,11 +90,17 @@ public:
     QPushButton *ButtonEditDB;
     QPushButton *ButtonRemoveItem;
     QPushButton *ButtonRemoveClass;
+    QPushButton *ButtonCalculate;
+    QLineEdit *CalculateXValue;
+    QLineEdit *CalculateYValue;
+    QLineEdit *CalculateZValue;
     QLineEdit *DBNewValue;
     QRadioButton *radioSingle;
     QRadioButton *radioMultiple;
     QComboBox *ListLevels;
     QComboBox *ListFiles;
+    QComboBox *ListAnimation;
+    QComboBox *ListFrame;
     QPushButton *ButtonSaveITF;
     FileData fileData;
     QTableWidget *PaletteTable;
@@ -117,11 +126,14 @@ public:
     void createTable(int rows, int columns);
     void createLevelList(int levels);
     void createFileList();
+    void createAnimationList(AnimationSourceSet animations);
+    void createFrameList(int frames);
     void createMultiRadios();
     void deleteMultiRadios();
     void createDBButtons();
     void levelSelectChange();
     void fileSelectChange();
+    void animationSelectChange();
     void clearWindow();
     void changeName(QString newName);
 
@@ -135,9 +147,12 @@ private:
     void saveITFFile();
     void saveBMPFile();
     int changeMode(int newMode);
+    void openWarpgateCalculator();
+    void calculateWarpgateDistance();
 
 public slots:
     void convertVBINToSTL();
+    void convertVBINToDAE();
     //void convertITFToBMP();
     //void convertBMPtoPNG(QString bmpPath);
     void openVBIN();

@@ -17,6 +17,7 @@ void ProgWindow::openVBIN(){
         inputFile.open(QIODevice::ReadOnly);
         QFileInfo fileInfo(inputFile);
         vbinFile.fileName = fileInfo.fileName();
+        vbinFile.fileWithoutExtension = vbinFile.fileName.left(vbinFile.fileName.indexOf("."));
 //        fileData.dataBytes.clear();
 
 //        QFile inputFile(fileIn);
@@ -33,6 +34,7 @@ void ProgWindow::openVBIN(){
         createLevelList(vbinFile.highestLOD);
         createFileList();
         createMultiRadios();
+        //createAnimationList(vbinFile.animationSet);
     } else {
         messageError("There was an error opening the file.");
     }

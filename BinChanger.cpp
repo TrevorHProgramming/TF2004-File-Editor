@@ -37,6 +37,44 @@ float FileData::readFloat(int length, long location){
     return readValue;
 }
 
+float FileData::readMiniFloat(int length, long location){
+    QString readBin = parent->binChanger.reverse_input(parent->binChanger.hex_to_bin(dataBytes.mid(currentPosition + location, length)), 8);
+    int twoscompread = parent->binChanger.twosCompConv(readBin, 8);
+    float reduceInt = float(twoscompread) / 30000;
+    //qDebug() << Q_FUNC_INFO << "int read:" << float(twoscompread) << "then becomes" << reduceInt;
+    currentPosition += length;
+    return reduceInt;
+}
+
+QVector3D FileData::readVector(int length, long location){
+    float x_value = readFloat();
+    float y_value = readFloat();
+    float z_value = readFloat();
+    QVector3D vector = QVector3D(x_value, y_value, z_value);
+
+    return vector;
+}
+
+QQuaternion FileData::readQuaternion(int length, long location){
+    float x_value = readFloat();
+    float y_value = readFloat();
+    float z_value = readFloat();
+    float m_value = readFloat();
+    QQuaternion rotation = QQuaternion(m_value, x_value, y_value, z_value);
+
+    return rotation;
+}
+
+QQuaternion FileData::readMiniQuaternion(int length, long location){
+    float x_value = readMiniFloat();
+    float y_value = readMiniFloat();
+    float z_value = readMiniFloat();
+    float m_value = readMiniFloat();
+    QQuaternion rotation = QQuaternion(m_value, x_value, y_value, z_value);
+
+    return rotation;
+}
+
 QByteArray FileData::readHex(int length, long location){
     QByteArray readValue = dataBytes.mid(currentPosition + location, length);
     currentPosition += length;
@@ -82,7 +120,7 @@ QString FileData::getSignature(){
 
     //qDebug() << Q_FUNC_INFO << "reading signature at " << signatureStart;
     signature = mid(signatureStart, signatureEnd-signatureStart);
-    //qDebug() << Q_FUNC_INFO << "signature read as " << signature;
+    //qDebug() << Q_FUNC_INFO << "signature read as " << signature << "at" << signatureStart;
     currentPosition = signatureEnd+2;
     //qDebug() << Q_FUNC_INFO << "post-signature bytes:" << readInt(2);
     return signature;

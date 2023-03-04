@@ -6,6 +6,8 @@
 #include <QByteArrayMatcher>
 #include <QTransform>
 
+#include "Antioch2.h"
+#include "BinChanger.h"
 
 class ProgWindow;
 
@@ -32,7 +34,7 @@ public:
     int type;
     QVector3D location;
     float radius;
-    VBIN *file;
+    FileData *fileData;
 
     void populateData();
     const void operator=(BoundingVolume input);
@@ -52,7 +54,7 @@ public:
   int arrayID;
   long arrayLength;
   QString meshName;
-  VBIN *file;
+  FileData *fileData;
   std::vector<QVector3D> positionList;
 };
 
@@ -61,7 +63,7 @@ public:
   int arrayID;
   long arrayLength;
   QString meshName;
-  VBIN *file;
+  FileData *fileData;
   std::vector<QVector4D> positionList;
 };
 
@@ -70,7 +72,7 @@ public:
   int arrayID;
   long arrayLength;
   QString meshName;
-  VBIN *file;
+  FileData *fileData;
   std::vector<QVector2D> positionList;
 };
 
@@ -87,6 +89,7 @@ public:
 class FileSection{
 public:
     VBIN *file;
+    FileData *fileData;
     FileSection *parent;
     long fileLocation;
     QString name;
@@ -103,15 +106,26 @@ public:
     void readData(long sceneLocation);
     void getSceneNodeTree(long searchStart, long searchEnd, int depth);
     void readNode();
+    void sendKeyframe(QVector3D keyOffset, QString channelName);
+    void sendKeyframe(QQuaternion keyRotation, QString channelName);
     void readModifications();
     //void getModifications();
     void modifyPosArrays(std::vector<Modifications> addedMods);
     void printInfo(int depth); // for debugging
     const void operator=(FileSection input);
-    void writeSectionList(QTextStream &file);
-    void writeSectionList(QString path);
+    void writeSectionListSTL(QTextStream &file);
+    void writeSectionListSTL(QString path);
+    void writeSectionListDAE(QTextStream &file);
+    void writeSectionListDAE(QString path);
+    void writeSceneListDAE(QTextStream &file);
+    void writeSceneListDAE(QString path);
+    void writeEffectListDAE(QTextStream &file);
+    void writeEffectListDAE(QString path);
+    void writeImageListDAE(QTextStream &file);
+    void writeImageListDAE(QString path);
+    void writeMaterialListDAE(QTextStream &file);
+    void writeMaterialListDAE(QString path);
     void modify(std::vector<Modifications> addedMods);
-    void writeData(QTextStream &fileOut);
     // void modifyPosArrays(); //this might go somewhere else, just
     // commenting out for now
     void clear();
@@ -121,7 +135,9 @@ class SceneNode : public FileSection{
 public:
     void readData(long sceneLocation);
     void modify(std::vector<Modifications> addedMods);
-    void writeData(QTextStream &fileOut);
+    void writeDataSTL(QTextStream &fileOut);
+    void writeDataDAE(QTextStream &fileOut);
+    void writeSceneListDAE(QTextStream &FileOut);
     //void getModifications(); //inherited version should be workable
     //void modifyPosArrays();
     void clear();
@@ -133,7 +149,10 @@ public:
     const QStringList sectionNames = {"~SceneNode", "~PositionArray", "~LODinfo", "~BoundingVolume", "~VertexSet"};
     QString filePath;
     ProgWindow *parent;
+    FileData *fileData;
     QString fileName;
+    QString fileWithoutExtension;
+    AnimationSourceSet animationSet;
     int highestLOD;
     long currentLocation;
     FileSection base;
@@ -141,7 +160,9 @@ public:
     std::vector<int> getIndexArrays(int posCount, int chosenLOD, int location);
     void makeTriangles(std::vector<int> indArrays, int whichArray, int location, QTextStream *stream);
     int readData();
-    void outputData();
+    void applyKeyframe();
+    void outputDataSTL();
+    void outputDataDAE();
 private:
     //void modifyPosArrays();
     void outputPositionList(int location);

@@ -30,13 +30,13 @@ void Modifications::clear(){
 }
 
 void BoundingVolume::populateData(){
-    file->parent->fileData.currentPosition = fileLocation + 25;
-    hasVolume = file->parent->fileData.readInt(1);
-    type = file->parent->fileData.readInt();
-    location.setX(file->parent->fileData.readFloat());
-    location.setY(file->parent->fileData.readFloat());
-    location.setZ(file->parent->fileData.readFloat());
-    radius = file->parent->fileData.readFloat();
+    fileData->currentPosition = fileLocation + 25;
+    hasVolume = fileData->readInt(1);
+    type = fileData->readInt();
+    location.setX(fileData->readFloat());
+    location.setY(fileData->readFloat());
+    location.setZ(fileData->readFloat());
+    radius = fileData->readFloat();
     qDebug() << Q_FUNC_INFO << "location" << fileLocation << "radius" << radius << "hasvolume" << hasVolume << "type" << type;
 }
 
@@ -57,34 +57,7 @@ int VBIN::readData(){
 
     qDebug() << Q_FUNC_INFO << "section list size" << base.sectionList.size() << "mesh list size" << base.meshList.size();
 
-    //qDebug() << Q_FUNC_INFO << "section list length" << base.sectionList.size() << "typelist length" << base.sectionTypes.size();
-
-//    Modifications baseMods;
-//    baseMods.clear();
-//    base.mods = baseMods;
-//    std::vector<Modifications> baseModList;
-//    baseModList.push_back(baseMods);
-
-    //qDebug() << Q_FUNC_INFO << "base mod values" << baseMods.offset << baseMods.rotation << baseMods.scale;
-
-//    for(int i = 0; i < base.sectionList.size(); i++){
-//        qDebug() << Q_FUNC_INFO << "layer 0," << i <<"is" << base.sectionList[i]->name << "with rotation" << base.sectionList[i]->mods.rotation << "and scale" << base.sectionList[i]->mods.scale;
-//        base.sectionList[i]->printInfo(1);
-//    }
-
-    //base.modifyPosArrays(baseModList);
-
-
     qDebug() << Q_FUNC_INFO << "Successfully loaded the scene node tree.";
-
-    //modify every position set based on the modifications that were read
-    //qDebug() << Q_FUNC_INFO << "Node list size (read data): " << this->nodeList.size();
-//    for (int i = 0; i < int(this->nodeList.size()); i++) {
-//        this->nodeList[i].modifyPosArrays();
-//    }
-    //this->modifyPosArrays();
-
-    //qDebug() << Q_FUNC_INFO << "Position arrays modified.";
 
     return 0;
 }
@@ -129,7 +102,7 @@ const void BoundingVolume::operator=(BoundingVolume input){
     type = input.type;
     location = input.location;
     radius = input.radius;
-    file = input.file;
+    fileData = input.fileData;
 }
 
 const void FileSection::operator=(FileSection input){
@@ -181,29 +154,31 @@ void FileSection::readModifications(){
     float z_value = 0;
     float m_value = 0;
     //offset properties
-    offsets = file->parent->fileData.readInt(1);
+    offsets = fileData->readInt(1);
+    //qDebug() << Q_FUNC_INFO << "offsets read as" << offsets;
     if (!(offsets & 1)) {
         //position offset
-        x_value = file->parent->fileData.readFloat();
-        y_value = file->parent->fileData.readFloat();
-        z_value = file->parent->fileData.readFloat();
+        x_value = fileData->readFloat();
+        y_value = fileData->readFloat();
+        z_value = fileData->readFloat();
         mods.offset = QVector3D(x_value, y_value, z_value);
     } else {
         mods.offset = QVector3D(0,0,0);
     }
     if (!(offsets & 2)) {
         //rotation offset
-        x_value = file->parent->fileData.readFloat();
-        y_value = file->parent->fileData.readFloat();
-        z_value = file->parent->fileData.readFloat();
-        m_value = file->parent->fileData.readFloat();
-        mods.rotation = QQuaternion(m_value, x_value, y_value, z_value);
+//        x_value = fileData->readFloat();
+//        y_value = fileData->readFloat();
+//        z_value = fileData->readFloat();
+//        m_value = fileData->readFloat();
+//        mods.rotation = QQuaternion(m_value, x_value, y_value, z_value);
+        mods.rotation = fileData->readQuaternion();
     } else {
         mods.rotation = QQuaternion(1,0,0,0);
     }
     if (!(offsets & 4)) {
         //scale offset
-        m_value = file->parent->fileData.readFloat();
+        m_value = fileData->readFloat();
         mods.scale = m_value;
     } else {
         mods.scale = 1;
@@ -236,7 +211,8 @@ void FileSection::readNode(){
 }
 
 int VBIN::getSceneNodeTree(){
-    parent->fileData.currentPosition = 4; //moving past FISH
+    fileData = &parent->fileData;
+    fileData->currentPosition = 4; //moving past FISH
     //not a huge fan of while(1)'s but I'll put a loopbreaker in just to be safe
     int loopBreaker = 0;
     QString signature;
@@ -296,6 +272,12 @@ int VBIN::getSceneNodeTree(){
         if(signature == "~anAnimationSourceSet"){
             //qDebug() << Q_FUNC_INFO << "End of tree located - leaving at Animation Data";
             //break;
+//            animationSet.file = this;
+//            animationSet.fileLocation = parent->fileData.currentPosition-4;
+//            animationSet.sectionLength = sectionLength;
+//            animationSet.sectionEnd = animationSet.fileLocation + sectionLength;
+//            animationSet.name = sectionName;
+//            animationSet.readAnimationSet();
             qDebug() << Q_FUNC_INFO << "Found animation data at " << parent->fileData.currentPosition << "- skipping for now";
             parent->fileData.currentPosition += sectionLength-4;
             qDebug() << Q_FUNC_INFO << "position after skip" << parent->fileData.currentPosition;
@@ -305,6 +287,7 @@ int VBIN::getSceneNodeTree(){
         if(signature == "~Mesh"){
             Mesh *meshSection = new Mesh();
             meshSection->file = this; //file will need to be reassigned later as the current VBIN object is temporary
+            meshSection->fileData = &parent->fileData;
             meshSection->parent = currentBranch;
             meshSection->fileLocation = parent->fileData.currentPosition-4;
             meshSection->sectionLength = sectionLength;
@@ -327,18 +310,19 @@ int VBIN::getSceneNodeTree(){
 
             currentBranch->meshList.push_back(meshSection);
             possibleBranch = meshSection;
-            //qDebug() << Q_FUNC_INFO << "name " << meshSection->name << "with parent" << meshSection->parent->name;
+            qDebug() << Q_FUNC_INFO << "name " << meshSection->name << "with parent" << meshSection->parent->name << "finished at" << fileData->currentPosition;
         }
 
         if(signature == "~SceneNode"){
             SceneNode *sceneSection = new SceneNode();
             sceneSection->file = this;
+            sceneSection->fileData = &parent->fileData;
             sceneSection->parent = currentBranch;
             sceneSection->fileLocation = parent->fileData.currentPosition-4;
             sceneSection->sectionLength = sectionLength;
             sceneSection->sectionEnd = sceneSection->fileLocation + sectionLength;
             sceneSection->name = sectionName;
-            unknown4Byte1 = parent->fileData.readInt();
+            unknown4Byte1 = parent->fileData.readInt(); //appears to be a version number of some kind
             sceneSection->readModifications();
             currentBranch->sectionList.push_back(sceneSection);
             possibleBranch = sceneSection;
@@ -356,10 +340,13 @@ int VBIN::getSceneNodeTree(){
         //qDebug() << Q_FUNC_INFO << "section name" << sectionName << "with unknown value" << unknown4Byte1;
 
         //readModifications();
-
         unknown4Byte2 = parent->fileData.readInt();
-        parent->fileData.currentPosition += 8;
-        unknown4Byte3 = parent->fileData.readInt(); //this should take us to the end
+//        parent->fileData.currentPosition += 8;
+//        unknown4Byte3 = parent->fileData.readInt(); //this should take us to the end
+        if (unknown4Byte1 > 3) {
+            parent->fileData.currentPosition += 8;
+            unknown4Byte3 = parent->fileData.readInt(); //this should take us to the end
+        }
 
         signature = parent->fileData.getSignature();
 
@@ -380,24 +367,8 @@ int VBIN::getSceneNodeTree(){
             return 0;
         }
 
-//        //Checks if we've reached the end of a branch in the scene node tree. If we're at the root of the tree, there's nowhere to go.
-//        if(currentBranch->sectionEnd == parent->fileData.currentPosition && currentBranch->fileLocation !=0){
-//            while(currentBranch->sectionEnd == currentBranch->parent->sectionEnd){
-//                currentBranch = currentBranch->parent;
-//                //qDebug() << Q_FUNC_INFO << "Branch completed, moving back up a layer";
-//            }
-//            currentBranch = currentBranch->parent;
-//        } else if (possibleBranch->sectionEnd != parent->fileData.currentPosition) {
-//            currentBranch = possibleBranch;
-//        }
+        //qDebug() << Q_FUNC_INFO << loopBreaker << "loops completed";
 
-//        signature = parent->fileData.getSignature();
-
-//        sectionNameLength = parent->fileData.readInt();
-//        sectionName = parent->fileData.readHex(sectionNameLength);
-//        //qDebug() << Q_FUNC_INFO << "name length " << sectionNameLength << " read as " << sectionName;
-
-//        sectionLength = parent->fileData.readInt();
     }
 
     return 0; //read successfully
@@ -409,25 +380,36 @@ void ProgWindow::convertVBINToSTL(){
         return;
     }
 
-    vbinFiles[ListFiles->currentIndex()].outputData();
+    vbinFiles[ListFiles->currentIndex()].outputDataSTL();
 
     return;
 }
 
-void FileSection::writeSectionList(QTextStream &fileOut){
+void ProgWindow::convertVBINToDAE(){
+    if(vbinFiles.empty()){
+        messageError("No VBIN files currently loaded to export.");
+        return;
+    }
+
+    vbinFiles[ListFiles->currentIndex()].outputDataDAE();
+
+    return;
+}
+
+void FileSection::writeSectionListSTL(QTextStream &fileOut){
     //for writing to a single file
     for (int i = 0; i < int(meshList.size()); i++) {
         meshList[i]->file = file;
-        meshList[i]->writeData(fileOut);
-        meshList[i]->writeSectionList(fileOut);
+        meshList[i]->writeDataSTL(fileOut);
+        meshList[i]->writeSectionListSTL(fileOut);
     }
     for(int i = 0; i < int(sectionList.size()); i++){
         sectionList[i]->file = file;
-        sectionList[i]->writeSectionList(fileOut);
+        sectionList[i]->writeSectionListSTL(fileOut);
     }
 }
 
-void FileSection::writeSectionList(QString path){
+void FileSection::writeSectionListSTL(QString path){
     //for writing to multiple files
 
     for (int i = 0; i < int(meshList.size()); i++) {
@@ -444,24 +426,89 @@ void FileSection::writeSectionList(QString path){
         stream << "solid Default" << Qt::endl;
 
         meshList[i]->file = file;
-        meshList[i]->writeData(stream);
+        meshList[i]->writeDataSTL(stream);
         stream << "endsolid Default" << Qt::endl;
-        meshList[i]->writeSectionList(path);
+        meshList[i]->writeSectionListSTL(path);
     }
     for(int i = 0; i < int(sectionList.size()); i++){
         sectionList[i]->file = file;
-        sectionList[i]->writeSectionList(path);
+        sectionList[i]->writeSectionListSTL(path);
     }
 }
 
-void VBIN::outputData(){
+void FileSection::writeSectionListDAE(QTextStream &fileOut){
+    for (int i = 0; i < meshList.size(); i++) {
+        meshList[i]->file = file;
+        meshList[i]->writeDataDAE(fileOut);
+        meshList[i]->writeSectionListDAE(fileOut);
+    }
+    for (int i = 0; i < sectionList.size(); i++) {
+        sectionList[i]->file = file;
+        sectionList[i]->writeSectionListDAE(fileOut);
+    }
+}
+
+void FileSection::writeSceneListDAE(QTextStream &fileOut){
+    for (int i = 0; i < meshList.size(); i++) {
+        meshList[i]->file = file;
+        meshList[i]->writeNodesDAE(fileOut);
+        meshList[i]->writeSceneListDAE(fileOut);
+    }
+    for (int i = 0; i < sectionList.size(); i++) {
+        sectionList[i]->file = file;
+        sectionList[i]->writeSceneListDAE(fileOut);
+    }
+}
+
+void FileSection::writeEffectListDAE(QTextStream &fileOut){
+    for (int i = 0; i < meshList.size(); i++) {
+        meshList[i]->file = file;
+        meshList[i]->writeEffectsDAE(fileOut);
+        meshList[i]->writeEffectListDAE(fileOut);
+    }
+    for (int i = 0; i < sectionList.size(); i++) {
+        sectionList[i]->file = file;
+        sectionList[i]->writeEffectListDAE(fileOut);
+    }
+}
+
+void FileSection::writeImageListDAE(QTextStream &fileOut){
+    for (int i = 0; i < meshList.size(); i++) {
+        meshList[i]->file = file;
+        meshList[i]->writeImagesDAE(fileOut);
+        meshList[i]->writeImageListDAE(fileOut);
+    }
+    for (int i = 0; i < sectionList.size(); i++) {
+        sectionList[i]->file = file;
+        sectionList[i]->writeImageListDAE(fileOut);
+    }
+}
+
+void FileSection::writeMaterialListDAE(QTextStream &fileOut){
+    for (int i = 0; i < meshList.size(); i++) {
+        meshList[i]->file = file;
+        meshList[i]->writeMaterialsDAE(fileOut);
+        meshList[i]->writeMaterialListDAE(fileOut);
+    }
+    for (int i = 0; i < sectionList.size(); i++) {
+        sectionList[i]->file = file;
+        sectionList[i]->writeMaterialListDAE(fileOut);
+    }
+}
+
+void VBIN::outputDataSTL(){
 
     std::vector<int> allowedMeshes = {1,2,3};
     std::vector<int> chosenLOD;
     base.file = this;
 
+    //applyKeyframe();
+
     if(parent->radioSingle->isChecked()){
         QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", parent->tr("Model Files (*.stl)"));
+        if(fileOut.isEmpty()){
+            parent->messageError("STL export cancelled.");
+        }
         QFile stlOut(fileOut);
         QFile file(fileOut);
         file.open(QFile::WriteOnly|QFile::Truncate);
@@ -474,41 +521,137 @@ void VBIN::outputData(){
         stream << "solid Default" << Qt::endl;
         qDebug() << Q_FUNC_INFO << "sections:" << base.sectionList.size();
         qDebug() << Q_FUNC_INFO << "meshes:" << base.meshList.size();
-        base.writeSectionList(stream);
-//        for (int i = 0; i < int(base.sectionList.size()); i++) {
-//            base.sectionList[i]->file = this;
-//            qDebug() << Q_FUNC_INFO << "writing node" << i << "named" << base.sectionList[i]->name << "with file" << base.sectionList[i]->file->fileName;
-//            base.sectionList[i]->writeSectionList(stream);
-//        }
-//        for (int i = 0; i < int(base.meshList.size()); i++) {
-//            base.meshList[i]->file = this;
-//            qDebug() << Q_FUNC_INFO << "writing mesh" << i << "named" << base.meshList[i]->name << "with file" << base.meshList[i]->file->fileName;
-//            base.meshList[i]->writeData(stream);
-//            base.meshList[i]->writeSectionList(stream);
-//        }
+        base.writeSectionListSTL(stream);
         stream << "endsolid Default" << Qt::endl;
     } else {
         QString fileOut = QFileDialog::getExistingDirectory(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", QFileDialog::ShowDirsOnly);
-        base.writeSectionList(fileOut);
-//        for (int i = 0; i < int(base.sectionList.size()); i++) {
-//            base.sectionList[i]->file = this;
-//            base.sectionList[i]->writeSectionList(fileOut);
-//        }
-//        for (int i = 0; i < int(base.meshList.size()); i++) {
-//            base.meshList[i]->file = this;
-//            base.meshList[i]->writeSectionList(fileOut);
-//        }
+        if(fileOut.isEmpty()){
+            parent->messageError("STL export cancelled.");
+        }
+        base.writeSectionListSTL(fileOut);
     }
 
-    qDebug() << Q_FUNC_INFO << "Output complete.";
+    parent->messageSuccess("STL file saved.");
+    qDebug() << Q_FUNC_INFO << "STL output complete.";
 
     return;
 }
 
-void FileSection::modify(std::vector<Modifications> addedMods){
-    qDebug() << Q_FUNC_INFO << "THIS SHOULDN'T RUN";
+void VBIN::outputDataDAE(){
+    base.file = this;
+
+    //applyKeyframe();
+
+    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output DAE"), QDir::currentPath() + "/DAE/", parent->tr("Model Files (*.dae)"));
+    if(fileOut.isEmpty()){
+        parent->messageError("DAE export cancelled.");
+        return;
+    }
+    QFile stlOut(fileOut);
+    QFile file(fileOut);
+    file.open(QFile::WriteOnly|QFile::Truncate);
+    file.close();
+
+    if(!stlOut.open(QIODevice::ReadWrite)){
+        parent->messageError("DAE export failed, could not open output file.");
+        return;
+    }
+    QTextStream stream(&stlOut);
+
+    stream << "<?xml version=\"1.0\" encoding=\"utf-8\"?>" << Qt::endl;
+    stream << "<COLLADA xmlns=\"http://www.collada.org/2005/11/COLLADASchema\" version=\"1.4.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">" << Qt::endl;
+
+    stream << "  <asset>" << Qt::endl;
+    stream << "    <contributor>" << Qt::endl;
+    stream << "      <author>PrincessTrevor</author>" << Qt::endl;
+    stream << "      <authoring_tool>TF2004 File Converter v" << QString::number(parent->version) << "</authoring_tool>" << Qt::endl;
+    stream << "    </contributor>" << Qt::endl;
+    stream << "    <created>" << QDateTime::currentDateTime().toString("yyyy-MM-dd") + "T" + QDateTime::currentDateTime().toString("hh:mm:ss") << "</created>" << Qt::endl;
+    stream << "    <modified>" << QDateTime::currentDateTime().toString("yyyy-MM-dd") + "T" + QDateTime::currentDateTime().toString("hh:mm:ss") << "</modified>" << Qt::endl;
+    stream << "    <unit name=\"meter\" meter=\"1\"/>" << Qt::endl;
+    stream << "    <up_axis>Z_UP</up_axis>" << Qt::endl;
+    stream << "  </asset>" << Qt::endl;
+
+    stream << "  <library_effects>" << Qt::endl;
+    base.writeEffectListDAE(stream);
+    stream << "  </library_effects>" << Qt::endl;
+
+
+    stream << "  <library_images>" << Qt::endl;
+    base.writeImageListDAE(stream);
+    stream << "  </library_images>" << Qt::endl;
+
+    stream << "  <library_materials>" << Qt::endl;
+    base.writeMaterialListDAE(stream);
+    stream << "  </library_materials>" << Qt::endl;
+
+    stream << "  <library_geometries>" << Qt::endl;
+    base.writeSectionListDAE(stream);
+    stream << "  </library_geometries>" << Qt::endl;
+
+    stream << "  <library_visual_scenes>" << Qt::endl;
+    stream << "    <visual_scene id=\"Scene\" name=\"Scene\">" << Qt::endl;
+    base.writeSceneListDAE(stream);
+    stream << "    </visual_scene>" << Qt::endl;
+    stream << "  </library_visual_scenes>" << Qt::endl;
+
+    stream << "  <scene>" << Qt::endl;
+    stream << "    <instance_visual_scene url=\"#Scene\"/>" << Qt::endl;
+    stream << "  </scene>" << Qt::endl;
+
+    stream << "</COLLADA>" << Qt::endl;
+
+    parent->messageSuccess("DAE file saved.");
+    qDebug() << Q_FUNC_INFO << "DAE output complete.";
 }
 
-void FileSection::writeData(QTextStream &fileOut){
+void VBIN::applyKeyframe(){
+    qDebug() << Q_FUNC_INFO << "current animation index" << parent->ListAnimation->currentIndex() << "with current frame index" << parent->ListFrame->currentIndex();
+    QString chosenType;
+
+    QVector3D translation;
+    QQuaternion rotation;
+    QString channelName;
+    for (int channel = 0; channel < animationSet.streamArray[parent->ListAnimation->currentIndex()]->channelArray.size(); channel++) {
+        chosenType = animationSet.streamArray[parent->ListAnimation->currentIndex()]->channelArray[channel]->animationType;
+        if(chosenType == "~anAnimationTranslation"){
+            translation = animationSet.streamArray[parent->ListAnimation->currentIndex()]->channelArray[channel]->vectorList[parent->ListFrame->currentIndex()];
+            channelName = animationSet.streamArray[parent->ListAnimation->currentIndex()]->channelArray[channel]->name;
+            base.sendKeyframe(translation, channelName);
+        } else if (chosenType == "~anAnimationOrientation"){
+            rotation = animationSet.streamArray[parent->ListAnimation->currentIndex()]->channelArray[channel]->rotationList[parent->ListFrame->currentIndex()];
+            channelName = animationSet.streamArray[parent->ListAnimation->currentIndex()]->channelArray[channel]->name;
+            base.sendKeyframe(rotation, channelName);
+        }
+        qDebug() << Q_FUNC_INFO << "animation type" << chosenType << "is not currently supported";
+        return;
+    }
+}
+
+void FileSection::sendKeyframe(QVector3D keyOffset, QString channelName){
+    for(int mesh = 0; mesh < meshList.size(); mesh++){
+        if(meshList[mesh]->name == channelName){
+            meshList[mesh]->applyKeyframe(keyOffset);
+        }
+        meshList[mesh]->sendKeyframe(keyOffset, channelName);
+    }
+    for(int section = 0; section < sectionList.size(); section++){
+        sectionList[section]->sendKeyframe(keyOffset, channelName);
+    }
+}
+
+void FileSection::sendKeyframe(QQuaternion keyRotation, QString channelName){
+    for(int mesh = 0; mesh < meshList.size(); mesh++){
+        if(meshList[mesh]->name == channelName){
+            meshList[mesh]->applyKeyframe(keyRotation);
+        }
+        meshList[mesh]->sendKeyframe(keyRotation, channelName);
+    }
+    for(int section = 0; section < sectionList.size(); section++){
+        sectionList[section]->sendKeyframe(keyRotation, channelName);
+    }
+}
+
+void FileSection::modify(std::vector<Modifications> addedMods){
     qDebug() << Q_FUNC_INFO << "THIS SHOULDN'T RUN";
 }
