@@ -20,3 +20,4 @@ TMD, BMD, BDB, TDB: "Text Defintion," "Binary Definition," "Binary Database," "T
 
 TLA, TLB, VAC: Compressed audio libraries. TLB files contain a text list of sound effects and their properties, and reference a matching .vac file to pull the audio information from. TLA files contain both the audio data normally present in a .vac and a binary list of the sound effects and their properties. Currently this program does not support these files, but they should be relatively simple to add when the time comes. 
 
+File format documentation can be found here: https://drive.google.com/drive/folders/1mTkRa2u6XMOQm8soIKzE-7SnaY9VzqBf?usp=sharing
