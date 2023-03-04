@@ -55,6 +55,7 @@ public:
     void saveITFPalette();
     void unswizzle_8bit();
     void unswizzle_4bit();
+    void unswizzle_GPT();
     void unswizzle();
     void swizzle();
     void convertBMPtoPNG(QString bmpPath);

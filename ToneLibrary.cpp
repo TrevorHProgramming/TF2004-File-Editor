@@ -14,6 +14,10 @@ void VACFile::tempRead(){
 }
 
 void VACFile::tempWrite(){
+    if(this->noteList.empty()){
+       parent->messageError("No audio files available to export. Please load an audio file.");
+       return;
+    }
     QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output VAC"), QDir::currentPath() + "/VAC/", parent->tr("Tone Files (*.vac)"));
     QFile vacOut(fileOut);
     QFile file(fileOut);

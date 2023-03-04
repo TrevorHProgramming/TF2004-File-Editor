@@ -9,7 +9,7 @@ public:
     int levels;
     std::vector<std::vector<int>> targetIndecies;
     std::vector<float> levelDistance;
-    VBIN *file;
+    FileData *fileData;
 
     void populateLevels();
     void clear();
@@ -20,11 +20,13 @@ public:
     int arrayID;
     int arrayLength;
     long fileLocation;
+    int triangleCount;
     std::vector<TriangleStrip> triangleStrips;
     std::vector<int> indexList;
-    VBIN *file;
+    FileData *fileData;
 
     void populateTriangleStrips();
+    int getDAETriangleCount();
 };
 
 class MeshFaceSet{
@@ -42,7 +44,7 @@ public:
   long fileLocation;
   QString meshName;
   std::vector<QVector3D> positionList;
-  VBIN *file;
+  FileData *fileData;
 
   void Transform();
   //void getIndexArrays();
@@ -59,7 +61,7 @@ public:
     NormalArray normalArray;
     ColorArray colorArray;
     TextureCoords textureCoords;
-    VBIN *file;
+    FileData *fileData;
 
     void getArrayLocations();
 };
@@ -99,7 +101,7 @@ public:
 
 class SurfaceProperties{
 public:
-    QString name;
+    QString textureName;
     int materialRelated; //recorded values are 4 and 5, with the lowest bit indicating a difference in the material section
     int unknownProperty2;
     Material material;
@@ -134,11 +136,18 @@ public:
     int elementCount;
 
     void clear();
+    void applyKeyframe(QVector3D keyOffset);
+    void applyKeyframe(QQuaternion keyRotation);
     void readData(long meshLocation);
     int readMesh();
     //void modifyPosArrays(Modifications mods);
     void getModifications();
-    void writeData(QTextStream &fileOut);
+    void writeDataSTL(QTextStream &fileOut);
+    void writeDataDAE(QTextStream &fileOut);
+    void writeNodesDAE(QTextStream &FileOut);
+    void writeEffectsDAE(QTextStream &FileOut);
+    void writeImagesDAE(QTextStream &FileOut);
+    void writeMaterialsDAE(QTextStream &FileOut);
     void modify(std::vector<Modifications> addedMods);
     const void operator=(Mesh input);
 };

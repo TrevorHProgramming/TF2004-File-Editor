@@ -44,6 +44,10 @@ class FileData{
     int readUInt(int length = 4, long location = 0);
     bool readBool(int length = 1, long location = 0);
     float readFloat(int length = 4, long location = 0);
+    float readMiniFloat(int length = 2, long location = 0);
+    QVector3D readVector(int length = 4, long location = 0);
+    QQuaternion readQuaternion(int length = 4, long location = 0);
+    QQuaternion readMiniQuaternion(int length = 2, long location = 0);
     QByteArray readHex(int length, long location = 0);
     QByteArray mid(long location, int length);
     QString getSignature();

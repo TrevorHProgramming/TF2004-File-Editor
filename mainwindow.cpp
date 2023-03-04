@@ -24,9 +24,11 @@ ProgWindow::ProgWindow(QWidget *parent)
     QMenu *menuITF = menuMain->addMenu("ITF");
     QMenu *menuSFX = menuMain->addMenu("SFX");
     QMenu *menuDatabase = menuMain -> addMenu("Database");
+    QMenu *menuCalculator = menuMain->addMenu("Calculator");
     QMenu *menuSettings = menuMain->addMenu("Settings");
     QAction *actionLoadVBIN = menuVBIN->addAction("Load VBIN");
     QAction *actionSaveSTL = menuVBIN ->addAction("Export to STL");
+    QAction *actionSaveDAE = menuVBIN ->addAction("Export to DAE");
     QAction *actionLoadMeshVBIN = menuVBIN->addAction("Load Mesh VBIN");
     QAction *actionLoadITF = menuITF ->addAction("Load ITF");
     QAction *actionSaveITF = menuITF->addAction("Save ITF");
@@ -41,6 +43,7 @@ ProgWindow::ProgWindow(QWidget *parent)
     QAction *actionSaveTDB = menuDatabase ->addAction("Save TDB");
     QAction *actionSaveBMD = menuDatabase ->addAction("Save BMD");
     QAction *actionSaveBDB = menuDatabase ->addAction("Save BDB");
+    QAction *actionOpenCalculator = menuCalculator -> addAction("Warpgate Distance Calculator");
     QAction *actionSettings = menuSettings -> addAction("Settings");
 
     /*hiding SFX menu for this patch since this system is far from ready*/
@@ -59,6 +62,8 @@ ProgWindow::ProgWindow(QWidget *parent)
     PaletteTable = nullptr;
     ListLevels = nullptr;
     ListFiles = nullptr;
+    ListAnimation = nullptr;
+    ListFrame = nullptr;
     radioSingle = nullptr;
     radioMultiple = nullptr;
     ButtonOpenTDB = nullptr;
@@ -73,10 +78,17 @@ ProgWindow::ProgWindow(QWidget *parent)
     testModel = nullptr;
     LabelMode = nullptr;
     LabelName = nullptr;
+    ButtonCalculate = nullptr;
+    CalculateXValue = nullptr;
+    CalculateYValue = nullptr;
+    CalculateZValue = nullptr;
+    ClosestWarpgate = nullptr;
+
 
     changeMode(0);
 
     connect(actionSaveSTL, &QAction::triggered, this, &ProgWindow::convertVBINToSTL);
+    connect(actionSaveDAE, &QAction::triggered, this, &ProgWindow::convertVBINToDAE);
     connect(actionLoadVBIN, &QAction::triggered, this, &ProgWindow::openVBIN);
     connect(actionLoadMeshVBIN, &QAction::triggered, this, [this] {geometrySet->openMeshVBINFile();});
     //connect(ButtonITFtoBMP, &QPushButton::released, this, &ProgWindow::convertITFToBMP);
@@ -94,6 +106,7 @@ ProgWindow::ProgWindow(QWidget *parent)
     connect(actionSaveTMD, &QAction::triggered, this, [this] {saveDefinitionFile(false);});
     connect(actionSaveBMD, &QAction::triggered, this, [this] {saveDefinitionFile(true);});
     connect(actionSaveBDB, &QAction::triggered, this, [this] {saveDatabaseFile(true);});
+    connect(actionOpenCalculator, &QAction::triggered, this, &ProgWindow::openWarpgateCalculator);
     /*going to need a ProgWindow function for writing TMD and BMD files since they're in lists
     use this:
     bool cancelled;
@@ -107,6 +120,111 @@ ProgWindow::ProgWindow(QWidget *parent)
 ProgWindow::~ProgWindow()
 {
     delete ui;
+}
+
+std::vector<Warpgate> Warpgate::createAmazonWarpgates(){
+    std::vector<Warpgate> warpgates;
+
+    Warpgate warpgate1 = *new Warpgate;
+    warpgate1.name = "Amazon Basin";
+    warpgate1.x_value = 962.632;
+    warpgate1.y_value = -1749.81;
+    warpgate1.z_value = -3.54471;
+    warpgates.push_back(warpgate1);
+
+    Warpgate warpgate2 = *new Warpgate;
+    warpgate2.name = "Stone Bridge";
+    warpgate2.x_value = 149.641;
+    warpgate2.y_value = -1624.49;
+    warpgate2.z_value = -5.44923;
+    warpgates.push_back(warpgate2);
+
+    Warpgate warpgate3 = *new Warpgate;
+    warpgate3.name = "Ruined Temple";
+    warpgate3.x_value = -529.19;
+    warpgate3.y_value = -1593.41;
+    warpgate3.z_value = -65.8129;
+    warpgates.push_back(warpgate3);
+
+    Warpgate warpgate4 = *new Warpgate;
+    warpgate4.name = "Waterfall";
+    warpgate4.x_value = -95.6776;
+    warpgate4.y_value = -751.857;
+    warpgate4.z_value = 104.951;
+    warpgates.push_back(warpgate4);
+
+    Warpgate warpgate5 = *new Warpgate;
+    warpgate5.name = "Deep Ravine";
+    warpgate5.x_value = 748.225;
+    warpgate5.y_value = -112.755;
+    warpgate5.z_value = 133.936;
+    warpgates.push_back(warpgate5);
+
+    Warpgate warpgate6 = *new Warpgate;
+    warpgate6.name = "Mountain Ruins";
+    warpgate6.x_value = 1034.22;
+    warpgate6.y_value = 287.605;
+    warpgate6.z_value = 433.134;
+    warpgates.push_back(warpgate6);
+
+    return warpgates;
+}
+
+void ProgWindow::openWarpgateCalculator(){
+    changeMode(6);
+    if(ButtonCalculate == nullptr){
+        ButtonCalculate = new QPushButton("Calculate", this);
+        ButtonCalculate->setGeometry(QRect(QPoint(50,320), QSize(150,30)));
+        connect(ButtonCalculate, &QPushButton::released, this, &ProgWindow::calculateWarpgateDistance);
+        ButtonCalculate->show();
+    }
+    if(CalculateXValue == nullptr){
+        CalculateXValue = new QLineEdit("X Value", this);
+        CalculateXValue->setGeometry(QRect(QPoint(200,320), QSize(150,30)));
+        CalculateXValue->show();
+    }
+    if(CalculateYValue == nullptr){
+        CalculateYValue = new QLineEdit("Y Value", this);
+        CalculateYValue->setGeometry(QRect(QPoint(350,320), QSize(150,30)));
+        CalculateYValue->show();
+    }
+    if(CalculateZValue == nullptr){
+        CalculateZValue = new QLineEdit("Z Value", this);
+        CalculateZValue->setGeometry(QRect(QPoint(500,320), QSize(150,30)));
+        CalculateZValue->show();
+    }
+
+}
+
+void ProgWindow::calculateWarpgateDistance(){
+    Warpgate *closestGate = new Warpgate;
+    std::vector<Warpgate> warpgates = closestGate->createAmazonWarpgates();
+    float totalDifference = 0;
+    float lowestDistance = 99999;
+
+    qDebug() << Q_FUNC_INFO << "Finding closes warpgate to point: x" << CalculateXValue->text() << "y" << CalculateYValue->text() << "z" << CalculateZValue->text();
+    for (int i = 0; i<warpgates.size(); i++) {
+        totalDifference = std::pow(std::pow(CalculateXValue->text().toFloat() - warpgates[i].x_value, 2)
+                + std::pow(CalculateYValue->text().toFloat() - warpgates[i].y_value, 2)
+                + std::pow(CalculateZValue->text().toFloat() - warpgates[i].z_value, 2)
+                    ,0.5);
+        if (totalDifference < lowestDistance) {
+            lowestDistance = totalDifference;
+            closestGate = &warpgates[i];
+        }
+        qDebug() << Q_FUNC_INFO << "Distance to warpgate" << warpgates[i].name << ":" << totalDifference;
+    }
+
+    qDebug() << Q_FUNC_INFO << "Closest warpgate: " << closestGate->name;
+
+    if(ClosestWarpgate == nullptr){
+        ClosestWarpgate = new QLabel(closestGate->name, this);
+        ClosestWarpgate->setGeometry(QRect(QPoint(650,320), QSize(150,30)));
+        ClosestWarpgate->setStyleSheet("QLabel { background-color: rgb(105,140,187) }");
+        ClosestWarpgate->show();
+    } else {
+        ClosestWarpgate->setText(closestGate->name);
+    }
 }
 
 void ProgWindow::changeName(QString newName){
@@ -146,11 +264,77 @@ int ProgWindow::changeMode(int newMode){
         case 5: mode = 5;
             LabelMode->setText("Tone Mode");
             break; //TLA, TLB, VAC, tone mode
+        case 6: mode = 6;
+            LabelMode->setText("Calculator Mode");
 
         default: return -1; //undefined type
         }
     }
     return 0;
+}
+
+void ProgWindow::createAnimationList(AnimationSourceSet animations){
+    if(ListAnimation == nullptr){
+           qDebug() << Q_FUNC_INFO << "The dropdown does not exist.";
+        ListAnimation = new QComboBox(this);
+        ListAnimation -> setGeometry(QRect(QPoint(650,50), QSize(150,30)));
+        if (animations.animationCount <= 0){
+            ListAnimation->insertItem(0, "No animations");
+        } else {
+            for(int i=0; i<animations.animationCount; ++i){
+                ListAnimation->insertItem(i, animations.streamArray[i]->name);
+            }
+        }
+        connect(ListAnimation, &QComboBox::currentIndexChanged, this, [this] {animationSelectChange();});
+        ListAnimation->show();
+    } else {
+        ListAnimation->clear();
+        ListAnimation -> setGeometry(QRect(QPoint(650,50), QSize(150,30)));
+        if (animations.animationCount <= 0){
+            ListAnimation->insertItem(0, "No animations");
+        } else {
+            for(int i=0; i<animations.animationCount; ++i){
+                ListAnimation->insertItem(i, animations.streamArray[i]->name);
+            }
+        }
+        ListAnimation->show();
+    }
+    qDebug() << Q_FUNC_INFO << "animation list size" << animations.streamArray.size() << "name" << animations.name;
+    if (animations.streamArray.size() > 0) {
+        qDebug() << Q_FUNC_INFO << "channel array size" << animations.streamArray[0]->channelArray.size() << "name" << animations.streamArray[0]->name;
+        if (animations.streamArray[0]->channelArray.size() > 0) {
+            qDebug() << Q_FUNC_INFO << "keyframe count for channel" << animations.streamArray[0]->channelArray[0]->name << ":" << animations.streamArray[0]->channelArray[0]->keyframeCount;
+            createFrameList(animations.streamArray[0]->channelArray[0]->keyframeCount);
+        }
+    }
+}
+
+void ProgWindow::createFrameList(int frames){
+    qDebug() << Q_FUNC_INFO << "CREATING THE LIST WITH " << frames << "LEVELS";
+    if(ListFrame == nullptr){
+           qDebug() << Q_FUNC_INFO << "The dropdown does not exist.";
+        ListFrame = new QComboBox(this);
+        ListFrame -> setGeometry(QRect(QPoint(850,50), QSize(150,30)));
+        if (frames <= 0){
+            ListFrame->insertItem(0, "1");
+        } else {
+            for(int i=0; i<frames; ++i){
+                ListFrame->insertItem(i, QString::number(i+1));
+            }
+        }
+        ListFrame->show();
+    } else {
+        ListFrame->clear();
+        ListFrame -> setGeometry(QRect(QPoint(850,50), QSize(150,30)));
+        if (frames <= 0){
+            ListFrame->insertItem(0, "1");
+        } else {
+            for(int i=0; i<frames; ++i){
+                ListFrame->insertItem(i, QString::number(i+1));
+            }
+        }
+        ListFrame->show();
+    }
 }
 
 void ProgWindow::levelSelectChange(){
@@ -168,6 +352,13 @@ void ProgWindow::fileSelectChange(){
         itfFiles[ListFiles->currentIndex()].populatePalette();
     }
 }
+
+void ProgWindow::animationSelectChange(){
+    if (fileMode == "VBIN" && ListAnimation->currentIndex() >= 0) {
+        createFrameList(vbinFiles[ListFiles->currentIndex()].animationSet.streamArray[ListAnimation->currentIndex()]->channelArray[0]->keyframeCount);
+    }
+}
+
 
 void ProgWindow::createMultiRadios(){
     if(radioSingle == nullptr){
@@ -244,7 +435,7 @@ void ProgWindow::createFileList(){
     if(ListFiles == nullptr){
            qDebug() << Q_FUNC_INFO << "The dropdown does not exist.";
         ListFiles = new QComboBox(this);
-        ListFiles -> setGeometry(QRect(QPoint(500,50), QSize(150,30)));
+        ListFiles -> setGeometry(QRect(QPoint(450,50), QSize(150,30)));
         if(fileMode == "VBIN"){
             for (int i = 0; i < vbinFiles.size(); i++) {
                 ListFiles->insertItem(i, vbinFiles[i].fileName);
@@ -260,7 +451,7 @@ void ProgWindow::createFileList(){
         ListFiles->show();
     } else {
         ListFiles->clear();
-        ListFiles -> setGeometry(QRect(QPoint(500,50), QSize(150,30)));
+        ListFiles -> setGeometry(QRect(QPoint(450,50), QSize(150,30)));
         if(fileMode == "VBIN"){
             for (int i = 0; i < vbinFiles.size(); i++) {
                 ListFiles->insertItem(i, vbinFiles[i].fileName);
@@ -455,9 +646,17 @@ void ProgWindow::saveDatabaseFile(bool binary){
 }
 
 void ProgWindow::saveITFFile(){
+    if(itfFiles.empty()){
+       messageError("No texture files available to save. Please load a texture file.");
+       return;
+    }
     itfFiles[ListFiles->currentIndex()].writeITF();
 }
 
 void ProgWindow::saveBMPFile(){
+    if(itfFiles.empty()){
+       messageError("No texture files available to export. Please load a texture file.");
+       return;
+    }
     itfFiles[ListFiles->currentIndex()].writeBMP();
 }
