@@ -1,5 +1,4 @@
 QT       += core gui
-qt       += quick quick3d
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -10,32 +9,33 @@ CONFIG += c++11
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    Antioch2.cpp \
-    BMPandPNGConversion.cpp \
-    BinChanger.cpp \
-    Database.cpp \
-    DatabaseItems.cpp \
-    ITFtoBMP.cpp \
-    LevelGeo.cpp \
-    Mesh.cpp \
-    ToneLibrary.cpp \
-    VBINtoSTL.cpp \
-    main.cpp \
-    mainwindow.cpp \
-    openfile.cpp \
+    Source/Models/Antioch2.cpp \
+    Source/Textures/BMPandPNGConversion.cpp \
+    Source/Main/BinChanger.cpp \
+    Source/Databases/Database.cpp \
+    Source/Databases/DatabaseItems.cpp \
+    DistanceCalculator.cpp \
+    Source/Textures/ITF.cpp \
+    Source/Models/LevelGeo.cpp \
+    Source/Models/Mesh.cpp \
+    Source/Audio/ToneLibrary.cpp \
+    Source/Models/VBIN.cpp \
+    Source/Main/main.cpp \
+    Source/Main/mainwindow.cpp \
+    Source/Main/openfile.cpp \
     stolenunswizzler.cpp
 
 HEADERS += \
-    Antioch2.h \
-    BinChanger.h \
-    Database.h \
-    DistanceCalculations.h \
-    LevelGeo.h \
-    Mesh.h \
-    ToneLibraries.h \
-    itf.h \
-    mainwindow.h \
-    vbin.h
+    Headers/Models/Antioch2.h \
+    Headers/Main/BinChanger.h \
+    Headers/Databases/Database.h \
+    DistanceCalculator.h \
+    Headers/Models/LevelGeo.h \
+    Headers/Models/Mesh.h \
+    Headers/Audio/ToneLibraries.h \
+    Headers/Textures/itf.h \
+    Headers/Main/mainwindow.h \
+    Headers/Models/vbin.h
 
 FORMS += \
     mainwindow.ui
