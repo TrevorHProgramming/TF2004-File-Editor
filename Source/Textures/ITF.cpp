@@ -69,7 +69,7 @@ void ITF::readData(){
         //256 palette case. nice and easy since each pixel uses 1 byte to refer to the palette
         contentLength -= (paletteCount*1024); //remove the length of the palette section before getting to the pixels
         swizzledPixels.resize(contentLength);
-        for (int i = parent->fileData.currentPosition; i < startLocation + dataLength; i++){
+        for (int i = parent->fileData.currentPosition; i < startLocation + 4 + dataLength; i++){
             swizzledPixels[pixelIndex] = parent->fileData.readInt(1);
             pixelIndex += 1;
         }
@@ -79,7 +79,7 @@ void ITF::readData(){
         //byte_to_nib here to get a tuple of both nibbles
         contentLength -= (paletteCount*64); //remove the length of the palette section before getting to the pixels
         swizzledPixels.resize(contentLength*2);
-        for(int i = parent->fileData.currentPosition; i < startLocation + dataLength; i++){
+        for(int i = parent->fileData.currentPosition; i < startLocation + 4 + dataLength; i++){
             nibTup = parent->binChanger.byte_to_nib(parent->fileData.mid(location+i, 1));
             swizzledPixels[pixelIndex] = std::get<0>(nibTup);
             pixelIndex += 1;
