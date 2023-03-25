@@ -23,7 +23,6 @@ SOURCES += \
     Source/Main/main.cpp \
     Source/Main/mainwindow.cpp \
     Source/Main/openfile.cpp \
-    stolenunswizzler.cpp
 
 HEADERS += \
     Headers/Models/Antioch2.h \

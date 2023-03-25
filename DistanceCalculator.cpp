@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+#include "Headers/Main/mainwindow.h"
 
 void DistanceCalculator::calculateWarpgateDistance(){
     Warpgate *closestGate = new Warpgate;

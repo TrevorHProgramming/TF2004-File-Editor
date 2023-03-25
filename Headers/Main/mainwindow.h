@@ -77,19 +77,10 @@ public:
     QLabel *LabelName;
     QLabel *ClosestWarpgate;
 
-    QPushButton *ButtonVBINtoSTL;
-    QPushButton *ButtonOpenVBIN;
-    QPushButton *ButtonOpenMeshVBIN;
-    QPushButton *ButtonMeshtoSTL;
-    QPushButton *ButtonOpenITF;
-    QPushButton *ButtonITFtoBMP;
-    QPushButton *ButtonOpenTMD;
-    QPushButton *ButtonOpenTDB;
-    QPushButton *ButtonWriteTMD;
-    QPushButton *ButtonClear;
-    QPushButton *ButtonEditDB;
+    std::vector<QObject*> currentModeObjects;
+
+
     QPushButton *ButtonRemoveItem;
-    QPushButton *ButtonRemoveClass;
     QPushButton *ButtonCalculate;
     QLineEdit *CalculateXValue;
     QLineEdit *CalculateYValue;

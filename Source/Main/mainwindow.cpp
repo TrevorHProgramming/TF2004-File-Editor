@@ -69,13 +69,11 @@ ProgWindow::ProgWindow(QWidget *parent)
     ListFrame = nullptr;
     radioSingle = nullptr;
     radioMultiple = nullptr;
-    ButtonOpenTDB = nullptr;
-    ButtonWriteTMD = nullptr;
     DBClassList = nullptr;
     DBItemList = nullptr;
     DBDetailList = nullptr;
     DBValueList = nullptr;
-    ButtonEditDB = nullptr;
+    //ButtonEditDB = nullptr;
     DBNewValue = nullptr;
     testView = nullptr;
     testModel = nullptr;
@@ -394,35 +392,29 @@ void ProgWindow::createFileList(){
 }
 
 void ProgWindow::clearWindow(){
-    if (PaletteTable != nullptr) {
-        PaletteTable->clear();
-        PaletteTable->hide();
+    for (int i = 0; i < currentModeObjects.size(); i++) {
+        delete currentModeObjects[i];
     }
-//    if (ListLevels != nullptr) {
-//        ListLevels->clear();
-//        ListLevels->hide();
-//    }
-//    if (ListFiles != nullptr){
-//        ListFiles->clear();
-//        ListFiles->hide();
-//    }
+    currentModeObjects.clear();
 }
 
 void ProgWindow::createDBButtons(){
-    if(ButtonEditDB == nullptr){
-        ButtonEditDB = new QPushButton("Edit item Data", this);
+    if(mode != 4){
+        QPushButton* ButtonEditDB = new QPushButton("Edit item Data", this);
         ButtonEditDB->setGeometry(QRect(QPoint(50,320), QSize(150,30)));
         connect(ButtonEditDB, &QPushButton::released, this, [this]{editDatabaseItem(testView->currentIndex(), testView->currentIndex().row());});
         ButtonEditDB->show();
+        currentModeObjects.push_back(ButtonEditDB);
         //I don't think this button is really that useful
         /*ButtonRemoveItem = new QPushButton("Remove item", this);
         ButtonRemoveItem->setGeometry(QRect(QPoint(50,370), QSize(150,30)));
         connect(ButtonRemoveItem, &QPushButton::released, this, [this]{removeDatabaseItem(testView->currentIndex(), testView->currentIndex().row());});
         ButtonRemoveItem->show();*/
-        ButtonRemoveClass = new QPushButton("Remove class/instance", this);
+        QPushButton* ButtonRemoveClass = new QPushButton("Remove class/instance", this);
         ButtonRemoveClass->setGeometry(QRect(QPoint(50,420), QSize(150,30)));
         connect(ButtonRemoveClass, &QPushButton::released, this, [this]{removeDatabaseClass(testView->currentIndex());});
         ButtonRemoveClass->show();
+        currentModeObjects.push_back(ButtonRemoveClass);
     }
 }
 
