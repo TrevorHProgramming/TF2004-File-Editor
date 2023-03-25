@@ -32,7 +32,7 @@ void ProgWindow::openFile(QString fileType){
 void ProgWindow::openVBIN(){
     fileMode = "VBIN";
     VBIN vbinFile;
-    //clearWindow();
+    clearWindow();
     fileData.input = true;
     QString fileIn = QFileDialog::getOpenFileName(this, tr("Select VBIN"), QDir::currentPath() + "/VBIN/", tr("Model Files (*.vbin)"));
     if (!fileIn.isNull()){
@@ -132,7 +132,6 @@ void ProgWindow::openDefinition(bool binary){
         fileIn = QFileDialog::getOpenFileName(this, tr("Select TMD"), QDir::currentPath(), tr("Database Definition Files (*.TMD)"));
     }
     if (!fileIn.isNull()){
-        changeMode(4);
         openedFile.filePath = fileIn;
         openedFile.parent = this;
         fileData.readFile(fileIn);
@@ -152,6 +151,7 @@ void ProgWindow::openDefinition(bool binary){
             createDBButtons();
             openedFile.createDBTree();
             definitions.push_back(openedFile);
+            changeMode(4);
         } else {
             messageError("There was an error reading the file.");
         }
