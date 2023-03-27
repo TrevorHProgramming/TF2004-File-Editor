@@ -5,7 +5,10 @@ void GeometrySet::getVerticies(){
     float u_val = 0;
     float v_val = 0;
     int loopcounter = 0;
+    int endSection = 0;
+    int headerLength = 0;
     bool recognizedSection = false;
+    bool first6E = true;
 
     version = fileData->readInt();
     unknownValue1 = fileData->readInt();
@@ -16,24 +19,31 @@ void GeometrySet::getVerticies(){
     unknownValue4 = fileData->readInt();
     unknownValue5 = fileData->readInt();
     unknownValue6 = fileData->readInt();
-    fileData->currentPosition += 75;
-    possibleItemCount = fileData->readInt(2);
-    fileData->currentPosition += 24;
-    unknownValue7 = fileData->readInt();
-    unknownValue8 = fileData->readInt();
-    unknownValue9 = fileData->readInt(1);
-    unknownValue10 = fileData->readInt(2);
+    //qDebug() << Q_FUNC_INFO << "position after first part header read" << fileData->currentPosition;
+    fileData->currentPosition += 12;
+    headerLength = fileData->readInt(1);
+    if(headerLength & 2){
+        fileData->currentPosition += 88;
+    } else {
+        fileData->currentPosition += 120;
+    }
+    unknownValue7 = fileData->readInt(2);
+    unknownValue8 = fileData->readInt(2);
+    unknownValue9 = fileData->readInt();
+    unknownValue10 = fileData->readInt(1);
+    unknownValue11 = fileData->readInt(2);
 
-    qDebug() << Q_FUNC_INFO << "header check:" << unknownValue7 << unknownValue8 << unknownValue9 << unknownValue10;
-    qDebug() << Q_FUNC_INFO << "item count" << possibleItemCount;
+    //qDebug() << Q_FUNC_INFO << "unknown values" << unknownValue2 << unknownValue3 << unknownValue4 << unknownValue5 << unknownValue6;
+    //qDebug() << Q_FUNC_INFO << "header check:" << unknownValue7 << unknownValue8 << unknownValue9 << unknownValue10 << unknownValue11;
 
-    if(unknownValue7 != 50331776 || unknownValue8 != 0 || unknownValue9 != 0 || unknownValue10 != 17793){
+    if(unknownValue7 != 128 || /*skip 8*/ unknownValue9 != 0 || unknownValue10 != 0 || unknownValue11 != 17793){
         qDebug() << Q_FUNC_INFO << "header check was not passed. Last read at" << fileData->currentPosition;
         return;
     }
 
     //while(fileData->currentPosition < headerData.sectionLocation + headerData.sectionLength){
-    for(int section = 0; section < possibleItemCount; section++){
+    while(!endSection){
+    //for(int section = 0; section < possibleItemCount; section++){
         //qDebug() << Q_FUNC_INFO << "current position" << fileData->currentPosition << "vs end of section" << headerData.sectionLength + headerData.sectionLocation;
         int header1 = fileData->readUInt(1);
         int header2 = fileData->readUInt(1);
@@ -44,10 +54,10 @@ void GeometrySet::getVerticies(){
         qDebug().noquote() << Q_FUNC_INFO << "header property value" << QString::number(header1, 16) << QString::number(header2, 16)
                  << QString::number(vertexCount, 16) << QString::number(properties, 16) << "at" << fileData->currentPosition;
 
-        /*if(properties == 104 or properties == 110 or properties == 98){
-            qDebug().noquote() << Q_FUNC_INFO << "header property value" << QString::number(header1, 16) << QString::number(header2, 16)
-                     << QString::number(vertexCount, 16) << QString::number(properties, 16) << "at" << fileData->currentPosition;
-        }*/
+//        if(properties == 98){
+//            qDebug().noquote() << Q_FUNC_INFO << "header property value" << QString::number(header1, 16) << QString::number(header2, 16)
+//                     << QString::number(vertexCount, 16) << QString::number(properties, 16) << "at" << fileData->currentPosition;
+//        }
 
         //qDebug() << Q_FUNC_INFO << "vertex count for item" << loopcounter << "is" << vertexCount << ", property is" << QString::number(properties, 16) << "at" << fileData->currentPosition;
 
@@ -68,10 +78,12 @@ void GeometrySet::getVerticies(){
                 possibleColor.A = fileData->readInt(1);
                 geoSetColors.push_back(possibleColor);
             }
-            if(header2 & 3){
-                fileData->currentPosition += 4;
-            } else {
+            //qDebug() << Q_FUNC_INFO << "6E ending" << fileData->currentPosition << "is first 6E" << first6E;
+            if(first6E){
                 fileData->currentPosition += 12;
+                first6E = false;
+            } else {
+                fileData->currentPosition += 4;
             }
         }
 
@@ -79,19 +91,25 @@ void GeometrySet::getVerticies(){
             /*This is probably the worst way to handle these sections, but I haven't been able to find ANY conssitency with the
             post-data footers. Some have 8 bytes, some have 9, and the properties are exactly the same for both.*/
             recognizedSection = true;
-            fileData->currentPosition += vertexCount;
 
-            bool hackLooping = true;
-            while (hackLooping) {
-                int dataCheck = fileData->readUInt(1);
-                if(dataCheck == header1){
-                    dataCheck = fileData->readUInt(1);
-                    if(dataCheck == header2){
-                        fileData->currentPosition -= 2;
-                        hackLooping = false;
-                    }
-                }
-            }
+            //qDebug() << Q_FUNC_INFO << "check count" << std::min(80, 32 + (((vertexCount-1)/4) * 8));
+            fileData->currentPosition += std::min(80, 32 + (((vertexCount-1)/4) * 8));
+//            if(vertexCount > 24){
+//                fileData->currentPosition += 80;
+//            } else if (vertexCount > 20) {
+//                fileData->currentPosition += 72;
+//            } else if (vertexCount > 16) {
+//                fileData->currentPosition += 64;
+//            } else if (vertexCount > 12) {
+//                fileData->currentPosition += 56;
+//            } else if (vertexCount > 8){
+//                fileData->currentPosition += 48;
+//            } else if (vertexCount > 4) {
+//                fileData->currentPosition += 40;
+//            } else {
+//                fileData->currentPosition += 32;
+//            }
+            first6E = false;
         }
 
         if(properties == 117){ //0x75
@@ -101,8 +119,23 @@ void GeometrySet::getVerticies(){
                 v_val = fileData->readMiniFloat();
                 geoSetTexCoords.push_back(QVector2D(u_val, v_val));
             }
+            //qDebug() << Q_FUNC_INFO << "finished reading 0x75 data at" << fileData->currentPosition;
 
-            fileData->currentPosition += 36;
+            fileData->currentPosition += 19;
+            int checkEnd = fileData->readInt(1);
+            if(checkEnd == 17){
+                //qDebug() << Q_FUNC_INFO << "checking for end of section marker at" << fileData->currentPosition;
+                endSection = 1;
+                int loopbreaker = 0;
+                checkEnd = 0;
+                while(checkEnd == 0 && loopbreaker < 50){
+                    checkEnd = fileData->readUInt(1);
+                    //qDebug() << Q_FUNC_INFO << checkEnd << "at" << fileData->currentPosition;
+                    loopbreaker++;
+                }
+                //qDebug() << Q_FUNC_INFO << "end of section marker found at" << fileData->currentPosition << "with" << loopbreaker << "items checked";
+                fileData->currentPosition += 31;
+            }
         }
 
         if(properties == 114){ //0x72
@@ -125,8 +158,8 @@ void GeometrySet::getVerticies(){
 
     }
 
-    qDebug() << Q_FUNC_INFO << "successfully exited the loop at" << fileData->currentPosition;
-    fileData->currentPosition += 20;
+    //qDebug() << Q_FUNC_INFO << "successfully exited the loop at" << fileData->currentPosition;
+    //fileData->currentPosition += 20;
 
     position1 = fileData->read3DVector();
     position2 = fileData->read3DVector();
