@@ -24,11 +24,11 @@ public:
     int unknownValue4;
     int unknownValue5;
     int unknownValue6;
-    int possibleItemCount;
     int unknownValue7;
     int unknownValue8;
     int unknownValue9;
     int unknownValue10;
+    int unknownValue11;
     QVector3D position1;
     QVector3D position2;
     MeshVBIN *file;
