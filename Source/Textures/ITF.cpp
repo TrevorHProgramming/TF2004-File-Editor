@@ -290,7 +290,14 @@ void ITF::writeBMP(){
     }
 
     std::vector<int> reversePixels = pixelList;
+    int currentPixel = 0;
     //::reverse(reversePixels.begin(), reversePixels.end());
+    for(int i = height-1; i >= 0; i--){
+        for(int j = 0; j < width; j++){
+            reversePixels[currentPixel] = pixelList[(width*i) + j];
+            currentPixel++;
+        }
+    }
 
     if (bmpOut.open(QIODevice::ReadWrite)){
         QDataStream fileStream(&bmpOut);

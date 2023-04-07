@@ -11,23 +11,26 @@ ProgWindow::ProgWindow(QWidget *parent)
     background.load(QCoreApplication::applicationDirPath() + "/assets/background.png");
     background = background.scaled(this->size());
     palette.setBrush(QPalette::Window, background);
-    this->setPalette(palette);
+    //this->setPalette(palette);
 
-    menuMain = new QMenuBar(this);
     MessagePopup = new QMessageBox(this);
     MessagePopup->setGeometry(QRect(QPoint(int(hSize*0.5),int(vSize*0.5)), QSize(120,30)));
-    menuMain->setGeometry(QRect(QPoint(int(hSize*0),int(vSize*0)), QSize(int(hSize*1),25)));
+    menuBar()->setGeometry(QRect(QPoint(int(hSize*0),int(vSize*0)), QSize(int(hSize*1),25)));
 
     fileData.parent = this;
 
-    QMenu *menuVBIN = menuMain->addMenu("VBIN");
-    QMenu *menuITF = menuMain->addMenu("ITF");
-    QMenu *menuSFX = menuMain->addMenu("SFX");
-    QMenu *menuDatabase = menuMain -> addMenu("Database");
-    QMenu *menuCalculator = menuMain->addMenu("Calculator");
-    //QMenu *menuSettings = menuMain->addMenu("Settings");
+    centralContainer = new QWidget(this);
+    setCentralWidget(centralContainer);
+
+    QMenu *menuVBIN = menuBar()->addMenu("VBIN");
+    QMenu *menuITF = menuBar()->addMenu("ITF");
+    QMenu *menuSFX = menuBar()->addMenu("SFX");
+    QMenu *menuDatabase = menuBar() -> addMenu("Database");
+    QMenu *menuCalculator = menuBar()->addMenu("Calculator");
+    //QMenu *menuSettings = menuBar()->addMenu("Settings");
     QAction *actionLoadVBIN = menuVBIN->addAction("Load VBIN");
     QAction *actionSaveSTL = menuVBIN ->addAction("Export to STL");
+    QAction *actionSaveLevelSTL = menuVBIN ->addAction("Export level to STL");
     QAction *actionSaveDAE = menuVBIN ->addAction("Export to DAE");
     QAction *actionLoadMeshVBIN = menuVBIN->addAction("Load Mesh VBIN");
     QAction *actionLoadITF = menuITF ->addAction("Load ITF");
@@ -45,6 +48,13 @@ ProgWindow::ProgWindow(QWidget *parent)
     QAction *actionSaveBDB = menuDatabase ->addAction("Save BDB");
     QAction *actionOpenCalculator = menuCalculator -> addAction("Warpgate Distance Calculator");
     //QAction *actionSettings = menuSettings -> addAction("Settings");
+
+    rightSidebar = new QDockWidget(this);
+    rightSidebar->setGeometry(QRect(QPoint(0,25), QSize(hSize*0.2,vSize)));
+    addDockWidget(Qt::LeftDockWidgetArea, rightSidebar);
+    testView = nullptr;
+    testModel = nullptr;
+    rightSidebar->show();
 
 
     /*hiding SFX menu for this patch since this system is far from ready*/
@@ -75,8 +85,6 @@ ProgWindow::ProgWindow(QWidget *parent)
     DBValueList = nullptr;
     //ButtonEditDB = nullptr;
     DBNewValue = nullptr;
-    testView = nullptr;
-    testModel = nullptr;
     LabelMode = nullptr;
     LabelName = nullptr;
     ButtonCalculate = nullptr;
@@ -90,6 +98,7 @@ ProgWindow::ProgWindow(QWidget *parent)
 
 
     connect(actionSaveSTL, &QAction::triggered, this, &ProgWindow::convertVBINToSTL);
+    connect(actionSaveLevelSTL, &QAction::triggered, this, &ProgWindow::convertMeshVBINToSTL);
     connect(actionSaveDAE, &QAction::triggered, this, &ProgWindow::convertVBINToDAE);
     connect(actionLoadVBIN, &QAction::triggered, this, &ProgWindow::openVBIN);
     connect(actionLoadMeshVBIN, &QAction::triggered, this, [this] {levelGeo->openMeshVBINFile();});
@@ -392,19 +401,27 @@ void ProgWindow::createFileList(){
 }
 
 void ProgWindow::clearWindow(){
-    for (int i = 0; i < currentModeObjects.size(); i++) {
-        delete currentModeObjects[i];
+
+    for (int i = 0; i < currentModeWidgets.size(); i++) {
+        qDebug() << Q_FUNC_INFO << "hiding widget" << currentModeWidgets[i]->metaObject()->className();;
+        currentModeWidgets[i]->setVisible(false);
+//        currentModeButtons[i]->setParent(nullptr);
+        //layout()->removeWidget(currentModeWidgets[i]);
+//        currentModeButtons[i]->deleteLater();
+        delete currentModeWidgets[i];
     }
-    currentModeObjects.clear();
+    currentModeWidgets.clear();
+    repaint(); //the buttons will visually remain, despite being set to not visible, until the program is told to repaint.
+    //this will only work if the background image is usable
 }
 
-void ProgWindow::createDBButtons(){
-    if(mode != 4){
+void ProgWindow::createDBButtons(int toMode){
+    if(toMode == 4 && mode != toMode){
         QPushButton* ButtonEditDB = new QPushButton("Edit item Data", this);
         ButtonEditDB->setGeometry(QRect(QPoint(50,320), QSize(150,30)));
         connect(ButtonEditDB, &QPushButton::released, this, [this]{editDatabaseItem(testView->currentIndex(), testView->currentIndex().row());});
         ButtonEditDB->show();
-        currentModeObjects.push_back(ButtonEditDB);
+        currentModeWidgets.push_back(ButtonEditDB);
         //I don't think this button is really that useful
         /*ButtonRemoveItem = new QPushButton("Remove item", this);
         ButtonRemoveItem->setGeometry(QRect(QPoint(50,370), QSize(150,30)));
@@ -414,7 +431,7 @@ void ProgWindow::createDBButtons(){
         ButtonRemoveClass->setGeometry(QRect(QPoint(50,420), QSize(150,30)));
         connect(ButtonRemoveClass, &QPushButton::released, this, [this]{removeDatabaseClass(testView->currentIndex());});
         ButtonRemoveClass->show();
-        currentModeObjects.push_back(ButtonRemoveClass);
+        currentModeWidgets.push_back(ButtonRemoveClass);
     }
 }
 
@@ -482,7 +499,7 @@ void ProgWindow::resizeEvent(QResizeEvent* event){
     hSize = this->size().width();
     vSize = this->size().height();
     //qDebug() << Q_FUNC_INFO << "hsize" << hSize << "vSize" << vSize;
-    menuMain->setGeometry(QRect(QPoint(int(hSize*0),int(vSize*0)), QSize(int(hSize*1),25)));
+    menuBar()->setGeometry(QRect(QPoint(int(hSize*0),int(vSize*0)), QSize(int(hSize*1),25)));
     background.load(QCoreApplication::applicationDirPath() + "/assets/background.png");
     background = background.scaled(this->size());
     palette.setBrush(QPalette::Window, background);

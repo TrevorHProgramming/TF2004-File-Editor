@@ -35,6 +35,7 @@ public:
     FileData *fileData;
 
     void getVerticies();
+    void writeDataSTL(QTextStream &fileOut);
 };
 
 class MeshVBIN : public TFFile {
@@ -43,6 +44,7 @@ class MeshVBIN : public TFFile {
 
     void readData();
     void openMeshVBINFile();
+    void outputDataSTL();
 };
 
 #endif // LEVELGEO_H
