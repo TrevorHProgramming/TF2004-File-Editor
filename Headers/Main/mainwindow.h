@@ -27,6 +27,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QScreen>
+#include <QDockWidget>
 
 
 #include <vector>
@@ -52,7 +53,6 @@ class ProgWindow : public QMainWindow
 public:
     ProgWindow(QWidget *parent = nullptr);
     ~ProgWindow();
-    QMenuBar *menuMain;
 
     BinChanger binChanger;
     std::vector<VBIN> vbinFiles;
@@ -77,10 +77,12 @@ public:
     QLabel *LabelName;
     QLabel *ClosestWarpgate;
 
-    std::vector<QObject*> currentModeObjects;
+    std::vector<QWidget*> currentModeWidgets;
+    QDockWidget *rightSidebar;
+    QDockWidget *leftSidebar;
 
-
-    QPushButton *ButtonRemoveItem;
+    QWidget *centralContainer;
+    //QPushButton *ButtonRemoveItem;
     QPushButton *ButtonCalculate;
     QLineEdit *CalculateXValue;
     QLineEdit *CalculateYValue;
@@ -121,7 +123,7 @@ public:
     void createFrameList(int frames);
     void createMultiRadios();
     void deleteMultiRadios();
-    void createDBButtons();
+    void createDBButtons(int toMode);
     void levelSelectChange();
     void fileSelectChange();
     void animationSelectChange();
@@ -144,6 +146,7 @@ private:
     void openFile(QString fileType);
 
 public slots:
+    void convertMeshVBINToSTL();
     void convertVBINToSTL();
     void convertVBINToDAE();
     //void convertITFToBMP();

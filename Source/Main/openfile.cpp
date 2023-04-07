@@ -148,7 +148,7 @@ void ProgWindow::openDefinition(bool binary){
         passed = openedFile.readData();
         qDebug() << Q_FUNC_INFO << "File data read.";
         if (passed != -1){
-            createDBButtons();
+            createDBButtons(4);
             openedFile.createDBTree();
             definitions.push_back(openedFile);
             changeMode(4);
@@ -173,7 +173,6 @@ void ProgWindow::openDatabase(bool binary){
         fileIn = QFileDialog::getOpenFileName(this, tr("Select TDB"), QDir::currentPath(), tr("Database Definition Files (*.TDB)"));
     }
     if (!fileIn.isNull()){
-        changeMode(4);
         openedFile.filePath = fileIn;
         openedFile.parent = this;
         fileData.readFile(fileIn);
@@ -190,9 +189,10 @@ void ProgWindow::openDatabase(bool binary){
         passed = openedFile.readData();
         qDebug() << Q_FUNC_INFO << "File data read.";
         if (passed != -1){
-            createDBButtons();
+            createDBButtons(4);
             openedFile.createDBTree();
             databases.push_back(openedFile);
+            changeMode(4);
         } else {
             messageError("There was an error reading the file.");
         }

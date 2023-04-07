@@ -51,8 +51,8 @@ void GeometrySet::getVerticies(){
         int properties = fileData->readUInt(1);
         recognizedSection = false;
 
-        qDebug().noquote() << Q_FUNC_INFO << "header property value" << QString::number(header1, 16) << QString::number(header2, 16)
-                 << QString::number(vertexCount, 16) << QString::number(properties, 16) << "at" << fileData->currentPosition;
+//        qDebug().noquote() << Q_FUNC_INFO << "header property value" << QString::number(header1, 16) << QString::number(header2, 16)
+//                 << QString::number(vertexCount, 16) << QString::number(properties, 16) << "at" << fileData->currentPosition;
 
 //        if(properties == 98){
 //            qDebug().noquote() << Q_FUNC_INFO << "header property value" << QString::number(header1, 16) << QString::number(header2, 16)
@@ -93,7 +93,10 @@ void GeometrySet::getVerticies(){
             recognizedSection = true;
 
             //qDebug() << Q_FUNC_INFO << "check count" << std::min(80, 32 + (((vertexCount-1)/4) * 8));
-            fileData->currentPosition += std::min(80, 32 + (((vertexCount-1)/4) * 8));
+            QByteArray skipRead;
+            fileData->hexValue(&skipRead, std::min(80, 32 + (((vertexCount-1)/4) * 8)));
+            qDebug() << Q_FUNC_INFO << skipRead.toHex(' ');
+            //fileData->currentPosition += std::min(80, 32 + (((vertexCount-1)/4) * 8));
 //            if(vertexCount > 24){
 //                fileData->currentPosition += 80;
 //            } else if (vertexCount > 20) {
@@ -172,6 +175,7 @@ void MeshVBIN::readData(){
     parent->fileData.currentPosition = 4;
 
     SectionHeader signature;
+    parent->fileData.input = true;
 
     //only reading the first geo set for now
     parent->fileData.signature(&signature);
@@ -201,4 +205,60 @@ void MeshVBIN::openMeshVBINFile(){
     qDebug() << Q_FUNC_INFO << "File data read.";
 
 
+}
+
+void GeometrySet::writeDataSTL(QTextStream &fileOut){
+    QVector3D tempVec;
+
+    for(int vertex = 0; vertex < geoSetVerticies.size()-2; vertex++){
+        fileOut << "  facet normal 0 0 0" << Qt::endl;
+        fileOut << "    outer loop" << Qt::endl;
+        for (int n = 0; n < 3; ++n) {
+            fileOut << "      vertex ";
+            tempVec = geoSetVerticies[vertex+n]; //just for readability for the next line
+            fileOut << QString::number(tempVec.x(), 'f', 3) << " " << QString::number(tempVec.y(), 'f', 3) << " " << QString::number(tempVec.z(), 'f', 3) << Qt::endl;
+        }
+        fileOut << "    endloop" << Qt::endl;
+        fileOut << "  endfacet" << Qt::endl;
+    }
+
+}
+
+void ProgWindow::convertMeshVBINToSTL(){
+    levelGeo->outputDataSTL();
+
+    return;
+}
+
+void MeshVBIN::outputDataSTL(){
+
+    std::vector<int> allowedMeshes = {1,2,3};
+    std::vector<int> chosenLOD;
+
+    //applyKeyframe();
+
+    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", parent->tr("Model Files (*.stl)"));
+    if(fileOut.isEmpty()){
+        parent->messageError("STL export cancelled.");
+    }
+    QFile stlOut(fileOut);
+    QFile file(fileOut);
+    file.open(QFile::WriteOnly|QFile::Truncate);
+    file.close();
+
+    if(!stlOut.open(QIODevice::ReadWrite)){
+        return;
+    }
+    QTextStream stream(&stlOut);
+    stream << "solid Default" << Qt::endl;
+    qDebug() << Q_FUNC_INFO << "sections:" << geoSets.size();
+    for(int i = 0; i < geoSets.size(); i++){
+        geoSets[i].writeDataSTL(stream);
+    }
+    stream << "endsolid Default" << Qt::endl;
+
+    parent->messageSuccess("STL file saved.");
+    qDebug() << Q_FUNC_INFO << "STL output complete.";
+
+    return;
 }

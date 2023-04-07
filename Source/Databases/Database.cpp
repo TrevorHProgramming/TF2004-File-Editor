@@ -901,7 +901,8 @@ void DatabaseFile::writeBinary(){
 
 void DefinitionFile::createDBTree(){
     if(parent->testView == nullptr){
-        parent->testView = new QTreeView(parent);
+        parent->testView = new QTreeView(parent->rightSidebar);
+        parent->rightSidebar->setWidget(parent->testView);
     }
     if(parent->testModel == nullptr){
         parent->testModel = new QStandardItemModel;
