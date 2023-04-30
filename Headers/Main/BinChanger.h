@@ -80,7 +80,12 @@ class TFFile{
     ProgWindow *parent;
     FileData *fileData;
     QString fileName;
-    QString fileWithoutExtension;
+    QString fileExtension;
+    bool binary; //0 for text file, 1 for binary
+
+    virtual void save(QString toType);
+    virtual void load(QString fromType);
+    virtual void updateCenter();
 };
 
 #endif // BINCHANGER_H

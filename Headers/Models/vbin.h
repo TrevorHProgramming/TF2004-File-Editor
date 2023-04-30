@@ -113,6 +113,7 @@ public:
     const void operator=(FileSection input);
     void writeSectionListSTL(QTextStream &file);
     void writeSectionListSTL(QString path);
+    bool meshListContains(QString checkName);
 //    void writeSectionListDAE(QTextStream &file);
 //    void writeSectionListDAE(QString path);
 //    void writeSceneListDAE(QTextStream &file);
@@ -178,15 +179,23 @@ public:
     int highestLOD;
     long currentLocation;
     FileSection base;
+    int selectedLOD;
+    bool singleOutput;
 
+    VBIN();
     std::vector<int> getIndexArrays(int posCount, int chosenLOD, int location);
     void makeTriangles(std::vector<int> indArrays, int whichArray, int location, QTextStream *stream);
-    int readData();
     void applyKeyframe();
     void outputDataSTL();
     void outputDataDAE();
+    void save(QString toType);
+    void load(QString fromType);
+    void updateCenter();
+    void setOutput(bool single);
+    void setLevel(int level);
 private:
     //void modifyPosArrays();
+    int readDataVBIN();
     void outputPositionList(int location);
     void readAnimationPrototype();
     void readBoundingVolume(SectionHeader* signature);

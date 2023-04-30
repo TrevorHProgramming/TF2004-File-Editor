@@ -2,51 +2,88 @@
 #include "ui_mainwindow.h"
 
 template <typename theFile>
-void ProgWindow::openFile(QString fileType){
-    QString openLimiter;
-    int mode = 0;
-    if(fileType == "VBIN" or fileType == "STL" or fileType == "DAE"){
-        openLimiter = "Model files (*." + fileType + ")";
-        mode = 2;
-    } else if (fileType == "ITF" or fileType == "BMP"){
-        openLimiter = "Texture files (*." + fileType + ")";
-        mode = 1;
-    } else if (fileType == "BMD" or fileType == "TMD"){
-        openLimiter = "Definition files (*." + fileType + ")";
-        mode = 5;
-    }else if (fileType == "BDB" or fileType == "TDB"){
-        openLimiter = "Database files (*." + fileType + ")";
-        mode = 5;
-    }
-    QString openSelector = "Select " + fileType;
-    fileData.input = true;
-    QString fileIn = QFileDialog::getOpenFileName(this, tr(openSelector.toStdString().c_str()), QDir::currentPath() + "/" + fileType + "/", tr(openLimiter.toStdString().c_str()));
-    if(!fileIn.isNull()){
-        fileMode = fileType;
-        changeMode(mode);
-
-        theFile::openFile(fileIn);
-    }
-}
-
-void ProgWindow::openVBIN(){
-    fileMode = "VBIN";
-    VBIN vbinFile;
+void ProgWindow::loadFile(theFile fileToOpen){
     clearWindow();
+    qDebug() << Q_FUNC_INFO << "running this function";
     fileData.input = true;
-    QString fileIn = QFileDialog::getOpenFileName(this, tr("Select VBIN"), QDir::currentPath() + "/VBIN/", tr("Model Files (*.vbin)"));
-    if (!fileIn.isNull()){
-        changeMode(2);
-        vbinFile.filePath = fileIn;
-        vbinFile.highestLOD = 0;
-        vbinFile.parent = this;
+    fileToOpen->fileData = &fileData;
+    fileToOpen->parent = this;
+    QString openSelector;
+    openSelector = "Select " + fileToOpen->fileExtension;
+    QString openLimiter;
+    openLimiter = fileToOpen->fileExtension + " files (*." + fileToOpen->fileExtension + ")";
+    QString fileIn = QFileDialog::getOpenFileName(this, tr(openSelector.toStdString().c_str()), QDir::currentPath() + "/" + fileToOpen->fileExtension + "/", tr(openLimiter.toStdString().c_str()));
+    if(!fileIn.isNull()){
+        fileMode = fileToOpen->fileExtension;
+        fileToOpen->filePath = fileIn;
         fileData.readFile(fileIn);
 
         QFile inputFile(fileIn);
         inputFile.open(QIODevice::ReadOnly);
         QFileInfo fileInfo(inputFile);
-        vbinFile.fileName = fileInfo.fileName();
-        vbinFile.fileWithoutExtension = vbinFile.fileName.left(vbinFile.fileName.indexOf("."));
+        fileToOpen->fileName = fileInfo.fileName().left(fileInfo.fileName().indexOf("."));
+        fileToOpen->fileExtension = fileInfo.fileName().right(fileInfo.fileName().length() - fileInfo.fileName().indexOf(".")-1).toUpper();
+
+        fileToOpen->load(fileToOpen->fileExtension);
+        loadedFiles.push_back(fileToOpen);
+        fileBrowser->addItem(fileToOpen->fileName + "." + fileToOpen->fileExtension);
+    }
+}
+
+void ProgWindow::openFile(QString fileType){
+    qDebug() << Q_FUNC_INFO << "running this function";
+    if(fileType == "VBIN" or fileType == "STL" or fileType == "DAE"){
+        std::shared_ptr<VBIN> vbinFile(new VBIN);
+        vbinFile->fileExtension = fileType;
+        ProgWindow::loadFile(vbinFile);
+    } else if (fileType == "MESH.VBIN"){
+        std::shared_ptr<MeshVBIN> levelFile(new MeshVBIN);
+        levelFile->fileExtension = fileType;
+        ProgWindow::loadFile(levelFile);
+    } else if (fileType == "ITF" or fileType == "BMP"){
+        std::shared_ptr<ITF> itfFile(new ITF);
+        itfFile->fileExtension = fileType;
+        ProgWindow::loadFile(itfFile);
+    } else if (fileType == "BMD" or fileType == "TMD"){
+        std::shared_ptr<DefinitionFile> definitionFile(new DefinitionFile);
+        definitionFile->fileExtension = fileType;
+        ProgWindow::loadFile(definitionFile);
+    } else if (fileType == "BDB" or fileType == "TDB"){
+        std::shared_ptr<DatabaseFile> databaseFile(new DatabaseFile);
+        databaseFile->fileExtension = fileType;
+        ProgWindow::loadFile(databaseFile);
+    } else if (fileType == "VAC"){
+        std::shared_ptr<VACFile> vacFile(new VACFile);
+        vacFile->fileExtension = fileType;
+        ProgWindow::loadFile(vacFile);
+    } else {
+        qDebug() << Q_FUNC_INFO << "File type" << fileType << "hasn't been implemented yet.";
+    }
+
+}
+
+//commenting out old functions, some parts of them may still need to be brought to the new system
+
+/*void ProgWindow::openVBIN(){
+    fileMode = "VBIN";
+    std::shared_ptr<VBIN> vbinFile(new VBIN);
+    //VBIN vbinFile;
+    clearWindow();
+    fileData.input = true;
+    QString fileIn = QFileDialog::getOpenFileName(this, tr("Select VBIN"), QDir::currentPath() + "/VBIN/", tr("Model Files (*.vbin)"));
+    if (!fileIn.isNull()){
+        changeMode(2);
+        vbinFile->filePath = fileIn;
+        vbinFile->highestLOD = 0;
+        vbinFile->parent = this;
+        fileData.readFile(fileIn);
+
+        QFile inputFile(fileIn);
+        inputFile.open(QIODevice::ReadOnly);
+        QFileInfo fileInfo(inputFile);
+        vbinFile->fileName = fileInfo.fileName().left(fileInfo.fileName().indexOf("."));
+        vbinFile->fileExtension = fileInfo.fileName().right(fileInfo.fileName().length() - fileInfo.fileName().indexOf(".")-1);
+        qDebug() << Q_FUNC_INFO << "file name" << vbinFile->fileName << "extension" << vbinFile->fileExtension;
 //        fileData.dataBytes.clear();
 
 //        QFile inputFile(fileIn);
@@ -54,13 +91,14 @@ void ProgWindow::openVBIN(){
 //        fileData.dataBytes = inputFile.readAll();
 
         qDebug() << Q_FUNC_INFO << "File data loaded.";
-        if(vbinFile.readData()){
-            messageError("There was an error reading " + vbinFile.fileName);
-            return;
-        }
+//        if(vbinFile->readDataVBIN()){
+//            messageError("There was an error reading " + vbinFile->fileName);
+//            return;
+//        }
         qDebug() << Q_FUNC_INFO << "File data read.";
-        vbinFiles.push_back(vbinFile);
-        createLevelList(vbinFile.highestLOD);
+        //vbinFiles.push_back(vbinFile);
+        loadedFiles.push_back(vbinFile);
+        createLevelList(vbinFile->highestLOD);
         createFileList();
         createMultiRadios();
         //createAnimationList(vbinFile.animationSet);
@@ -89,7 +127,7 @@ void ProgWindow::openITF(){
         itfFile.fileName = fileInfo.fileName();
 
         qDebug() << Q_FUNC_INFO << "File data loaded.";
-        itfFile.readData();
+        //itfFile.readData();
         itfFiles.push_back(itfFile);
         createLevelList(itfFile.paletteCount);
         createFileList();
@@ -98,26 +136,6 @@ void ProgWindow::openITF(){
     } else {
         messageError("There was an error opening the file.");
     }
-}
-
-void ProgWindow::openVAC(){
-    fileMode = "Tone";
-    clearWindow();
-    fileData.input = true;
-    QString fileIn = QFileDialog::getOpenFileName(this, tr("Select VAC"), QDir::currentPath() + "/VAC/", tr("Audio Files (*.vac)"));
-    if (!fileIn.isNull()){
-        changeMode(5);
-        vacFile->filePath = fileIn;
-        vacFile->parent = this;
-        fileData.readFile(fileIn);
-
-        qDebug() << Q_FUNC_INFO << "File data loaded.";
-        vacFile->tempRead();
-        qDebug() << Q_FUNC_INFO << "File data read.";
-    } else {
-        messageError("There was an error opening the file.");
-    }
-
 }
 
 void ProgWindow::openDefinition(bool binary){
@@ -202,3 +220,21 @@ void ProgWindow::openDatabase(bool binary){
     }
 }
 
+void ProgWindow::openVAC(){
+    fileMode = "Tone";
+    clearWindow();
+    fileData.input = true;
+    QString fileIn = QFileDialog::getOpenFileName(this, tr("Select VAC"), QDir::currentPath() + "/VAC/", tr("Audio Files (*.vac)"));
+    if (!fileIn.isNull()){
+        vacFile->filePath = fileIn;
+        vacFile->parent = this;
+        fileData.readFile(fileIn);
+
+        qDebug() << Q_FUNC_INFO << "File data loaded.";
+        vacFile->tempRead();
+        qDebug() << Q_FUNC_INFO << "File data read.";
+    } else {
+        messageError("There was an error opening the file.");
+    }
+
+}*/

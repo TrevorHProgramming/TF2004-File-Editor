@@ -166,7 +166,6 @@ void FileData::readFile(QString filePath){
 
     QFile inputFile(filePath);
     QFileInfo fileInfo(inputFile.fileName());
-    parent->changeName(fileInfo.fileName());
     inputFile.open(QIODevice::ReadOnly);
     dataBytes = inputFile.readAll();
     qDebug() << Q_FUNC_INFO << "file data read length:" << dataBytes.size();
@@ -200,35 +199,21 @@ const void SectionHeader::operator=(SectionHeader input){
 void FileData::signature(SectionHeader *signature){
     if(input){
         long signatureStart = 0;
-        long signatureEndUnnamed = 0;
-        long signatureEndNamed = 0;
         long signatureEnd = 0;
 
         signatureStart = currentPosition;
 
         QByteArrayMatcher findSignatureEnd;
-        findSignatureEnd.setPattern(QByteArray::fromHex(QString("0000").toUtf8()));
-        signatureEndUnnamed = findSignatureEnd.indexIn(dataBytes, currentPosition);
+        findSignatureEnd.setPattern(QByteArray::fromHex(QString("00").toUtf8()));
+        signatureEnd = findSignatureEnd.indexIn(dataBytes, currentPosition);
 
-        findSignatureEnd.setPattern(QByteArray::fromHex(QString("0001").toUtf8())); //to catch sections with names
-        signatureEndNamed = findSignatureEnd.indexIn(dataBytes, currentPosition);
-
-        if(signatureEndUnnamed < signatureEndNamed){
-            signatureEnd = signatureEndUnnamed;
-            signature->hasName = false;
-        } else {
-            signatureEnd = signatureEndNamed;
-            signature->hasName = true;
-        }
         if(signatureEnd < signatureStart){
             qDebug()<< Q_FUNC_INFO << "Signature end was found earier than signature start. Search started at " << signatureStart;
         }
-
-        //qDebug() << Q_FUNC_INFO << "reading signature at " << signatureStart;
         signature->type = mid(signatureStart, signatureEnd-signatureStart);
-        //qDebug() << Q_FUNC_INFO << "signature read as " << signature->type << "at" << signatureStart;
-        currentPosition = signatureEnd+2;
-        //qDebug() << Q_FUNC_INFO << "post-signature bytes:" << readInt(2);
+
+        currentPosition = signatureEnd + 1;
+        signature->hasName = readBool();
 
         if(signature->hasName){
             int sectionNameLength = readInt();
@@ -515,3 +500,14 @@ qint64 BinChanger::longWrite( QFile& file, int64_t var ) {
   return written;
 }
 
+void TFFile::save(QString toType){
+    qDebug() << Q_FUNC_INFO << "The class you tried to save doesn't have a valid save function.";
+}
+
+void TFFile::load(QString fromType){
+    qDebug() << Q_FUNC_INFO << "The class you tried to load doesn't have a valid load function yet.";
+}
+
+void TFFile::updateCenter(){
+    qDebug() << Q_FUNC_INFO << "The class you selected doesn't have a valid central layout yet.";
+}

@@ -6,7 +6,10 @@ and used those to build the mesh, but this is a cheap shortcut that prevented pr
 Reading the file in order, as you do with files, means it'll be easier to track down how mesh and node offsets are handled.
 */
 
-
+VBIN::VBIN(){
+    highestLOD = 0;
+    fileExtension = "VBIN";
+}
 
 void SceneNode::clear(){
     headerData.clear();
@@ -37,7 +40,78 @@ void BoundingVolume::populateData(){
     qDebug() << Q_FUNC_INFO << "location" << headerData.sectionLocation << "radius" << radius << "hasvolume" << hasVolume << "type" << type;
 }
 
-int VBIN::readData(){
+/*//these will need to be put back in as VBIN functons once animation progress continues
+  void ProgWindow::createAnimationList(AnimationSourceSet animations){
+    if(ListAnimation == nullptr){
+           qDebug() << Q_FUNC_INFO << "The dropdown does not exist.";
+        ListAnimation = new QComboBox(this);
+        ListAnimation -> setGeometry(QRect(QPoint(650,50), QSize(150,30)));
+        if (animations.sourceCount <= 0){
+            ListAnimation->insertItem(0, "No animations");
+        } else {
+            for(int i=0; i<animations.sourceCount; ++i){
+                ListAnimation->insertItem(i, animations.streamArray[i]->name);
+            }
+        }
+        //connect(ListAnimation, &QComboBox::currentIndexChanged, this, [this] {animationSelectChange();});
+        ListAnimation->show();
+    } else {
+        ListAnimation->clear();
+        ListAnimation -> setGeometry(QRect(QPoint(650,50), QSize(150,30)));
+        if (animations.sourceCount <= 0){
+            ListAnimation->insertItem(0, "No animations");
+        } else {
+            for(int i=0; i<animations.sourceCount; ++i){
+                ListAnimation->insertItem(i, animations.streamArray[i]->name);
+            }
+        }
+        ListAnimation->show();
+    }
+    qDebug() << Q_FUNC_INFO << "animation list size" << animations.streamArray.size() << "name" << animations.name;
+    if (animations.streamArray.size() > 0) {
+        qDebug() << Q_FUNC_INFO << "channel array size" << animations.streamArray[0]->channelArray.size() << "name" << animations.streamArray[0]->name;
+        if (animations.streamArray[0]->channelArray.size() > 0) {
+            qDebug() << Q_FUNC_INFO << "keyframe count for channel" << animations.streamArray[0]->channelArray[0]->name << ":" << animations.streamArray[0]->channelArray[0]->keyframeCount;
+            createFrameList(animations.streamArray[0]->channelArray[0]->keyframeCount);
+        }
+    }
+}
+
+void ProgWindow::createFrameList(int frames){
+    qDebug() << Q_FUNC_INFO << "CREATING THE LIST WITH " << frames << "LEVELS";
+    if(ListFrame == nullptr){
+           qDebug() << Q_FUNC_INFO << "The dropdown does not exist.";
+        ListFrame = new QComboBox(this);
+        ListFrame -> setGeometry(QRect(QPoint(850,50), QSize(150,30)));
+        if (frames <= 0){
+            ListFrame->insertItem(0, "1");
+        } else {
+            for(int i=0; i<frames; ++i){
+                ListFrame->insertItem(i, QString::number(i+1));
+            }
+        }
+        ListFrame->show();
+    } else {
+        ListFrame->clear();
+        ListFrame -> setGeometry(QRect(QPoint(850,50), QSize(150,30)));
+        if (frames <= 0){
+            ListFrame->insertItem(0, "1");
+        } else {
+            for(int i=0; i<frames; ++i){
+                ListFrame->insertItem(i, QString::number(i+1));
+            }
+        }
+        ListFrame->show();
+    }
+}
+
+void ProgWindow::animationSelectChange(){
+    if (fileMode == "VBIN" && ListAnimation->currentIndex() >= 0) {
+        createFrameList(vbinFiles[ListFiles->currentIndex()].animationSet.streamArray[ListAnimation->currentIndex()]->channelArray[0]->keyframeCount);
+    }
+}*/
+
+int VBIN::readDataVBIN(){
 
     //gets all scene nodes in the file, populates their PositionArrays and IndexArrays, and gets modifications
     currentLocation = 0;
@@ -50,6 +124,8 @@ int VBIN::readData(){
     base.printInfo(0);
     std::vector<Modifications> addedMods;
     base.modifyPosArrays(addedMods);
+
+    //parent->createLevelList(highestLOD);
 
     qDebug() << Q_FUNC_INFO << "section list size" << base.sectionList.size() << "mesh list size" << base.meshList.size();
 
@@ -191,6 +267,24 @@ void FileSection::readNode(){
 
 }
 
+bool FileSection::meshListContains(QString checkName){
+    for(int i = 0; i<meshList.size(); i++){
+        //qDebug() << Q_FUNC_INFO << "comparing name" << checkName << "against" << meshList[i]->headerData.name;
+        if(meshList[i]->headerData.name == checkName){
+            qDebug() << Q_FUNC_INFO << "names" << checkName << "and" << meshList[i]->headerData.name << "matched, returning true";
+            return true;
+        } else if (meshList[i]->meshListContains(checkName)){
+            return true;
+        }
+    }
+    for(int i = 0; i<sectionList.size(); i++){
+        if(sectionList[i]->meshListContains(checkName)){
+            return true;
+        }
+    }
+    return false;
+}
+
 int VBIN::getSceneNodeTree(){
     fileData = &parent->fileData;
     fileData->currentPosition = 4; //moving past FISH
@@ -200,6 +294,7 @@ int VBIN::getSceneNodeTree(){
     int unknown4Byte1 = 0; //appears to be a version number
     int unknown4Byte2 = 0;
     int unknown4Byte3 = 0;
+    int nameAdjust = 0;
     FileSection* currentBranch;
     FileSection* possibleBranch;
 
@@ -207,6 +302,8 @@ int VBIN::getSceneNodeTree(){
     base.headerData.name = "vbinbase";
     currentBranch = &base;
     possibleBranch = &base;
+
+    qDebug() << Q_FUNC_INFO << "section" << signature.name << "of type" << signature.type <<"is" << signature.sectionLength << "bytes long at" << signature.sectionLocation;
 
     while(1){
 
@@ -229,8 +326,7 @@ int VBIN::getSceneNodeTree(){
         fileData->signature(&signature);
 
 
-        //qDebug() << Q_FUNC_INFO << "name length " << sectionNameLength << " read as " << sectionName;
-
+        ///qDebug() << Q_FUNC_INFO << "section" << signature.name << "of type" << signature.type <<"is" << signature.sectionLength << "bytes long at" << signature.sectionLocation;
 
         if (base.headerData.sectionLength == 0) {
             base.headerData.sectionLength = signature.sectionLength;
@@ -244,6 +340,13 @@ int VBIN::getSceneNodeTree(){
             meshSection->parent = currentBranch;
             meshSection->headerData = signature;
             meshSection->sectionEnd = signature.sectionLength + signature.sectionLocation;
+
+            //This exists to remove duplicate mesh names. This is necessary for DAE outputs
+            //an arguement could be made that this should only be done for the DAE output, but it's easier to just do it when we read the file in the first place.
+            if(base.meshListContains(meshSection->headerData.name)){
+                nameAdjust++;
+                meshSection->headerData.name = meshSection->headerData.name + "_" + QString::number(nameAdjust);
+            }
 
             if (signature.name == "CollisionMesh") {
                 parent->messageError("It looks like you're trying to read a Collision Mesh. "
@@ -351,27 +454,90 @@ int VBIN::getSceneNodeTree(){
     return 0; //read successfully
 }
 
-void ProgWindow::convertVBINToSTL(){
-    if(vbinFiles.empty()){
-        messageError("No VBIN files currently loaded to export.");
-        return;
+void VBIN::updateCenter(){
+    QComboBox* ListLods = new QComboBox(parent->centralContainer);
+    ListLods -> setGeometry(QRect(QPoint(250,150), QSize(150,30)));
+    if (highestLOD <= 0){
+        ListLods->insertItem(0, "1");
+    } else {
+        for(int i=0; i<highestLOD; ++i){
+            ListLods->insertItem(i, QString::number(i+1));
+        }
     }
+    QComboBox::connect(ListLods, &QComboBox::currentIndexChanged, parent, [ListLods, this] {setLevel(ListLods->currentIndex());});
+    //QAbstractButton::connect(ListLods, &QComboBox::currentIndexChanged, parent, [parent = this->parent]() {parent->levelSelectChange();});
+    ListLods->show();
+    parent->currentModeWidgets.push_back(ListLods);
+    selectedLOD = 0;
 
-    vbinFiles[ListFiles->currentIndex()].outputDataSTL();
+    QRadioButton* radioSingle = new QRadioButton("Single file output", parent->centralContainer);
+    radioSingle->setGeometry(QRect(QPoint(340,120), QSize(200,30)));
+    radioSingle->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
+    QAbstractButton::connect(radioSingle, &QRadioButton::toggled, parent, [radioSingle, this] {setOutput(radioSingle->isChecked());});
+    radioSingle->toggle();
+    radioSingle->show();
+    parent->currentModeWidgets.push_back(radioSingle);
 
-    return;
+
+    QRadioButton* radioMultiple = new QRadioButton("Multi-file output", parent->centralContainer);
+    radioMultiple->setGeometry(QRect(QPoint(540,120), QSize(120,30)));
+    radioMultiple->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
+    radioMultiple->show();
+    parent->currentModeWidgets.push_back(radioMultiple);
+
 }
 
-void ProgWindow::convertVBINToDAE(){
-    if(vbinFiles.empty()){
-        messageError("No VBIN files currently loaded to export.");
+void VBIN::setOutput(bool single){
+    singleOutput = single;
+}
+
+void VBIN::setLevel(int level){
+    selectedLOD = level;
+}
+
+void VBIN::save(QString toType){
+    if(toType == "STL"){
+        outputDataSTL();
+    } else if (toType == "DAE"){
+        outputDataDAE();
+    }
+}
+
+void VBIN::load(QString fromType){
+    int failedRead = 0;
+    if(fromType == "VBIN"){
+        failedRead = readDataVBIN();
+    } else {
+        failedRead = 1;
+    }
+    if(failedRead){
+        parent->messageError("There was an error reading " + fileName);
         return;
     }
-
-    vbinFiles[ListFiles->currentIndex()].outputDataDAE();
-
-    return;
+    updateCenter();
 }
+
+//void ProgWindow::convertVBINToSTL(){
+//    if(vbinFiles.empty()){
+//        messageError("No VBIN files currently loaded to export.");
+//        return;
+//    }
+
+//    vbinFiles[ListFiles->currentIndex()].outputDataSTL();
+
+//    return;
+//}
+
+//void ProgWindow::convertVBINToDAE(){
+//    if(vbinFiles.empty()){
+//        messageError("No VBIN files currently loaded to export.");
+//        return;
+//    }
+
+//    vbinFiles[ListFiles->currentIndex()].outputDataDAE();
+
+//    return;
+//}
 
 void FileSection::writeSectionListSTL(QTextStream &fileOut){
     //for writing to a single file
@@ -421,7 +587,7 @@ void VBIN::outputDataSTL(){
 
     //applyKeyframe();
 
-    if(parent->radioSingle->isChecked()){
+    if(singleOutput){
         QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", parent->tr("Model Files (*.stl)"));
         if(fileOut.isEmpty()){
             parent->messageError("STL export cancelled.");

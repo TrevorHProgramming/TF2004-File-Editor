@@ -1,13 +1,38 @@
 #include "Headers/Main/mainwindow.h"
 
+DistanceCalculator::DistanceCalculator(ProgWindow *parentPass){
+    parent = parentPass;
+    qDebug() << Q_FUNC_INFO << "parent value properly passed, window width is" << parent->hSize;
+    QPushButton *ButtonCalculate = new QPushButton("Calculate", parent->centralContainer);
+    ButtonCalculate->setGeometry(QRect(QPoint(50,320), QSize(150,30)));
+    QAbstractButton::connect(ButtonCalculate, &QPushButton::released, parent, [this] {calculateWarpgateDistance();});
+    parent->currentModeWidgets.push_back(ButtonCalculate);
+    ButtonCalculate->show();
+
+    inputXValue = new QLineEdit("X Value", parent->centralContainer);
+    inputXValue->setGeometry(QRect(QPoint(200,320), QSize(150,30)));
+    parent->currentModeWidgets.push_back(inputXValue);
+    inputXValue->show();
+
+    inputYValue = new QLineEdit("Y Value", parent->centralContainer);
+    inputYValue->setGeometry(QRect(QPoint(350,320), QSize(150,30)));
+    parent->currentModeWidgets.push_back(inputYValue);
+    inputYValue->show();
+
+    inputZValue = new QLineEdit("Z Value", parent->centralContainer);
+    inputZValue->setGeometry(QRect(QPoint(500,320), QSize(150,30)));
+    parent->currentModeWidgets.push_back(inputZValue);
+    inputZValue->show();
+}
+
 void DistanceCalculator::calculateWarpgateDistance(){
     Warpgate *closestGate = new Warpgate;
     std::vector<Warpgate*> warpgates = closestGate->createAmazonWarpgates();
     float totalDifference = 0;
     float lowestDistance = 99999;
-    float xDistance = parent->CalculateXValue->text().toFloat();
-    float yDistance = parent->CalculateYValue->text().toFloat();
-    float zDistance = parent->CalculateZValue->text().toFloat();
+    float xDistance = inputXValue->text().toFloat();
+    float yDistance = inputYValue->text().toFloat();
+    float zDistance = inputZValue->text().toFloat();
 
     qDebug() << Q_FUNC_INFO << "Finding closes warpgate to point: x" << xDistance << "y" << yDistance << "z" << zDistance;
     for (int i = 0; i<warpgates.size(); i++) {
@@ -24,9 +49,8 @@ void DistanceCalculator::calculateWarpgateDistance(){
 
     qDebug() << Q_FUNC_INFO << "Closest warpgate: " << closestGate->name;
 
-
     if(parent->ClosestWarpgate == nullptr){
-        parent->ClosestWarpgate = new QLabel(closestGate->name, parent);
+        parent->ClosestWarpgate = new QLabel(closestGate->name, parent->centralContainer);
         parent->ClosestWarpgate->setGeometry(QRect(QPoint(650,320), QSize(150,30)));
         parent->ClosestWarpgate->setStyleSheet("QLabel { background-color: rgb(105,140,187) }");
         parent->ClosestWarpgate->show();

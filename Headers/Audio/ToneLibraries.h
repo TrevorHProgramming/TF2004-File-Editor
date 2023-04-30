@@ -22,8 +22,11 @@ class VACFile : public TFFile {
     std::vector<int> noteList;
     std::vector<std::vector<int>> freqList;
 
-    void tempRead();
+    int tempRead();
     void tempWrite();
+
+    void load(QString fromType);
+    void save(QString toType);
 };
 
 class ToneLibrary{
@@ -32,6 +35,8 @@ class ToneLibrary{
     int tones;
     QString dataFile;
     std::vector<VACFile> toneList;
+
+
 };
 
 #endif // TONELIBRARIES_H

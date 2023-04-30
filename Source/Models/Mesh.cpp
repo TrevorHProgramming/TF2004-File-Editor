@@ -96,7 +96,7 @@ int Mesh::readMesh(){
 
             fileData->signature(&signature);
         } else {
-            qDebug() << Q_FUNC_INFO << "Model does not have PositionArray";
+            //qDebug() << Q_FUNC_INFO << "Model does not have PositionArray";
         }
 
 
@@ -108,7 +108,7 @@ int Mesh::readMesh(){
 
             fileData->signature(&signature);
         } else {
-            qDebug() << Q_FUNC_INFO << "Model does not have NormalArray";
+            //qDebug() << Q_FUNC_INFO << "Model does not have NormalArray";
         }
 
 
@@ -120,7 +120,7 @@ int Mesh::readMesh(){
 
             fileData->signature(&signature);
         } else {
-            qDebug() << Q_FUNC_INFO << "Model does not have ColorArray.";
+            //qDebug() << Q_FUNC_INFO << "Model does not have ColorArray.";
         }
 
 
@@ -131,10 +131,9 @@ int Mesh::readMesh(){
                 y_position = fileData->readFloat();
                 vertexSet.textureCoords.positionList.push_back(QVector2D(x_position, y_position));
             }
-
             fileData->signature(&signature);
         } else {
-            qDebug() << Q_FUNC_INFO << "Model does not have TextureCoords.";
+            //qDebug() << Q_FUNC_INFO << "Model does not have TextureCoords.";
         }
     } else {
         qDebug() << Q_FUNC_INFO << "Model does not have VertexSet. Expected at " << fileData->currentPosition << ": " << signature.type << ". Moving on.";
@@ -193,10 +192,13 @@ int Mesh::readMesh(){
                 element->meshFaceSet.indexArray.triangleStrips.push_back(*triangleStrip);
             }
 
-            //qDebug() << Q_FUNC_INFO << "Triangle strip count for this mesh is " << tristripcount;
-            for(int i = 0; i < element->meshFaceSet.indexArray.triangleStrips.size(); i++){
-                //qDebug() << Q_FUNC_INFO << "Triangle Strip " << i << ": " << element->meshFaceSet.indexArray.triangleStrips[i].stripIndecies.size();
-            }
+            //qDebug() << Q_FUNC_INFO << "Triangle strip count for this mesh is " << element->meshFaceSet.indexArray.triangleStrips.size();
+//            for(int i = 0; i < element->meshFaceSet.indexArray.triangleStrips.size(); i++){
+//                qDebug() << Q_FUNC_INFO << "Triangle Strip " << i << ": " << element->meshFaceSet.indexArray.triangleStrips[i].stripIndecies.size();
+//                for(int j = 0; j < element->meshFaceSet.indexArray.triangleStrips[i].stripIndecies.size(); j++){
+//                    qDebug() << Q_FUNC_INFO << "index" << j << ":" << vertexSet.positionArray.positionList[element->meshFaceSet.indexArray.triangleStrips[i].stripIndecies[j]];
+//                }
+//            }
 
             fileData->signature(&signature);
         } else {
@@ -352,7 +354,7 @@ void Mesh::writeMaterialsDAE(QTextStream &fileOut){
 void Mesh::writeEffectsDAE(QTextStream &fileOut){
     std::vector<int> chosenLOD = getChosenElements();
     QString textureName;
-    QString meshName = file->fileWithoutExtension + "-" + headerData.name;
+    QString meshName = file->fileName + "-" + headerData.name;
     for (int element = chosenLOD[0]; element <= chosenLOD[1]; element++) {
         textureName = elementArray.elementArray[element].surfaceProperties.textureName;
         fileOut << "    <effect id=\"" + textureName +"Texture-effect\">" << Qt::endl;
@@ -398,7 +400,7 @@ void Mesh::writeImagesDAE(QTextStream &fileOut){
 
 void Mesh::writeDataDAE(QTextStream &fileOut){
     std::vector<int> chosenLOD = getChosenElements();
-    QString meshName = file->fileWithoutExtension + "-" + headerData.name;
+    QString meshName = file->fileName + "-" + headerData.name;
     QString textureName;
     int triangle[3];
     QVector3D tempVec;
@@ -509,7 +511,7 @@ void Mesh::writeDataDAE(QTextStream &fileOut){
 void Mesh::writeNodesDAE(QTextStream &fileOut){
     std::vector<int> chosenLOD = getChosenElements();
     QString textureName;
-    QString meshName = file->fileWithoutExtension + "-" + headerData.name;
+    QString meshName = file->fileName + "-" + headerData.name;
     fileOut << "      <node id=\"" + meshName + "\" name=\"" + meshName + "\" type=\"NODE\">" << Qt::endl;
     fileOut << "        <matrix sid=\"transform\">1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1</matrix>" << Qt::endl;
     fileOut << "        <instance_geometry url=\"#" + meshName + "-mesh\" name=\"" + meshName + "\">" << Qt::endl;
@@ -530,10 +532,10 @@ void Mesh::writeNodesDAE(QTextStream &fileOut){
 
 std::vector<int> Mesh::getChosenElements(){
     std::vector<int> chosenLOD;
-    if (elementArray.lodInfo.targetIndecies.size() <= file->parent->ListLevels->currentIndex()) {
+    if (elementArray.lodInfo.targetIndecies.size() <= file->selectedLOD) {
         chosenLOD = {0,static_cast<int>(elementArray.elementArray.size()-1)};
     } else {
-        chosenLOD = elementArray.lodInfo.targetIndecies[file->parent->ListLevels->currentText().toInt(nullptr, 10)-1];
+        chosenLOD = elementArray.lodInfo.targetIndecies[file->selectedLOD];
     }
 
     return chosenLOD;
@@ -546,10 +548,10 @@ void Mesh::writeDataSTL(QTextStream &fileOut){
 
     //qDebug() << Q_FUNC_INFO << "mesh file" << file->fileName;
     //qDebug() << Q_FUNC_INFO << "lodinfo list size" << elementArray.lodInfo.targetIndecies.size() << "chosen lod" << file->parent->ListLevels->currentIndex();
-    if (elementArray.lodInfo.targetIndecies.size() <= file->parent->ListLevels->currentIndex()) {
+    if (elementArray.lodInfo.targetIndecies.size() <= file->selectedLOD) {
         chosenLOD = {0,static_cast<int>(elementArray.elementArray.size()-1)};
     } else {
-        chosenLOD = elementArray.lodInfo.targetIndecies[file->parent->ListLevels->currentText().toInt(nullptr, 10)-1];
+        chosenLOD = elementArray.lodInfo.targetIndecies[file->selectedLOD];
     }
     //qDebug() << Q_FUNC_INFO << "chosen LOD index targets: " << chosenLOD << " for mesh " << name;
     //qDebug() << Q_FUNC_INFO << "position list size" << vertexSet.positionArray.positionList.size();

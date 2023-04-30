@@ -3,7 +3,62 @@
 
 //https://ps2linux.no-ip.info/playstation2-linux.com/docs/howto/display_docef7c.html?docid=75
 
-void ITF::readData(){
+void ITF::load(QString fromType){
+    int failedRead = 0;
+    if(fromType == "ITF"){
+        failedRead = readDataITF();
+    } else {
+        failedRead = 1;
+    }
+    if(failedRead){
+        parent->messageError("There was an error reading " + fileName);
+        return;
+    }
+    updateCenter();
+}
+
+void ITF::save(QString toType){
+    if(toType == "ITF"){
+        writeITF();
+    } else if (toType == "BMP"){
+        writeBMP();
+    }
+}
+
+void ITF::updateCenter(){
+    parent->clearWindow();
+
+    listPalettes = new QComboBox(parent->centralContainer);
+    listPalettes -> setGeometry(QRect(QPoint(250,50), QSize(150,30)));
+    if (paletteCount <= 0){
+        listPalettes->insertItem(0, "1");
+    } else {
+        for(int i=0; i<paletteCount; ++i){
+            listPalettes->insertItem(i, QString::number(i+1));
+        }
+    }
+    //QAbstractButton::connect(ListPalettes, &QComboBox::currentIndexChanged, parent, [parent = this->parent]() {parent->levelSelectChange();});
+    QAbstractButton::connect(listPalettes, &QComboBox::currentIndexChanged, parent, [this](int index) {selectPalette(index);});
+    QAbstractButton::connect(listPalettes, &QComboBox::currentIndexChanged, parent, [this] {populatePalette();});
+    listPalettes->show();
+    parent->currentModeWidgets.push_back(listPalettes);
+
+    paletteTable = new QTableWidget(paletteList[0].paletteColors.size(), 7, parent->centralContainer);
+    paletteTable->setGeometry(QRect(QPoint(50,250), QSize(125*7,300)));
+    QAbstractButton::connect(paletteTable, &QTableWidget::cellChanged, parent, [this](int row, int column) {editPalette(row, column);});
+    paletteTable->show();
+    parent->currentModeWidgets.push_back(paletteTable);
+
+    currentPalette = 0;
+    populatePalette();
+
+}
+
+void ITF::selectPalette(int palette){
+    currentPalette = palette;
+}
+
+int ITF::readDataITF(){
 
     swizzled = true; //if loading an ITF, the data will be swizzled
 
@@ -12,11 +67,11 @@ void ITF::readData(){
     QTableWidgetItem currentItem;
     long location = 0;
     long startLocation = 0;
-    long currentPos = 0;
     long contentLength = 0;
     int colorCount = 0;
     std::tuple <int8_t, int8_t> nibTup;
     fileLength = parent->fileData.readInt(4, 4);
+    qDebug() << Q_FUNC_INFO << "file length read as" << fileLength;
 
     /*Load header data*/
     parent->fileData.currentPosition = 15;
@@ -33,7 +88,7 @@ void ITF::readData(){
     qDebug() << Q_FUNC_INFO << "palette count:" << paletteCount << " found at " << parent->fileData.currentPosition;
     unknown4Byte3 = parent->fileData.readInt();
     unknown4Byte4 = parent->fileData.readInt();
-    /*End header data. Now we can remake the file with any edits.*/
+    /*End header data. Now we should be able to remake the file with any edits.*/
 
     if(paletteCount > 16){
         //this catch is for the Sarge textures, which claim to have 23 palettes (they don't).
@@ -69,7 +124,7 @@ void ITF::readData(){
         //256 palette case. nice and easy since each pixel uses 1 byte to refer to the palette
         contentLength -= (paletteCount*1024); //remove the length of the palette section before getting to the pixels
         swizzledPixels.resize(contentLength);
-        for (int i = parent->fileData.currentPosition; i < startLocation + dataLength; i++){
+        for (int i = parent->fileData.currentPosition; i < startLocation + 4 + dataLength; i++){
             swizzledPixels[pixelIndex] = parent->fileData.readInt(1);
             pixelIndex += 1;
         }
@@ -79,7 +134,7 @@ void ITF::readData(){
         //byte_to_nib here to get a tuple of both nibbles
         contentLength -= (paletteCount*64); //remove the length of the palette section before getting to the pixels
         swizzledPixels.resize(contentLength*2);
-        for(int i = parent->fileData.currentPosition; i < startLocation + dataLength; i++){
+        for(int i = parent->fileData.currentPosition; i < startLocation + 4 + dataLength; i++){
             nibTup = parent->binChanger.byte_to_nib(parent->fileData.mid(location+i, 1));
             swizzledPixels[pixelIndex] = std::get<0>(nibTup);
             pixelIndex += 1;
@@ -90,100 +145,94 @@ void ITF::readData(){
 
     //qDebug() << Q_FUNC_INFO << "Pixel list length: " << pixelList.size() << "vs content length" << contentLength;
 
-
-    //that should be it for loading data.
-    //after this, have a function catching the table cell changed slot
-    //needs to check if value is between 0 and 255 to be a valid color
-    //then only change the associated value if valid
-
     //the only issue I see with this is turning the data BACK into an ITF file.
     //We don't currently know what all of the header data stands for, which could be an issue
 
+    return 0;
 }
 
 void ITF::populatePalette(){
-    int paletteIndex = parent->ListLevels->currentIndex();
+    int paletteIndex = currentPalette;
     if(paletteIndex == -1){
         paletteIndex = 0;
     }
     qDebug() << Q_FUNC_INFO << "Function called. Palette index: " << paletteIndex;
     qDebug() << Q_FUNC_INFO << "Palette colors: " << paletteList[paletteIndex].paletteColors.size();
-    parent->createTable(paletteList[paletteIndex].paletteColors.size(), 7);
+    //parent->createTable(paletteList[paletteIndex].paletteColors.size(), 7);
     QStringList columnNames = {"Palette Index", "Red", "Green", "Blue", "Alpha", "Original", "Current"};
-    parent->PaletteTable->setHorizontalHeaderLabels(columnNames);
-    parent->PaletteTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    paletteTable->setHorizontalHeaderLabels(columnNames);
+    paletteTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     for(int i = 0; i < paletteList[paletteIndex].paletteColors.size(); i++){
-        parent->PaletteTable->blockSignals(1);
+        paletteTable->blockSignals(1);
         //I actually hate this part. Needing to make an item for every single cell feels so overcomplicated but that's how tables work, I guess.
-        QTableWidgetItem *cellText0 = parent->PaletteTable->item(i,0);
+        QTableWidgetItem *cellText0 = paletteTable->item(i,0);
         if (!cellText0){
             cellText0 = new QTableWidgetItem;
-            parent->PaletteTable->setItem(i,0,cellText0);
+            paletteTable->setItem(i,0,cellText0);
         }
         cellText0->setText(QString::number(i));
-        QTableWidgetItem *cellText = parent->PaletteTable->item(i,1);
+        QTableWidgetItem *cellText = paletteTable->item(i,1);
         if (!cellText){
             cellText = new QTableWidgetItem;
-            parent->PaletteTable->setItem(i,1,cellText);
+            paletteTable->setItem(i,1,cellText);
         }
         cellText->setText(QString::number(paletteList[paletteIndex].paletteColors[i].R));
-        QTableWidgetItem *cellText2 = parent->PaletteTable->item(i,2);
+        QTableWidgetItem *cellText2 = paletteTable->item(i,2);
         if (!cellText2){
             cellText2 = new QTableWidgetItem;
-            parent->PaletteTable->setItem(i,2,cellText2);
+            paletteTable->setItem(i,2,cellText2);
         }
         cellText2->setText(QString::number(paletteList[paletteIndex].paletteColors[i].G));
-        QTableWidgetItem *cellText3 = parent->PaletteTable->item(i,3);
+        QTableWidgetItem *cellText3 = paletteTable->item(i,3);
         if (!cellText3){
             cellText3 = new QTableWidgetItem;
-            parent->PaletteTable->setItem(i,3,cellText3);
+            paletteTable->setItem(i,3,cellText3);
         }
         cellText3->setText(QString::number(paletteList[paletteIndex].paletteColors[i].B));
-        QTableWidgetItem *cellText4 = parent->PaletteTable->item(i,4);
+        QTableWidgetItem *cellText4 = paletteTable->item(i,4);
         if (!cellText4){
             cellText4 = new QTableWidgetItem;
-            parent->PaletteTable->setItem(i,4,cellText4);
+            paletteTable->setItem(i,4,cellText4);
         }
         cellText4->setText(QString::number(paletteList[paletteIndex].paletteColors[i].A));
-        QTableWidgetItem *cellText5 = parent->PaletteTable->item(i,5);
+        QTableWidgetItem *cellText5 = paletteTable->item(i,5);
         if (!cellText5){
             cellText5 = new QTableWidgetItem;
-            parent->PaletteTable->setItem(i,5,cellText5);
+            paletteTable->setItem(i,5,cellText5);
         }
         cellText5->setBackground(QColor::fromRgb(paletteList[paletteIndex].paletteColors[i].R,paletteList[paletteIndex].paletteColors[i].G,paletteList[paletteIndex].paletteColors[i].B));
-        QTableWidgetItem *cellText6 = parent->PaletteTable->item(i,6);
+        QTableWidgetItem *cellText6 = paletteTable->item(i,6);
         if (!cellText6){
             cellText6 = new QTableWidgetItem;
-            parent->PaletteTable->setItem(i,6,cellText6);
+            paletteTable->setItem(i,6,cellText6);
         }
         cellText6->setBackground(QColor::fromRgb(paletteList[paletteIndex].paletteColors[i].R,paletteList[paletteIndex].paletteColors[i].G,paletteList[paletteIndex].paletteColors[i].B));
-        parent->PaletteTable->blockSignals(0);
+        paletteTable->blockSignals(0);
     }
 }
 
 void ITF::editPalette(int row, int column){
-    int changedValue = parent->PaletteTable->item(row, column)->text().toInt(nullptr, 10);
-    int paletteIndex = parent->ListLevels->currentIndex();
-    qDebug() << Q_FUNC_INFO << "Changed value: " << parent->PaletteTable->item(row, column)->text();
+    int changedValue = paletteTable->item(row, column)->text().toInt(nullptr, 10);
+    qDebug() << Q_FUNC_INFO << "Changed value: " << paletteTable->item(row, column)->text();
     qDebug() << Q_FUNC_INFO << "Row: " << row << " Column " << column;
     if (changedValue < 256 and changedValue >= 0 ){
         qDebug() << Q_FUNC_INFO << "Valid color value";
         switch (column){
-        case 1: paletteList[paletteIndex].paletteColors[row].R = changedValue; break;
-        case 2: paletteList[paletteIndex].paletteColors[row].G = changedValue; break;
-        case 3: paletteList[paletteIndex].paletteColors[row].B = changedValue; break;
-        case 4: paletteList[paletteIndex].paletteColors[row].A = changedValue; break;
+        case 1: paletteList[currentPalette].paletteColors[row].R = changedValue; break;
+        case 2: paletteList[currentPalette].paletteColors[row].G = changedValue; break;
+        case 3: paletteList[currentPalette].paletteColors[row].B = changedValue; break;
+        case 4: paletteList[currentPalette].paletteColors[row].A = changedValue; break;
         }
-        QTableWidgetItem *cellText5 = parent->PaletteTable->item(row, 6);
-        cellText5->setBackground(QColor::fromRgb(paletteList[paletteIndex].paletteColors[row].R,paletteList[paletteIndex].paletteColors[row].G,paletteList[paletteIndex].paletteColors[row].B));
+        QTableWidgetItem *cellText5 = paletteTable->item(row, 6);
+        cellText5->setBackground(QColor::fromRgb(paletteList[currentPalette].paletteColors[row].R,paletteList[currentPalette].paletteColors[row].G,paletteList[currentPalette].paletteColors[row].B));
         qDebug() << Q_FUNC_INFO << "cell text" << cellText5->text();
     } else {
         qDebug() << Q_FUNC_INFO << "Not a valid color value.";
         switch (column){
-        case 1: parent->PaletteTable->item(row,column)->text() = QString::number(paletteList[paletteIndex].paletteColors[row].R); break;
-        case 2: parent->PaletteTable->item(row,column)->text() = QString::number(paletteList[paletteIndex].paletteColors[row].G); break;
-        case 3: parent->PaletteTable->item(row,column)->text() = QString::number(paletteList[paletteIndex].paletteColors[row].B); break;
-        case 4: parent->PaletteTable->item(row,column)->text() = QString::number(paletteList[paletteIndex].paletteColors[row].A); break;
+        case 1: paletteTable->item(row,column)->text() = QString::number(paletteList[currentPalette].paletteColors[row].R); break;
+        case 2: paletteTable->item(row,column)->text() = QString::number(paletteList[currentPalette].paletteColors[row].G); break;
+        case 3: paletteTable->item(row,column)->text() = QString::number(paletteList[currentPalette].paletteColors[row].B); break;
+        case 4: paletteTable->item(row,column)->text() = QString::number(paletteList[currentPalette].paletteColors[row].A); break;
         }
     }
 }
@@ -281,12 +330,19 @@ void ITF::writeBMP(){
 
     int numColors = 0;
 
+//    if (propertyByte&1){
+//        numColors = 256;
+//        dataOffset = 54 + (paletteCount*1024);
+//    } else {
+//        numColors = 16;
+//        dataOffset = 54 + (paletteCount*64);
+//    }
     if (propertyByte&1){
         numColors = 256;
-        dataOffset = 54 + (paletteCount*1024);
+        dataOffset = 1078;
     } else {
         numColors = 16;
-        dataOffset = 54 + (paletteCount*64);
+        dataOffset = 118;
     }
 
     std::vector<int> reversePixels = pixelList;
@@ -304,8 +360,10 @@ void ITF::writeBMP(){
 
         bmpOut.write("BM");
         parent->binChanger.intWrite(bmpOut, fileLength);
+        qDebug() << Q_FUNC_INFO << "file length written as" << fileLength;
         parent->binChanger.intWrite(bmpOut, 0); //reserved
         parent->binChanger.intWrite(bmpOut, dataOffset);
+        qDebug() << Q_FUNC_INFO << "data offset written as" << dataOffset;
         parent->binChanger.intWrite(bmpOut, 40);    //size of info header
         parent->binChanger.intWrite(bmpOut, width);
         parent->binChanger.intWrite(bmpOut, height);
@@ -324,10 +382,18 @@ void ITF::writeBMP(){
         parent->binChanger.intWrite(bmpOut, numColors);
         parent->binChanger.intWrite(bmpOut, 0); //important colors. 0 for all.
 
+//        for(int i = 0; i<paletteCount;i++){
+//            for(int j = 0; j < paletteList[i].paletteColors.size(); j++){
+//                parent->binChanger.byteWrite(bmpOut, paletteList[i].paletteColors[j].R);
+//                parent->binChanger.byteWrite(bmpOut, paletteList[i].paletteColors[j].G);
+//                parent->binChanger.byteWrite(bmpOut, paletteList[i].paletteColors[j].B);
+//                parent->binChanger.byteWrite(bmpOut, paletteList[i].paletteColors[j].A);
+//            }
+//        }
         for (int i = 0; i<numColors; i++){
-            parent->binChanger.byteWrite(bmpOut, paletteList[parent->ListLevels->currentIndex()].paletteColors[i].B);
-            parent->binChanger.byteWrite(bmpOut, paletteList[parent->ListLevels->currentIndex()].paletteColors[i].G);
-            parent->binChanger.byteWrite(bmpOut, paletteList[parent->ListLevels->currentIndex()].paletteColors[i].R);
+            parent->binChanger.byteWrite(bmpOut, paletteList[listPalettes->currentIndex()].paletteColors[i].B);
+            parent->binChanger.byteWrite(bmpOut, paletteList[listPalettes->currentIndex()].paletteColors[i].G);
+            parent->binChanger.byteWrite(bmpOut, paletteList[listPalettes->currentIndex()].paletteColors[i].R);
             parent->binChanger.byteWrite(bmpOut, 0); // no alpha in bmp.
         }
 

@@ -274,6 +274,7 @@ void DatabaseFile::removeInstance(int instanceIndex){
 
 QStringList DefinitionFile::editItem(QString className, int itemIndex){
     dictItem itemDetails;
+    itemDetails.file = this;
     bool cancelled;
     int dictIndex = indexIn(className);
     QStringList changedValue;

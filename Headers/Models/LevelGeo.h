@@ -8,11 +8,13 @@ class ProgWindow;
 class MeshVBIN;
 class FileData;
 class Color;
+class TriangleStrip;
 
 class GeometrySet{
 public:
     SectionHeader headerData;
     std::vector<QVector3D> geoSetVerticies;
+    std::vector<std::vector<int>> triangleStrips;
     std::vector<Color> geoSetColors;
     std::vector<QVector2D> geoSetTexCoords;
     int version;
@@ -42,9 +44,11 @@ class MeshVBIN : public TFFile {
   public:
     std::vector<GeometrySet> geoSets;
 
-    void readData();
-    void openMeshVBINFile();
-    void outputDataSTL();
+    int readData();
+    int outputDataSTL();
+
+    void load(QString fromType);
+    void save(QString toType);
 };
 
 #endif // LEVELGEO_H

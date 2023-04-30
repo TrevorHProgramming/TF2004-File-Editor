@@ -36,6 +36,293 @@ void DefinitionFile::clear(){
     classList.clear();
 }
 
+void DefinitionFile::save(QString toType){
+    if(toType == "TMD" || toType == "TDB"){
+        writeText();
+    } else if (toType == "BMD" || toType == "BDB"){
+        writeBinary();
+    }
+}
+
+void DefinitionFile::load(QString fromType){
+    int failedRead = 0;
+    if(fromType == "BMD" || fromType == "BDB"){
+        binary = true;
+        failedRead = readBinary();
+    } else if (fromType == "TMD" || fromType == "TDB") {
+        binary = false;
+        failedRead = readText();
+    } else {
+        failedRead = 1;
+    }
+    if(failedRead){
+        parent->messageError("There was an error reading " + fileName);
+        return;
+    }
+    updateCenter();
+}
+
+//void ProgWindow::saveDefinitionFile(bool binary){
+//    if(definitions.empty()){
+//       messageError("No definition files available to save. Please load a definition file.");
+//       return;
+//    }
+
+//    bool cancelled;
+//    QStringList options;
+//    for(int i = 0; i < definitions.size(); i++){
+//        options.append(definitions[i].fileName);
+//    }
+
+//    QString chosenFile = QInputDialog::getItem(this, this->tr("Select TMD File:"), this->tr("File Name:"), options, 0, false, &cancelled);
+//    qDebug() << Q_FUNC_INFO << "chosen file:" << chosenFile << cancelled;
+
+//    if(!cancelled){
+//        return;
+//    }
+
+//    for(int i = 0; i < definitions.size(); i++){
+//        if(definitions[i].fileName == chosenFile){
+//            if(binary){
+//                definitions[i].writeBinary();
+//            } else {
+//                definitions[i].writeText();
+//            }
+//        }
+//    }
+//    qDebug() << Q_FUNC_INFO << "Definition output complete.";
+
+//}
+
+
+//void ProgWindow::saveDatabaseFile(bool binary){
+//    if(databases.empty()){
+//       messageError("No database files available to save. Please load a database file.");
+//       return;
+//    }
+
+//    bool cancelled;
+//    QStringList options;
+//    for(int i = 0; i < databases.size(); i++){
+//        options.append(databases[i].fileName);
+//    }
+
+//    QString chosenFile = QInputDialog::getItem(this, this->tr("Select TDB File:"), this->tr("File Name:"), options, 0, false, &cancelled);
+//    qDebug() << Q_FUNC_INFO << "chosen file:" << chosenFile << cancelled;
+
+//    if(!cancelled){
+//        return;
+//    }
+
+//    for(int i = 0; i < databases.size(); i++){
+//        if(databases[i].fileName == chosenFile){
+//            if(binary){
+//                databases[i].writeBinary();
+//            } else {
+//                databases[i].writeText();
+//            }
+//        }
+//    }
+//    qDebug() << Q_FUNC_INFO << "Database output complete.";
+
+//}
+
+void DefinitionFile::updateCenter(){
+    qDebug() << Q_FUNC_INFO << "updating center view for file" << fileName << "." << fileExtension;
+    createDBTree();
+
+    QPushButton* ButtonEditDB = new QPushButton("Edit item Data", parent->centralContainer);
+    ButtonEditDB->setGeometry(QRect(QPoint(50,320), QSize(150,30)));
+    QAbstractButton::connect(ButtonEditDB, &QPushButton::released, parent, [this]{editTreeItem(dataTree->currentIndex(), dataTree->currentIndex().row());});
+    ButtonEditDB->show();
+    parent->currentModeWidgets.push_back(ButtonEditDB);
+    //I don't think this button is really that useful
+    /*ButtonRemoveItem = new QPushButton("Remove item", this);
+    ButtonRemoveItem->setGeometry(QRect(QPoint(50,370), QSize(150,30)));
+    connect(ButtonRemoveItem, &QPushButton::released, this, [this]{removeDatabaseItem(testView->currentIndex(), testView->currentIndex().row());});
+    ButtonRemoveItem->show();*/
+    QPushButton* ButtonRemoveClass = new QPushButton("Remove class/instance", parent->centralContainer);
+    ButtonRemoveClass->setGeometry(QRect(QPoint(50,420), QSize(150,30)));
+    QAbstractButton::connect(ButtonRemoveClass, &QPushButton::released, parent, [this]{removeTreeClass(dataTree->currentIndex());});
+    ButtonRemoveClass->show();
+    parent->currentModeWidgets.push_back(ButtonRemoveClass);
+}
+
+void DatabaseFile::updateCenter(){
+    qDebug() << Q_FUNC_INFO << "updating center view for file" << fileName << "." << fileExtension;
+    createDBTree();
+
+    QPushButton* ButtonEditDB = new QPushButton("Edit item Data", parent->centralContainer);
+    ButtonEditDB->setGeometry(QRect(QPoint(50,320), QSize(150,30)));
+    QAbstractButton::connect(ButtonEditDB, &QPushButton::released, parent, [this]{editTreeItem(dataTree->currentIndex(), dataTree->currentIndex().row());});
+    ButtonEditDB->show();
+    parent->currentModeWidgets.push_back(ButtonEditDB);
+    //I don't think this button is really that useful
+    /*ButtonRemoveItem = new QPushButton("Remove item", this);
+    ButtonRemoveItem->setGeometry(QRect(QPoint(50,370), QSize(150,30)));
+    connect(ButtonRemoveItem, &QPushButton::released, this, [this]{removeDatabaseItem(testView->currentIndex(), testView->currentIndex().row());});
+    ButtonRemoveItem->show();*/
+    QPushButton* ButtonRemoveClass = new QPushButton("Remove class/instance", parent->centralContainer);
+    ButtonRemoveClass->setGeometry(QRect(QPoint(50,420), QSize(150,30)));
+    QAbstractButton::connect(ButtonRemoveClass, &QPushButton::released, parent, [this]{removeTreeClass(dataTree->currentIndex());});
+    ButtonRemoveClass->show();
+    parent->currentModeWidgets.push_back(ButtonRemoveClass);
+}
+
+void DefinitionFile::createDBTree(){
+
+    dataTree = new QTreeView(parent->centralContainer);
+    dataModel = new QStandardItemModel;
+
+    dataTree->setGeometry(QRect(QPoint(250,250), QSize(800,300)));
+    QStandardItem *item = dataModel->invisibleRootItem();
+    QList<QStandardItem *> dictRow;
+    QStandardItem *classRow;
+    QList<QStandardItem *> details;
+    QString enumOptions;
+    QStandardItemModel model2;
+
+    //dictRow = {new QStandardItem("Included Files")};
+    //item->appendRow(dictRow);
+
+    //append items to matching dictrow
+
+    dictRow = {new QStandardItem(fileName), new QStandardItem("Type"), new QStandardItem("Value"), new QStandardItem("Value List"), new QStandardItem("Comment")};
+    item->appendRow(dictRow);
+
+    //add columns "name", "type", "value", "allowed values"
+
+    for (int i = 0; i < classList.size();i++) {
+        classRow = new QStandardItem(classList[i].name);
+        dictRow.first()->appendRow(classRow);
+        for(int j = 0; j<classList[i].itemList.size();j++){
+            enumOptions = "";
+            enumOptions = classList[i].itemList[j].valueList.join(", ");
+            details = {new QStandardItem(classList[i].itemList[j].name),new QStandardItem(classList[i].itemList[j].type),
+                       new QStandardItem(classList[i].itemList[j].value), new QStandardItem(enumOptions), new QStandardItem(classList[i].itemList[j].comment)};
+            classRow->appendRow(details);
+        }
+    }
+
+    dataTree->setModel(dataModel);
+    //testView->expandAll();
+    dataTree->show();
+}
+
+void DatabaseFile::createDBTree(){
+
+    dataTree = new QTreeView(parent->centralContainer);
+    dataModel = new QStandardItemModel;
+
+    QHeaderView *headers = dataTree->header();
+    headers->setSectionsClickable(true);
+    QObject::connect(headers, &QHeaderView::sectionClicked, [this](int logicalIndex){sortDBTree(logicalIndex);});
+
+    dataTree->setGeometry(QRect(QPoint(250,250), QSize(800,300)));
+    QStandardItem *item = dataModel->invisibleRootItem();
+    QList<QStandardItem *> dictRow;
+    QList<QStandardItem *> instanceRow;
+    QList<QStandardItem *> details;
+    QString enumOptions;
+    QStandardItemModel model2;
+
+    //dictRow = {new QStandardItem("Included Files")};
+    //item->appendRow(dictRow);
+
+    //append items to matching dictrow
+
+    dictRow = {new QStandardItem(fileName), new QStandardItem("Type"), new QStandardItem("Value"), new QStandardItem("Value List"), new QStandardItem("Default")};
+    item->appendRow(dictRow);
+
+    //add columns "name", "type", "value", "allowed values"
+
+
+    for (int i = 0; i < instanceList.size();i++) {
+        instanceRow = {new QStandardItem(instanceList[i].name), new QStandardItem(QString::number(instanceList[i].instanceIndex))};
+        dictRow.first()->appendRow(instanceRow);
+        for(int j = 0; j<instanceList[i].itemList.size();j++){
+            enumOptions = "";
+            enumOptions = instanceList[i].itemList[j].valueList.join(", ");
+            details = {new QStandardItem(instanceList[i].itemList[j].name), new QStandardItem(instanceList[i].itemList[j].type)
+                       , new QStandardItem(instanceList[i].itemList[j].value), new QStandardItem(enumOptions), new QStandardItem(instanceList[i].itemList[j].isDefault)};
+            instanceRow.first()->appendRow(details);
+        }
+    }
+
+    dataTree->setModel(dataModel);
+    dataTree->setSortingEnabled(true);
+    //testView->expandAll();
+    dataTree->show();
+}
+
+void DefinitionFile::sortDBTree(int column){
+    dataTree->sortByColumn(column, Qt::AscendingOrder);
+}
+
+void DefinitionFile::removeTreeClass(QModelIndex item){
+    removeClass(item.row());
+    dataModel->removeRows(item.row(), 1, item.parent());
+}
+
+void DatabaseFile::removeTreeInstance(QModelIndex item){
+    removeInstance(item.row());
+    dataModel->removeRows(item.row(), 1, item.parent());
+}
+
+void DefinitionFile::removeTreeItem(QModelIndex item, int itemIndex){
+    removeItem(item.parent().data().toString(), itemIndex);
+
+    dataModel->removeRows(item.row(), 1, item.parent());
+
+    //then update DB Tree
+}
+
+void DatabaseFile::removeTreeItem(QModelIndex item, int itemIndex){
+    removeItem(item.parent().siblingAtColumn(1).data().toInt(), itemIndex);
+
+    dataModel->removeRows(item.row(), 1, item.parent());
+
+    //then update DB Tree
+}
+
+void DefinitionFile::editTreeItem(QModelIndex item, int itemIndex){
+    QStringList newValue; //using a qstringlist to make things easier on myself
+    newValue = editItem(item.parent().data().toString(), itemIndex);
+    //item.parent().siblingAtColumn(1).data().toInt(), itemIndex
+
+    if(newValue[0] == "SINGLEVALUE"){
+        dataModel->setData(item.siblingAtColumn(2), newValue[1]);
+    } else if (newValue[0] == "ENUM"){
+        dataModel->setData(item.siblingAtColumn(2), newValue[1]);
+        newValue.remove(0,2);
+        dataModel->setData(item.siblingAtColumn(3), newValue.join(','));
+    } else if (newValue[0] == "SETDEFAULT"){
+        dataModel->setData(item.siblingAtColumn(4), true);
+    } else {
+        dataModel->setData(item.siblingAtColumn(3), newValue.join(','));
+    }
+
+}
+
+void DatabaseFile::editTreeItem(QModelIndex item, int itemIndex){
+    QStringList newValue; //using a qstringlist to make things easier on myself
+    newValue = editItem(item.parent().siblingAtColumn(1).data().toInt(), itemIndex);
+    //item.parent().siblingAtColumn(1).data().toInt(), itemIndex
+
+    if(newValue[0] == "SINGLEVALUE"){
+        dataModel->setData(item.siblingAtColumn(2), newValue[1]);
+    } else if (newValue[0] == "ENUM"){
+        dataModel->setData(item.siblingAtColumn(2), newValue[1]);
+        newValue.remove(0,2);
+        dataModel->setData(item.siblingAtColumn(3), newValue.join(','));
+    } else if (newValue[0] == "SETDEFAULT"){
+        dataModel->setData(item.siblingAtColumn(4), true);
+    } else {
+        dataModel->setData(item.siblingAtColumn(3), newValue.join(','));
+    }
+
+}
+
 QString DefinitionFile::getName(){
     if(binary){
         QByteArrayMatcher findTilde;
@@ -206,12 +493,12 @@ void DefinitionFile::readInstances(QByteArray splitLine, int sectionIndex, QStri
 
     instanceList.resize(sectionIndex + 1);
     instanceList[sectionIndex].name = instanceName;
-    typeIndexBMD = parent->definitions[inheritedFileIndex].indexIn(instanceName); //get index in TMD list for current instance type
+    typeIndexBMD = inheritedFile->indexIn(instanceName); //get index in TMD list for current instance type
     typeIndexBDB = indexIn(instanceName);
     //qDebug() << Q_FUNC_INFO << "type index bmd:" << typeIndexBMD << "type Index BDB" << typeIndexBDB << "for name" << instanceName;
     if(typeIndexBMD == -1){
         //qDebug() << Q_FUNC_INFO << "Item " << instanceName << " does not exist in " << parent->definitions[inheritedFileIndex].filePath <<". Verify that the BMD and BDB are both correct.";
-        parent->messageError("Item " + instanceName + " does not exist in " + parent->definitions[inheritedFileIndex].fileName + ". Verify that both this file and the definition file are correct.");
+        parent->messageError("Item " + instanceName + " does not exist in " + inheritedFile->fileName + ". Verify that both this file and the definition file are correct.");
     }
 
     instanceList[sectionIndex].instanceIndex = tempRead.readUInt(2);
@@ -222,12 +509,12 @@ void DefinitionFile::readInstances(QByteArray splitLine, int sectionIndex, QStri
         bool checkDefault = tempRead.readBool();
         //qDebug() << Q_FUNC_INFO << "searching tdb index" << typeIndexBDB << "named" << classList[typeIndexBDB].name << "with item list size" << classList[typeIndexBDB].itemList.size();
         if(checkDefault){
-            itemIndexBMD = parent->definitions[inheritedFileIndex].dictItemIndex(typeIndexBMD, classList[typeIndexBDB].itemList[currentItem].name);
-            itemDetails = parent->definitions[inheritedFileIndex].classList[typeIndexBMD].itemList[itemIndexBMD];
+            itemIndexBMD = inheritedFile->dictItemIndex(typeIndexBMD, classList[typeIndexBDB].itemList[currentItem].name);
+            itemDetails = inheritedFile->classList[typeIndexBMD].itemList[itemIndexBMD];
             itemDetails.isDefault = true;
         } else {
-            itemIndexBMD = parent->definitions[inheritedFileIndex].dictItemIndex(typeIndexBMD, classList[typeIndexBDB].itemList[currentItem].name);
-            itemDetails = parent->definitions[inheritedFileIndex].classList[typeIndexBMD].itemList[itemIndexBMD];
+            itemIndexBMD = inheritedFile->dictItemIndex(typeIndexBMD, classList[typeIndexBDB].itemList[currentItem].name);
+            itemDetails = inheritedFile->classList[typeIndexBMD].itemList[itemIndexBMD];
             itemDetails.isDefault = false;
             itemDetails = addItem(itemDetails, &tempRead);
         }
@@ -243,6 +530,7 @@ int DefinitionFile::readBinary(){
     QList<QByteArray> byteSplit;
     QByteArray byteItem;
     FileData tempRead;
+    tempRead.input = 1;
     int passed = 0;
     int cutLocation = 0;
     long startSection = 0;
@@ -327,29 +615,26 @@ int DefinitionFile::readIncludedFiles(QString fullRead){
     int passed = -1;
     QString nameList; //for the error message
 
-    includedFile = fullRead.remove(quoteRemover);
+    QString inheritedFileName = fullRead.remove(quoteRemover);
 
     fullRead = fullRead.remove(quoteRemover).remove(pathRemover);
-    qDebug() << Q_FUNC_INFO << fullRead << "included file" << includedFile;
+    qDebug() << Q_FUNC_INFO << fullRead << "included file" << inheritedFileName;
     if(fullRead == ""){
-        includedFile = "";
-        inheritedFileIndex = 0;
+        qDebug() << Q_FUNC_INFO << "No files included. We can continue.";
         passed = 0;
         return passed;
     }
 
-    for(int i = 0; i < parent->definitions.size();i++){
-        nameList += parent->definitions[i].fileName + ", ";
-        if(fullRead.toUpper() == parent->definitions[i].fileName.toUpper()){
-            qDebug() << "The Database file includes the loaded Definition file. We can continue.";
-            inheritedFileIndex = i;
-            passed = 0;
-        }
+    inheritedFile = std::static_pointer_cast<DefinitionFile>(parent->matchFile(fullRead));
+
+    if(inheritedFile != nullptr){
+        qDebug() << Q_FUNC_INFO << "The Database file includes the loaded Definition file. We can continue.";
+        passed = 0;
     }
 
     if(passed == -1){
         parent->messageError("The file does not include a loaded TMD/BMD file. Please verify that the correct files are loaded."
-                             "Currently loaded TMD/BMD files:" + nameList + " | TDB/BDB file includes:" + includedFile);
+                             "Currently loaded TMD/BMD files:" + nameList + " | TDB/BDB file includes:" + inheritedFileName);
     }
     return passed;
 
@@ -475,12 +760,12 @@ void DefinitionFile::readInstances(QStringList partSplit, int sectionIndex, QStr
     itemDetails.clear();
     instanceList.resize(sectionIndex + 1);
     instanceList[sectionIndex].name = instanceName;
-    typeIndexTMD = parent->definitions[inheritedFileIndex].indexIn(instanceName); //get index in TMD list for current instance type
+    typeIndexTMD = inheritedFile->indexIn(instanceName); //get index in TMD list for current instance type
     typeIndexTDB = indexIn(instanceName);
     //qDebug() << Q_FUNC_INFO << "type index tmd:" << typeIndexTMD << "type Index TDB" << typeIndexTDB << "for name" << instanceName;
     //qDebug() << Q_FUNC_INFO << "line read" << partSplit;
     if(typeIndexTMD == -1){
-        qDebug() << Q_FUNC_INFO << "Item " << instanceName << " does not exist in " << parent->definitions[inheritedFileIndex].filePath <<". Verify that the TMD and TDB are both correct.";
+        qDebug() << Q_FUNC_INFO << "Item " << instanceName << " does not exist in " << inheritedFile->filePath <<". Verify that the TMD and TDB are both correct.";
     }
 
     for(int i = 0; i<partSplit.length(); i++){
@@ -494,14 +779,14 @@ void DefinitionFile::readInstances(QStringList partSplit, int sectionIndex, QStr
             continue;
         } else if (checkDefault == "NotDefault") {
             //qDebug() << Q_FUNC_INFO << "searching tdb index" << typeIndexTDB << "named" << classList[typeIndexTDB].name << "with item list size" << classList[typeIndexTDB].itemList.size();
-            itemIndexTMD = parent->definitions[inheritedFileIndex].dictItemIndex(typeIndexTMD, classList[typeIndexTDB].itemList[i-1].name);
+            itemIndexTMD = inheritedFile->dictItemIndex(typeIndexTMD, classList[typeIndexTDB].itemList[i-1].name);
             //qDebug() << Q_FUNC_INFO << "item index" << itemIndexTMD << "for item" << i << classList[typeIndexTDB].itemList[i-1].name;
-            itemDetails = parent->definitions[inheritedFileIndex].classList[typeIndexTMD].itemList[itemIndexTMD];
+            itemDetails = inheritedFile->classList[typeIndexTMD].itemList[itemIndexTMD];
             itemDetails.isDefault = false;
             itemDetails = addItem(itemDetails, tempRead);
         } else {
-            itemIndexTMD = parent->definitions[inheritedFileIndex].dictItemIndex(typeIndexTMD, classList[typeIndexTDB].itemList[i-1].name);
-            itemDetails = parent->definitions[inheritedFileIndex].classList[typeIndexTMD].itemList[itemIndexTMD];
+            itemIndexTMD = inheritedFile->dictItemIndex(typeIndexTMD, classList[typeIndexTDB].itemList[i-1].name);
+            itemDetails = inheritedFile->classList[typeIndexTMD].itemList[itemIndexTMD];
             itemDetails.isDefault = true;
         }
         //qDebug() << instanceNames[foundSections] << "item" << i << checkDefault << itemDetails.index;
@@ -619,10 +904,6 @@ int DefinitionFile::readText(){
 
 
 void DatabaseFile::writeText(){
-    if(parent->databases.empty()){
-        parent->messageError("No loaded database files to save.");
-        return;
-    }
     QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output TDB"), QDir::currentPath() + "/TDB/", parent->tr("Definition Files (*.tdb)"));
     QFile tdbOut(fileOut);
     QFile file(fileOut);
@@ -640,9 +921,9 @@ void DatabaseFile::writeText(){
         tdbOut.write(" \r\n");
         tdbOut.write("~IncludedFiles \r\n{\r\n");
         tdbOut.write("	");
-        if(includedFile.trimmed().size() != 0){
+        if(inheritedFile->fileName.trimmed().size() != 0){
             //qDebug() << Q_FUNC_INFO << "includedFile value" << includedFile.trimmed().toUtf8();
-            tdbOut.write("\"" + includedFile.trimmed().toUtf8() + "\" \r\n");
+            tdbOut.write("\"" + inheritedFile->fileName.trimmed().toUtf8() + "\" \r\n");
         }
         tdbOut.write("	\r\n} // IncludedFiles\r\n");
         tdbOut.write("\r\n~FileDictionary \r\n{");
@@ -696,10 +977,6 @@ void DatabaseFile::writeText(){
 }
 
 void DefinitionFile::writeText(){
-    if(parent->definitions.empty()){
-        parent->messageError("No loaded definition files to save.");
-        return;
-    }
     QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output TMD"), QDir::currentPath() + "/TMD/", parent->tr("Definition Files (*.tmd)"));
     QFile tmdOut(fileOut);
     QFile file(fileOut);
@@ -717,9 +994,9 @@ void DefinitionFile::writeText(){
         tmdOut.write(" \r\n");
         tmdOut.write("~IncludedFiles \r\n{\r\n");
         tmdOut.write("	");
-        if(includedFile.trimmed().size() != 0){
-            qDebug() << Q_FUNC_INFO << "includedFile value" << includedFile.trimmed().toUtf8();
-            tmdOut.write(includedFile.trimmed().toUtf8() + "\r\n");
+        if(inheritedFile->fileName.trimmed().size() != 0){
+            qDebug() << Q_FUNC_INFO << "includedFile value" << inheritedFile->fileName.trimmed().toUtf8();
+            tmdOut.write(inheritedFile->fileName.trimmed().toUtf8() + "\r\n");
         }
         tmdOut.write("\r\n} // IncludedFiles\r\n");
         tmdOut.write("\r\n~Dictionary \r\n{");
@@ -759,10 +1036,6 @@ void DefinitionFile::writeText(){
 }
 
 void DefinitionFile::writeBinary(){
-    if(parent->definitions.empty()){
-        parent->messageError("No loaded definition files to save.");
-        return;
-    }
     QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output BMD"), QDir::currentPath() + "/BMD/", parent->tr("Definition Files (*.bmd)"));
     QFile bmdOut(fileOut);
     QFile file(fileOut);
@@ -782,10 +1055,10 @@ void DefinitionFile::writeBinary(){
         parent->binChanger.intWrite(bmdOut, versionNumber);
         bmdOut.write("~IncludedFiles");
         parent->binChanger.shortWrite(bmdOut, 0);
-        parent->binChanger.intWrite(bmdOut, 4+includedFile.length()); //file length could be an issue. needs to be handled in "edit item"
-        if(includedFile.trimmed().size() != 0){
-            qDebug() << Q_FUNC_INFO << "includedFile value" << includedFile.trimmed().toUtf8() << "length" << 4+includedFile.length();
-            bmdOut.write(includedFile.trimmed().toUtf8());
+        parent->binChanger.intWrite(bmdOut, 4+inheritedFile->fileName.length()); //file length could be an issue. needs to be handled in "edit item"
+        if(inheritedFile->fileName.trimmed().size() != 0){
+            qDebug() << Q_FUNC_INFO << "includedFile value" << inheritedFile->fileName.trimmed().toUtf8() << "length" << 4+inheritedFile->fileName.length();
+            bmdOut.write(inheritedFile->fileName.trimmed().toUtf8());
         }
         bmdOut.write("~Dictionary");
         parent->binChanger.shortWrite(bmdOut, 0);
@@ -820,10 +1093,6 @@ void DefinitionFile::writeBinary(){
 }
 
 void DatabaseFile::writeBinary(){
-    if(parent->definitions.empty()){
-        parent->messageError("No loaded definition files to save.");
-        return;
-    }
     QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output BDB"), QDir::currentPath() + "/BDB/", parent->tr("Definition Files (*.bdb)"));
     QFile bmdOut(fileOut);
     QFile file(fileOut);
@@ -843,11 +1112,11 @@ void DatabaseFile::writeBinary(){
         parent->binChanger.intWrite(bmdOut, versionNumber);
         bmdOut.write("~IncludedFiles");
         parent->binChanger.shortWrite(bmdOut, 0);
-        if(includedFile.trimmed().size() != 0){
-            qDebug() << Q_FUNC_INFO << "includedFile value" << includedFile.trimmed().toUtf8() << "length" << 4+includedFile.length();
-            parent->binChanger.intWrite(bmdOut, 8+includedFile.length());
-            parent->binChanger.intWrite(bmdOut, includedFile.length());
-            bmdOut.write(includedFile.trimmed().toUtf8());
+        if(inheritedFile->fileName.trimmed().size() != 0){
+            qDebug() << Q_FUNC_INFO << "includedFile value" << inheritedFile->fileName.trimmed().toUtf8() << "length" << 4+inheritedFile->fileName.length();
+            parent->binChanger.intWrite(bmdOut, 8+inheritedFile->fileName.length());
+            parent->binChanger.intWrite(bmdOut, inheritedFile->fileName.length());
+            bmdOut.write(inheritedFile->fileName.trimmed().toUtf8());
         } else {
             parent->binChanger.intWrite(bmdOut, 4);
         }
@@ -899,104 +1168,7 @@ void DatabaseFile::writeBinary(){
     }
 }
 
-void DefinitionFile::createDBTree(){
-    if(parent->testView == nullptr){
-        parent->testView = new QTreeView(parent->rightSidebar);
-        parent->rightSidebar->setWidget(parent->testView);
-    }
-    if(parent->testModel == nullptr){
-        parent->testModel = new QStandardItemModel;
-    }
 
-    parent->testView->setGeometry(QRect(QPoint(250,250), QSize(800,300)));
-    QStandardItem *item = parent->testModel->invisibleRootItem();
-    QList<QStandardItem *> dictRow;
-    QStandardItem *classRow;
-    QList<QStandardItem *> details;
-    QString enumOptions;
-    QStandardItemModel model2;
-
-    //dictRow = {new QStandardItem("Included Files")};
-    //item->appendRow(dictRow);
-
-    //append items to matching dictrow
-
-    dictRow = {new QStandardItem(fileName), new QStandardItem("Type"), new QStandardItem("Value"), new QStandardItem("Value List"), new QStandardItem("Comment")};
-    item->appendRow(dictRow);
-
-    //add columns "name", "type", "value", "allowed values"
-
-    for (int i = 0; i < classList.size();i++) {
-        classRow = new QStandardItem(classList[i].name);
-        dictRow.first()->appendRow(classRow);
-        for(int j = 0; j<classList[i].itemList.size();j++){
-            enumOptions = "";
-            enumOptions = classList[i].itemList[j].valueList.join(", ");
-            details = {new QStandardItem(classList[i].itemList[j].name),new QStandardItem(classList[i].itemList[j].type),
-                       new QStandardItem(classList[i].itemList[j].value), new QStandardItem(enumOptions), new QStandardItem(classList[i].itemList[j].comment)};
-            classRow->appendRow(details);
-        }
-    }
-
-    parent->testView->setModel(parent->testModel);
-    //testView->expandAll();
-    parent->testView->show();
-}
-
-void DatabaseFile::createDBTree(){
-
-    if(parent->testView == nullptr){
-        parent->testView = new QTreeView(parent);
-    }
-    parent->testView->setSortingEnabled(false);
-    if(parent->testModel == nullptr){
-        parent->testModel = new QStandardItemModel;
-    }
-
-    QHeaderView *headers = parent->testView->header();
-    headers->setSectionsClickable(true);
-    QObject::connect(headers, &QHeaderView::sectionClicked, [this](int logicalIndex){sortDBTree(logicalIndex);});
-
-    parent->testView->setGeometry(QRect(QPoint(250,250), QSize(800,300)));
-    QStandardItem *item = parent->testModel->invisibleRootItem();
-    QList<QStandardItem *> dictRow;
-    QList<QStandardItem *> instanceRow;
-    QList<QStandardItem *> details;
-    QString enumOptions;
-    QStandardItemModel model2;
-
-    //dictRow = {new QStandardItem("Included Files")};
-    //item->appendRow(dictRow);
-
-    //append items to matching dictrow
-
-    dictRow = {new QStandardItem(fileName), new QStandardItem("Type"), new QStandardItem("Value"), new QStandardItem("Value List"), new QStandardItem("Default")};
-    item->appendRow(dictRow);
-
-    //add columns "name", "type", "value", "allowed values"
-
-
-    for (int i = 0; i < instanceList.size();i++) {
-        instanceRow = {new QStandardItem(instanceList[i].name), new QStandardItem(QString::number(instanceList[i].instanceIndex))};
-        dictRow.first()->appendRow(instanceRow);
-        for(int j = 0; j<instanceList[i].itemList.size();j++){
-            enumOptions = "";
-            enumOptions = instanceList[i].itemList[j].valueList.join(", ");
-            details = {new QStandardItem(instanceList[i].itemList[j].name), new QStandardItem(instanceList[i].itemList[j].type)
-                       , new QStandardItem(instanceList[i].itemList[j].value), new QStandardItem(enumOptions), new QStandardItem(instanceList[i].itemList[j].isDefault)};
-            instanceRow.first()->appendRow(details);
-        }
-    }
-
-    parent->testView->setModel(parent->testModel);
-    parent->testView->setSortingEnabled(true);
-    //testView->expandAll();
-    parent->testView->show();
-}
-
-void DefinitionFile::sortDBTree(int column){
-    parent->testView->sortByColumn(column, Qt::AscendingOrder);
-}
 
 /*void DefinitionFile::editDatabaseItem(QModelIndex item, int itemIndex){
     QStringList newValue; //using a qstringlist to make things easier on myself
