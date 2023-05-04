@@ -236,7 +236,37 @@ int VBIN::getSceneNodeTree(){
             base.headerData.sectionLength = signature.sectionLength;
             base.sectionEnd = parent->fileData.currentPosition -4 + signature.sectionLength;
         }
-
+        
+        if(signature.type == "~Instance"){
+            Instance *instanceSection = new Instance();
+            instanceSection->file = this;
+            instanceSection->fileData = &parent->fileData;
+            instanceSection->parent = currentBranch;
+            instanceSection->headerData = signature;
+            instanceSection->sectionEnd = signature.sectionLength + signature.sectionLocation;
+            //this should bring us to the vbin name starting position
+            parent->fileData.currentPosition = 12 + signature.sectionLocation;
+            QString instance_name = fileData->ProtoName();
+            //read the modifications to the vbin imported file
+            int instanceoffsets = 0;
+            instanceoffsets = parent->fileData.readInt(1);
+            qDebug() << Q_FUNC_INFO << "offsets read as" << instanceoffsets;
+            if (!(instanceoffsets & 1)) {
+                //position offset - this looks right
+                parent->fileData.currentPosition += 12;
+            }
+            if (!(instanceoffsets & 2)) {
+                //rotation offset - I don't think this is correct
+                parent->fileData.currentPosition += 16;
+            }
+            if (!(instanceoffsets & 4)) {
+                //scale offset - I don't think this ever happens for instances?
+                parent->fileData.currentPosition += 4;
+            }
+            //not sure why this is yet but it works for now. Maybe they added a few 0000s? 
+            parent->fileData.currentPosition += 16;
+        }
+        
         if(signature.type == "~Mesh"){
             Mesh *meshSection = new Mesh();
             meshSection->file = this; //file will need to be reassigned later as the current VBIN object is temporary
@@ -291,7 +321,6 @@ int VBIN::getSceneNodeTree(){
             InformationNode
             anAnimationActor
             vlLODSwitcher
-            Instance
             taOcclusionMap
             taOcclusionNodeMapMarker
             taCompressedShadowMap
@@ -318,11 +347,13 @@ int VBIN::getSceneNodeTree(){
             continue;
         }
 
-        //readModifications();
-        unknown4Byte2 = parent->fileData.readInt();
-        if (unknown4Byte1 > 3) {
-            parent->fileData.currentPosition += 8;
-            unknown4Byte3 = parent->fileData.readInt(); //this should take us to the end
+
+        if (signature.type != "~Instance"){
+            unknown4Byte2 = parent->fileData.readInt();
+            if (unknown4Byte1 > 3) {
+                parent->fileData.currentPosition += 8;
+                unknown4Byte3 = parent->fileData.readInt(); //this should take us to the end
+            }
         }
 
         fileData->signature(&signature);
