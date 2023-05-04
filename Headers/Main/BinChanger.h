@@ -72,6 +72,7 @@ class FileData{
     void hexValue(QString* value, int length, long location = 0);
     QByteArray mid(long location, int length);
     void signature(SectionHeader *signature);
+    QString ProtoName();
 };
 
 class TFFile{
