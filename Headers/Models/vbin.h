@@ -13,6 +13,7 @@ class ProgWindow;
 
 class VBIN;
 class Mesh;
+class Instance;
 class SceneNode;
 
 class Triangle{
@@ -136,6 +137,10 @@ public:
     void clear();
 };
 
+class Instance : public FileSection{
+
+};
+
 class SceneNode : public FileSection{
 public:
     void modify(std::vector<Modifications> addedMods);
@@ -173,7 +178,7 @@ public:
 
 class VBIN : public TFFile {
 public:
-    const QStringList knownSections = {"~SceneNode", "~Mesh", "~anAnimationPrototype", "~BoundingVolume"};
+    const QStringList knownSections = {"~SceneNode", "~Mesh", "~anAnimationPrototype", "~BoundingVolume", "~Instance"};
     AnimationSourceSet animationSet;
     int highestLOD;
     long currentLocation;
