@@ -20,6 +20,19 @@ int FileData::readUInt(int length, long location){
     return readValue;
 }
 
+QString FileData::ProtoName(){
+    //find the vbin name
+    long instanceStart = 0;
+    long instanceEndnamed = 0;
+    instanceStart = parent->fileData.currentPosition;
+    QByteArrayMatcher findInstanceEnd;
+    findInstanceEnd.setPattern(QByteArray::fromHex(QString("04000000").toUtf8()));
+    instanceEndnamed = findInstanceEnd.indexIn(dataBytes, parent->fileData.currentPosition);
+    //hurray this is the vbin name
+    currentPosition = instanceEndnamed + 4;
+    return mid(instanceStart, instanceEndnamed-instanceStart);
+}
+
 bool FileData::readBool(int length, long location){
     bool readValue = dataBytes.mid(currentPosition + location, length).toHex().toInt(nullptr, 16);
     currentPosition += length;
