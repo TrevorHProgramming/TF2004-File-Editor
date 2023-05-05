@@ -2,6 +2,8 @@
 #define ITF_H
 
 #include <QMatrix4x4>
+#include <QTableWidget>
+#include <QComboBox>
 
 #include <vector>
 #include <algorithm>
@@ -16,6 +18,8 @@ public:
     uint32_t G;
     uint32_t B;
     uint32_t A;
+
+    const void operator=(Color input);
 };
 
 class Palette{
@@ -26,6 +30,12 @@ public:
 
 class ITF : public TFFile {
 public:
+    const QStringList validOutputs(){
+        return QStringList{"ITF", "BMP"};
+    };
+    virtual const QString fileCategory(){
+        return "Texture";
+    };
     int fileLength;
     int versionNum;
     int headerLength;
@@ -40,18 +50,26 @@ public:
     int dataLength;
     bool swizzled;
     std::vector<Palette> paletteList;
-    std::vector<int> pixelList;
-    std::vector<int> swizzledPixels;
+    std::vector<uint> pixelList;
+    std::vector<uint> swizzledPixels;
+    int currentPalette;
+    QComboBox *listPalettes;
+    QTableWidget *paletteTable;
 
-    void readData();
+
     void writeITF();
     void writeBMP();
     void populatePalette();
     void editPalette(int row, int column);
     void bruteForce(int imageheight, int imagewidth, int blockheight, int blockwidth, int relativeAddress);
+    void save(QString toType);
+    void load(QString fromType);
+    void updateCenter();
+    void selectPalette(int palette);
 
     private:
     void saveITFPalette();
+    int readDataITF();
     void unswizzle_8bit();
     void unswizzle_4bit();
     void unswizzle_GPT();

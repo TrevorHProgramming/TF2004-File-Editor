@@ -5,6 +5,8 @@
 #include <QString>
 #include <map>
 #include <QFile>
+#include <QTreeView>
+#include <QStandardItemModel>
 
 #include "Headers/Main/BinChanger.h"
 
@@ -67,7 +69,15 @@ public:
 
 class DefinitionFile : public TFFile {
 public:
-    bool binary; //0 for text, 1 for binary. used for getname, output value
+    const QStringList validOutputs(){
+        return QStringList{"TMD", "BMD"};
+    };
+    virtual const QString fileCategory(){
+        return "Database";
+    };
+    std::shared_ptr<DefinitionFile> inheritedFile;
+    QTreeView *dataTree;
+    QStandardItemModel *dataModel;
     bool database; //0 for definition file, 1 for database file
     const QStringList sectionList{"IncludedFiles","Dictionary","FileDictionary","Instances"};
     const QStringList singleTypes{"Enum","Float","Bool","String","Integer", "Link", "Flag"};
@@ -75,12 +85,14 @@ public:
     const QStringList arrayTypes{"IntegerArray","StringArray", "FloatArray", "LinkArray","VectorArray"}; //need for bmd and bdb
     const QStringList stringTypes{"String","StringArray"};
     static QMap<int, QStringList> bdbTypeLength;
-    QString includedFile;
+    //QString includedFile;
     int versionNumber;
-    int inheritedFileIndex;
     std::vector<dictClass> classList;
     std::vector<dictInstance> instanceList;
     QStringList majorSections;
+
+    void save(QString toType);
+    void load(QString fromType);
 
     int readData();
     int readText();
@@ -99,6 +111,7 @@ public:
     void newItem();
     void removeItem(QString className, int itemIndex);
     void removeClass(int classIndex);
+    void updateCenter();
     QString outputValue(dictItem itemDetails);
     void binaryOutput(QFile& file, dictItem itemDetails);
     QString displayValue(dictItem itemDetails);
@@ -112,7 +125,10 @@ public:
     void createDBTree();
     void sortDBTree(int column);
     //void editItem(int dictIndex, int itemIndex, QString valueType, QString newValue);
+    void editTreeItem(QModelIndex item, int itemIndex);
     QStringList editItem(QString className, int itemIndex);
+    void removeTreeClass(QModelIndex item);
+    void removeTreeItem(QModelIndex item, int itemIndex);
     /*These functions should exist in definitionfile, not in ProgWindow.*/
 //    void editDatabaseItem(QModelIndex item, int itemIndex);
 //    void removeDatabaseItem(QModelIndex item, int itemIndex);
@@ -122,6 +138,12 @@ public:
 
 class DatabaseFile : public DefinitionFile{
 public:
+    const QStringList validOutputs(){
+        return QStringList{"TDB", "BDB"};
+    };
+    virtual const QString fileCategory(){
+        return "Database";
+    };
 
     dictItem addItem(dictItem itemDetails, QString tempRead); //text
     //dictItem addItem(dictItem itemDetails, FileData *tempRead); //binary
@@ -133,8 +155,12 @@ public:
     void createDBTree();
     void createItem();
     QStringList editItem(int instanceIndex, int itemIndex);
+    void removeTreeInstance(QModelIndex item);
+    void removeTreeItem(QModelIndex item, int itemIndex);
     void removeItem(int instanceIndex, int itemIndex);
     void removeInstance(int instanceIndex);
+    void updateCenter();
+    void editTreeItem(QModelIndex item, int itemIndex);
 };
 
 #endif // DATABASE_H

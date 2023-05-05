@@ -10,6 +10,12 @@ class ProgWindow;
 
 class VACFile : public TFFile {
   public:
+//    const QStringList validOutputs(){
+//        return QStringList{"TMD", "BMD"};
+//    }; //no valid outputs yet
+    virtual const QString fileCategory(){
+        return "Sound";
+    };
     long fileSize;
     int compressionCode;
     int channels;
@@ -22,8 +28,11 @@ class VACFile : public TFFile {
     std::vector<int> noteList;
     std::vector<std::vector<int>> freqList;
 
-    void tempRead();
+    int tempRead();
     void tempWrite();
+
+    void load(QString fromType);
+    void save(QString toType);
 };
 
 class ToneLibrary{
@@ -32,6 +41,8 @@ class ToneLibrary{
     int tones;
     QString dataFile;
     std::vector<VACFile> toneList;
+
+
 };
 
 #endif // TONELIBRARIES_H

@@ -1,6 +1,7 @@
 #ifndef DISTANCECALCULATOR_H
 #define DISTANCECALCULATOR_H
 
+#include <QLineEdit>
 #include <QString>
 
 class ProgWindow;
@@ -17,8 +18,13 @@ public:
 
 class DistanceCalculator{
 public:
+    DistanceCalculator(ProgWindow *parentPass);
     std::vector<Warpgate*> warpgateList;
     ProgWindow *parent;
+
+    QLineEdit *inputXValue;
+    QLineEdit *inputYValue;
+    QLineEdit *inputZValue;
 
     void calculateWarpgateDistance();
 };

@@ -1,5 +1,28 @@
 #include "Headers/Main/mainwindow.h"
 
+
+
+void MeshVBIN::save(QString toType){
+    if(toType == "STL"){
+        outputDataSTL();
+    } /*else if (toType == "DAE"){
+        outputDataDAE();
+    }*/
+}
+
+void MeshVBIN::load(QString fromType){
+    int failedRead = 0;
+    if(fromType == "MESH.VBIN"){
+        failedRead = readData();
+    } else {
+        failedRead = 1;
+    }
+    if(failedRead){
+        parent->messageError("There was an error reading " + fileName);
+        return;
+    }
+}
+
 void GeometrySet::getVerticies(){
 
     float u_val = 0;
@@ -9,6 +32,8 @@ void GeometrySet::getVerticies(){
     int headerLength = 0;
     bool recognizedSection = false;
     bool first6E = true;
+    int geoSetSections = 0;
+    int possibleSectionEnd = 0;
 
     version = fileData->readInt();
     unknownValue1 = fileData->readInt();
@@ -19,7 +44,8 @@ void GeometrySet::getVerticies(){
     unknownValue4 = fileData->readInt();
     unknownValue5 = fileData->readInt();
     unknownValue6 = fileData->readInt();
-    //qDebug() << Q_FUNC_INFO << "position after first part header read" << fileData->currentPosition;
+    possibleSectionEnd = (unknownValue6*16) + fileData->currentPosition;
+    qDebug() << Q_FUNC_INFO << "position after first part header read" << fileData->currentPosition;
     fileData->currentPosition += 12;
     headerLength = fileData->readInt(1);
     if(headerLength & 2){
@@ -54,18 +80,19 @@ void GeometrySet::getVerticies(){
 //        qDebug().noquote() << Q_FUNC_INFO << "header property value" << QString::number(header1, 16) << QString::number(header2, 16)
 //                 << QString::number(vertexCount, 16) << QString::number(properties, 16) << "at" << fileData->currentPosition;
 
-//        if(properties == 98){
-//            qDebug().noquote() << Q_FUNC_INFO << "header property value" << QString::number(header1, 16) << QString::number(header2, 16)
-//                     << QString::number(vertexCount, 16) << QString::number(properties, 16) << "at" << fileData->currentPosition;
-//        }
+        if(properties == 117){
+            qDebug().noquote() << Q_FUNC_INFO << "header property value" << QString::number(header1, 16) << QString::number(header2, 16)
+                     << QString::number(vertexCount, 16) << QString::number(properties, 16) << "at" << fileData->currentPosition;
+        }
 
         //qDebug() << Q_FUNC_INFO << "vertex count for item" << loopcounter << "is" << vertexCount << ", property is" << QString::number(properties, 16) << "at" << fileData->currentPosition;
 
         if(properties == 104){ //0x68
             recognizedSection = true;
-            for (int i = 0; i < vertexCount; i++){
+            for (int i = 0; i < vertexCount-1; i++){
                 geoSetVerticies.push_back(fileData->read3DVector());
             }
+            fileData->currentPosition += 12;
         }
 
         if(properties == 110){ //0x6e
@@ -95,36 +122,30 @@ void GeometrySet::getVerticies(){
             //qDebug() << Q_FUNC_INFO << "check count" << std::min(80, 32 + (((vertexCount-1)/4) * 8));
             QByteArray skipRead;
             fileData->hexValue(&skipRead, std::min(80, 32 + (((vertexCount-1)/4) * 8)));
-            qDebug() << Q_FUNC_INFO << skipRead.toHex(' ');
+            //qDebug() << Q_FUNC_INFO << skipRead.toHex(' ');
             //fileData->currentPosition += std::min(80, 32 + (((vertexCount-1)/4) * 8));
-//            if(vertexCount > 24){
-//                fileData->currentPosition += 80;
-//            } else if (vertexCount > 20) {
-//                fileData->currentPosition += 72;
-//            } else if (vertexCount > 16) {
-//                fileData->currentPosition += 64;
-//            } else if (vertexCount > 12) {
-//                fileData->currentPosition += 56;
-//            } else if (vertexCount > 8){
-//                fileData->currentPosition += 48;
-//            } else if (vertexCount > 4) {
-//                fileData->currentPosition += 40;
-//            } else {
-//                fileData->currentPosition += 32;
-//            }
+
             first6E = false;
         }
 
         if(properties == 117){ //0x75
             recognizedSection = true;
             for (int i = 0; i < vertexCount; i++){
-                u_val = fileData->readMiniFloat();
-                v_val = fileData->readMiniFloat();
+//                u_val = fileData->readMiniFloat();
+//                v_val = fileData->readMiniFloat();
+                u_val = float(fileData->readInt(2))/2048;
+                v_val = float(fileData->readInt(2))/2048;
+                //qDebug() << Q_FUNC_INFO << "0x75 data" << u_val << v_val;
                 geoSetTexCoords.push_back(QVector2D(u_val, v_val));
             }
             //qDebug() << Q_FUNC_INFO << "finished reading 0x75 data at" << fileData->currentPosition;
 
-            fileData->currentPosition += 19;
+            fileData->currentPosition += 12;
+
+            if(fileData->currentPosition >= possibleSectionEnd){
+                qDebug() << Q_FUNC_INFO << "passing expected section end (" << possibleSectionEnd << ") at" << fileData->currentPosition;
+            }
+            fileData->currentPosition += 7;
             int checkEnd = fileData->readInt(1);
             if(checkEnd == 17){
                 //qDebug() << Q_FUNC_INFO << "checking for end of section marker at" << fileData->currentPosition;
@@ -143,7 +164,10 @@ void GeometrySet::getVerticies(){
 
         if(properties == 114){ //0x72
             recognizedSection = true;
-            fileData->currentPosition += vertexCount;
+            for(int i = 0; i < vertexCount; i++){
+                qDebug() << Q_FUNC_INFO << "section 72 value:" << i << "is:" << fileData->readInt(1);
+            }
+            //fileData->currentPosition += vertexCount;
             //this causes me physical pain
             if(vertexCount == 26){
                 fileData->currentPosition += 2;
@@ -158,8 +182,15 @@ void GeometrySet::getVerticies(){
             return;
         }
         loopcounter++;
-
+        geoSetSections++;
     }
+
+//    int vertexRepeats = 0;
+//    for(int i = 0; i < geoSetVerticies.size(); i++){
+//        qDebug() << Q_FUNC_INFO << "point index" << i << "has value" << geoSetVerticies[i];
+//    }
+    //qDebug() << Q_FUNC_INFO << "geo set had" << geoSetSections << "sections";
+    //qDebug() << Q_FUNC_INFO << "Next Geometry set.";
 
     //qDebug() << Q_FUNC_INFO << "successfully exited the loop at" << fileData->currentPosition;
     //fileData->currentPosition += 20;
@@ -169,10 +200,13 @@ void GeometrySet::getVerticies(){
 
     fileData->currentPosition += 1;
 
+
 }
 
-void MeshVBIN::readData(){
+int MeshVBIN::readData(){
     parent->fileData.currentPosition = 4;
+    int geoSetID = 0;
+    int totalVerts = 0;
 
     SectionHeader signature;
     parent->fileData.input = true;
@@ -187,30 +221,33 @@ void MeshVBIN::readData(){
         geoSet.getVerticies();
 
         geoSets.push_back(geoSet);
+        //qDebug() << Q_FUNC_INFO << "geo set" << geoSetID << "has" << geoSets[geoSetID].geoSetVerticies.size() << "vertecies";
+        totalVerts += geoSets[geoSetID].geoSetVerticies.size();
+        geoSetID++;
 
+        qDebug() << Q_FUNC_INFO << "starting next geo set at" << parent->fileData.currentPosition;
         parent->fileData.signature(&signature);
     }
+    qDebug() << Q_FUNC_INFO << "total geo sets:" << geoSets.size();
+    qDebug() << Q_FUNC_INFO << "total geo set verts:" << totalVerts;
 
     qDebug() << Q_FUNC_INFO << "next signature:" << signature.type;
-}
 
-void MeshVBIN::openMeshVBINFile(){
-
-    QString fileIn = QFileDialog::getOpenFileName(parent, parent->tr("Select VBIN"), QDir::currentPath() + "/VBIN/", parent->tr("Model Files (*.vbin)"));
-    filePath = fileIn;
-    parent->fileData.readFile(fileIn);
-
-    qDebug() << Q_FUNC_INFO << "File data loaded.";
-    readData();
-    qDebug() << Q_FUNC_INFO << "File data read.";
-
-
+    return 0;
 }
 
 void GeometrySet::writeDataSTL(QTextStream &fileOut){
     QVector3D tempVec;
+    QVector3D triangle[3];
 
     for(int vertex = 0; vertex < geoSetVerticies.size()-2; vertex++){
+        triangle[0] = geoSetVerticies[vertex];
+        triangle[1] = geoSetVerticies[vertex+1];
+        triangle[2] = geoSetVerticies[vertex+2];
+        if(triangle[0] == triangle[1] or triangle[1] == triangle[2] or triangle[0] == triangle[2]){
+            vertex+=1;
+            continue;
+        }
         fileOut << "  facet normal 0 0 0" << Qt::endl;
         fileOut << "    outer loop" << Qt::endl;
         for (int n = 0; n < 3; ++n) {
@@ -220,38 +257,33 @@ void GeometrySet::writeDataSTL(QTextStream &fileOut){
         }
         fileOut << "    endloop" << Qt::endl;
         fileOut << "  endfacet" << Qt::endl;
+
     }
-
 }
 
-void ProgWindow::convertMeshVBINToSTL(){
-    levelGeo->outputDataSTL();
-
-    return;
-}
-
-void MeshVBIN::outputDataSTL(){
+int MeshVBIN::outputDataSTL(){
 
     std::vector<int> allowedMeshes = {1,2,3};
     std::vector<int> chosenLOD;
 
     //applyKeyframe();
 
-    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", parent->tr("Model Files (*.stl)"));
-    if(fileOut.isEmpty()){
-        parent->messageError("STL export cancelled.");
-    }
-    QFile stlOut(fileOut);
-    QFile file(fileOut);
+//    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", parent->tr("Model Files (*.stl)"));
+//    if(fileOut.isEmpty()){
+//        parent->messageError("STL export cancelled.");
+//    }
+    QFile stlOut(outputPath);
+    QFile file(outputPath);
     file.open(QFile::WriteOnly|QFile::Truncate);
     file.close();
 
     if(!stlOut.open(QIODevice::ReadWrite)){
-        return;
+        return 1;
     }
     QTextStream stream(&stlOut);
     stream << "solid Default" << Qt::endl;
     qDebug() << Q_FUNC_INFO << "sections:" << geoSets.size();
+//    geoSets[0].writeDataSTL(stream);
     for(int i = 0; i < geoSets.size(); i++){
         geoSets[i].writeDataSTL(stream);
     }
@@ -260,5 +292,5 @@ void MeshVBIN::outputDataSTL(){
     parent->messageSuccess("STL file saved.");
     qDebug() << Q_FUNC_INFO << "STL output complete.";
 
-    return;
+    return 0;
 }
