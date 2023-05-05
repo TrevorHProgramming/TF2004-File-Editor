@@ -1,6 +1,6 @@
 # TF2004-File-Editor
 
-Current version: 0.5.4
+Current version: 0.6.2
 
 An editor for the various proprietary file formats used in Transformers (2004) (PS2). 
 
@@ -12,7 +12,7 @@ File types:
 
 VBIN: Most likely "Vertex Binary". The game's model files for characters. Models can be converted into STL or DAE depending on the details needed. Animation data is still being researched.
 
-VBIN.Mesh: The game's model files for levels. These are structured significantly differently from standard VBIN files and aren't well understood yet.
+VBIN.Mesh: The game's model files for levels. These are structured significantly differently from standard VBIN files and aren't well understood yet. Significant progress has been made recently, but there are still issues determining where to start one triangle strip over another.
 
 ITF: Might be "Infogrames Texture Format/File". The game's texture files, fairly similar to standard .BMPs. 
 
