@@ -69,6 +69,12 @@ public:
 
 class DefinitionFile : public TFFile {
 public:
+    const QStringList validOutputs(){
+        return QStringList{"TMD", "BMD"};
+    };
+    virtual const QString fileCategory(){
+        return "Database";
+    };
     std::shared_ptr<DefinitionFile> inheritedFile;
     QTreeView *dataTree;
     QStandardItemModel *dataModel;
@@ -132,6 +138,12 @@ public:
 
 class DatabaseFile : public DefinitionFile{
 public:
+    const QStringList validOutputs(){
+        return QStringList{"TDB", "BDB"};
+    };
+    virtual const QString fileCategory(){
+        return "Database";
+    };
 
     dictItem addItem(dictItem itemDetails, QString tempRead); //text
     //dictItem addItem(dictItem itemDetails, FileData *tempRead); //binary

@@ -21,7 +21,6 @@ void MeshVBIN::load(QString fromType){
         parent->messageError("There was an error reading " + fileName);
         return;
     }
-    updateCenter();
 }
 
 void GeometrySet::getVerticies(){
@@ -269,12 +268,12 @@ int MeshVBIN::outputDataSTL(){
 
     //applyKeyframe();
 
-    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", parent->tr("Model Files (*.stl)"));
-    if(fileOut.isEmpty()){
-        parent->messageError("STL export cancelled.");
-    }
-    QFile stlOut(fileOut);
-    QFile file(fileOut);
+//    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", parent->tr("Model Files (*.stl)"));
+//    if(fileOut.isEmpty()){
+//        parent->messageError("STL export cancelled.");
+//    }
+    QFile stlOut(outputPath);
+    QFile file(outputPath);
     file.open(QFile::WriteOnly|QFile::Truncate);
     file.close();
 
@@ -284,10 +283,10 @@ int MeshVBIN::outputDataSTL(){
     QTextStream stream(&stlOut);
     stream << "solid Default" << Qt::endl;
     qDebug() << Q_FUNC_INFO << "sections:" << geoSets.size();
-    geoSets[0].writeDataSTL(stream);
-//    for(int i = 0; i < geoSets.size(); i++){
-//        geoSets[i].writeDataSTL(stream);
-//    }
+//    geoSets[0].writeDataSTL(stream);
+    for(int i = 0; i < geoSets.size(); i++){
+        geoSets[i].writeDataSTL(stream);
+    }
     stream << "endsolid Default" << Qt::endl;
 
     parent->messageSuccess("STL file saved.");

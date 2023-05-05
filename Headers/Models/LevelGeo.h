@@ -42,6 +42,12 @@ public:
 
 class MeshVBIN : public TFFile {
   public:
+    const QStringList validOutputs(){
+        return QStringList{"STL"};
+    };
+    virtual const QString fileCategory(){
+        return "Model";
+    };
     std::vector<GeometrySet> geoSets;
 
     int readData();

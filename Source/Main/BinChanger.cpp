@@ -1,5 +1,13 @@
 #include "Headers/Main/mainwindow.h"
 
+TFFile::TFFile(){
+    parent = nullptr;
+    duplicateFileCount = 0;
+    fileName = "";
+    fileExtension = "";
+    this->fileData = nullptr;
+}
+
 long FileData::readLong(int length, long location){
     long readValue = parent->binChanger.reverse_input(dataBytes.mid(currentPosition + location, length).toHex(),2).toLong(nullptr, 16);
     currentPosition += length;

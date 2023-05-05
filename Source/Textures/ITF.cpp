@@ -3,6 +3,14 @@
 
 //https://ps2linux.no-ip.info/playstation2-linux.com/docs/howto/display_docef7c.html?docid=75
 
+const void Color::operator=(Color input){
+    R = input.R;
+    G = input.G;
+    B = input.B;
+    A = input.A;
+
+};
+
 void ITF::load(QString fromType){
     int failedRead = 0;
     if(fromType == "ITF"){
@@ -14,7 +22,6 @@ void ITF::load(QString fromType){
         parent->messageError("There was an error reading " + fileName);
         return;
     }
-    updateCenter();
 }
 
 void ITF::save(QString toType){
@@ -125,7 +132,7 @@ int ITF::readDataITF(){
         contentLength -= (paletteCount*1024); //remove the length of the palette section before getting to the pixels
         swizzledPixels.resize(contentLength);
         for (int i = parent->fileData.currentPosition; i < startLocation + 4 + dataLength; i++){
-            swizzledPixels[pixelIndex] = parent->fileData.readInt(1);
+            swizzledPixels[pixelIndex] = parent->fileData.readUInt(1);
             pixelIndex += 1;
         }
     } else {
@@ -141,6 +148,10 @@ int ITF::readDataITF(){
             swizzledPixels[pixelIndex] = std::get<1>(nibTup);
             pixelIndex += 1;
         }
+    }
+
+    for(int i = 0; i < paletteList[0].paletteColors.size(); i++){
+        qDebug() << Q_FUNC_INFO << "color" << i << "is" << paletteList[0].paletteColors[i].R << paletteList[0].paletteColors[i].G << paletteList[0].paletteColors[i].B;
     }
 
     //qDebug() << Q_FUNC_INFO << "Pixel list length: " << pixelList.size() << "vs content length" << contentLength;
@@ -238,13 +249,13 @@ void ITF::editPalette(int row, int column){
 }
 
 void ITF::writeITF(){
-    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output ITF"), QDir::currentPath() + "/ITF/", parent->tr("Texture Files (*.itf)"));
-    if(fileOut.isEmpty()){
-        parent->messageError("ITF export cancelled.");
-        return;
-    }
-    QFile itfOut(fileOut);
-    QFile file(fileOut);
+//    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output ITF"), QDir::currentPath() + "/ITF/", parent->tr("Texture Files (*.itf)"));
+//    if(fileOut.isEmpty()){
+//        parent->messageError("ITF export cancelled.");
+//        return;
+//    }
+    QFile itfOut(outputPath);
+    QFile file(outputPath);
     file.open(QFile::WriteOnly|QFile::Truncate);
     file.close();
 
@@ -309,17 +320,19 @@ void ITF::writeITF(){
 }
 
 void ITF::writeBMP(){
-    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output BMP"), QDir::currentPath() + "/BMP/", parent->tr("Texture Files (*.bmp)"));
-    if(fileOut.isEmpty()){
-        parent->messageError("BMP export cancelled.");
-        return;
-    }
-    QFile bmpOut(fileOut);
-    QFile file(fileOut);
+//    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output BMP"), QDir::currentPath() + "/BMP/", parent->tr("Texture Files (*.bmp)"));
+//    if(fileOut.isEmpty()){
+//        parent->messageError("BMP export cancelled.");
+//        return;
+//    }
+    QFile bmpOut(outputPath);
+    QFile file(outputPath);
     file.open(QFile::WriteOnly|QFile::Truncate);
     file.close();
 
-    std::tuple<int8_t, int8_t> nibtup;
+
+    std::tuple<uint8_t, uint8_t> nibtup;
+    std::vector<Color> outputPalette = paletteList[currentPalette].paletteColors;
 
     if(pixelList.size() == 0){
         unswizzle();
@@ -340,12 +353,31 @@ void ITF::writeBMP(){
     if (propertyByte&1){
         numColors = 256;
         dataOffset = 1078;
+        int k = 0;
+        for(int i = 0; i < 8; i++){
+            for(int j = 0; j < 8; j++){
+                outputPalette[k] = paletteList[currentPalette].paletteColors[k+0];
+                k++;
+            }
+            for(int j = 0; j < 8; j++){
+                outputPalette[k] = paletteList[currentPalette].paletteColors[k+8];
+                k++;
+            }
+            for(int j = 0; j < 8; j++){
+                outputPalette[k] = paletteList[currentPalette].paletteColors[k-8];
+                k++;
+            }
+            for(int j = 0; j < 8; j++){
+                outputPalette[k] = paletteList[currentPalette].paletteColors[k+0];
+                k++;
+            }
+        }
     } else {
         numColors = 16;
         dataOffset = 118;
     }
 
-    std::vector<int> reversePixels = pixelList;
+    std::vector<uint> reversePixels = pixelList;
     int currentPixel = 0;
     //::reverse(reversePixels.begin(), reversePixels.end());
     for(int i = height-1; i >= 0; i--){
@@ -371,12 +403,14 @@ void ITF::writeBMP(){
 
         if (propertyByte&1){
             parent->binChanger.shortWrite(bmpOut, 8);
+            parent->binChanger.intWrite(bmpOut, 0); //compression type
+            parent->binChanger.intWrite(bmpOut, height*width);
         } else {
             parent->binChanger.shortWrite(bmpOut, 4);
+            parent->binChanger.intWrite(bmpOut, 0); //compression type
+            parent->binChanger.intWrite(bmpOut, height*width/2);
         }
 
-        parent->binChanger.intWrite(bmpOut, 0); //compression type
-        parent->binChanger.intWrite(bmpOut, height*width/2);
         parent->binChanger.intWrite(bmpOut, 0); //pixels per meter, x
         parent->binChanger.intWrite(bmpOut, 0); //pixels per meter, y
         parent->binChanger.intWrite(bmpOut, numColors);
@@ -390,19 +424,22 @@ void ITF::writeBMP(){
 //                parent->binChanger.byteWrite(bmpOut, paletteList[i].paletteColors[j].A);
 //            }
 //        }
-        for (int i = 0; i<numColors; i++){
-            parent->binChanger.byteWrite(bmpOut, paletteList[listPalettes->currentIndex()].paletteColors[i].B);
-            parent->binChanger.byteWrite(bmpOut, paletteList[listPalettes->currentIndex()].paletteColors[i].G);
-            parent->binChanger.byteWrite(bmpOut, paletteList[listPalettes->currentIndex()].paletteColors[i].R);
-            parent->binChanger.byteWrite(bmpOut, 0); // no alpha in bmp.
+        for(int j = 0; j < paletteList[currentPalette].paletteColors.size(); j++){
+            qDebug() << Q_FUNC_INFO << "color" << j << "is" << outputPalette[j].R << outputPalette[j].G << outputPalette[j].B;
+            parent->binChanger.byteWrite(bmpOut, outputPalette[j].B);
+            parent->binChanger.byteWrite(bmpOut, outputPalette[j].G);
+            parent->binChanger.byteWrite(bmpOut, outputPalette[j].R);
+            parent->binChanger.byteWrite(bmpOut, 0);
         }
 
         if (propertyByte&1){
             for (int i = 0; i<reversePixels.size(); i++) {
+                //qDebug() << Q_FUNC_INFO << "writing pixel" << reversePixels[i];
                 parent->binChanger.byteWrite(bmpOut, reversePixels[i]);
             }
         } else {
             for (int i = 0; i<reversePixels.size(); i+=2) {
+                //qDebug() << Q_FUNC_INFO << "writing pixels" << reversePixels[i] << reversePixels[i+1];
                 std::get<1>(nibtup) = reversePixels[i];
                 std::get<0>(nibtup) = reversePixels[i+1];
                 parent->binChanger.byteWrite(bmpOut, parent->binChanger.nib_to_byte(nibtup));
@@ -412,7 +449,7 @@ void ITF::writeBMP(){
 }
 
 void ITF::swizzle(){
-    std::vector<int> swizzledImage;
+    std::vector<uint> swizzledImage;
     swizzledImage.resize(pixelList.size());
 
     //block height and width must be powers of 2

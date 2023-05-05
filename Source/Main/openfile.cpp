@@ -4,6 +4,7 @@
 template <typename theFile>
 void ProgWindow::loadFile(theFile fileToOpen){
     clearWindow();
+    std::shared_ptr<TFFile> checkFile;
     qDebug() << Q_FUNC_INFO << "running this function";
     fileData.input = true;
     fileToOpen->fileData = &fileData;
@@ -15,18 +16,99 @@ void ProgWindow::loadFile(theFile fileToOpen){
     QString fileIn = QFileDialog::getOpenFileName(this, tr(openSelector.toStdString().c_str()), QDir::currentPath() + "/" + fileToOpen->fileExtension + "/", tr(openLimiter.toStdString().c_str()));
     if(!fileIn.isNull()){
         fileMode = fileToOpen->fileExtension;
-        fileToOpen->filePath = fileIn;
+        fileToOpen->inputPath = fileIn;
         fileData.readFile(fileIn);
 
         QFile inputFile(fileIn);
         inputFile.open(QIODevice::ReadOnly);
         QFileInfo fileInfo(inputFile);
         fileToOpen->fileName = fileInfo.fileName().left(fileInfo.fileName().indexOf("."));
-        fileToOpen->fileExtension = fileInfo.fileName().right(fileInfo.fileName().length() - fileInfo.fileName().indexOf(".")-1).toUpper();
+        checkFile = matchFile(fileToOpen->fullFileName());
+        while(checkFile != nullptr){
+            fileToOpen->duplicateFileCount = checkFile->duplicateFileCount + 1;
+            checkFile = matchFile(fileToOpen->fullFileName());
+        }
 
         fileToOpen->load(fileToOpen->fileExtension);
         loadedFiles.push_back(fileToOpen);
-        fileBrowser->addItem(fileToOpen->fileName + "." + fileToOpen->fileExtension);
+        fileBrowser->addItem(fileToOpen->fullFileName());
+        qDebug() << Q_FUNC_INFO << "number of items in file browser" << fileBrowser->count();
+        fileBrowser->setCurrentRow(fileBrowser->count()-1);
+
+    }
+}
+
+template <typename theFile>
+void ProgWindow::loadBulkFile(theFile fileToOpen){
+    clearWindow();
+    std::shared_ptr<TFFile> checkFile;
+    qDebug() << Q_FUNC_INFO << "running this function";
+    fileData.input = true;
+    fileToOpen->fileData = &fileData;
+    fileToOpen->parent = this;
+    fileMode = fileToOpen->fileExtension;
+
+
+    fileData.readFile(fileToOpen->inputPath);
+
+    QFile inputFile(fileToOpen->inputPath);
+    inputFile.open(QIODevice::ReadOnly);
+    QFileInfo fileInfo(inputFile);
+    fileToOpen->fileName = fileInfo.fileName().left(fileInfo.fileName().indexOf("."));
+    checkFile = matchFile(fileToOpen->fullFileName());
+    while(checkFile != nullptr){
+        fileToOpen->duplicateFileCount = checkFile->duplicateFileCount + 1;
+        checkFile = matchFile(fileToOpen->fullFileName());
+    }
+
+    fileToOpen->load(fileToOpen->fileExtension);
+    loadedFiles.push_back(fileToOpen);
+    fileBrowser->addItem(fileToOpen->fullFileName());
+    qDebug() << Q_FUNC_INFO << "number of items in file browser" << fileBrowser->count();
+    fileBrowser->setCurrentRow(fileBrowser->count()-1);
+
+}
+
+void ProgWindow::bulkOpen(QString fileType){
+    QString filePath = QFileDialog::getExistingDirectory(this, tr(QString("Select " + fileType + " folder.").toStdString().c_str()), QDir::currentPath() + "/" + fileType + "/");
+    QDir directory(filePath);
+    for(const QFileInfo &checkFile : directory.entryInfoList(QDir::Files)){
+        if(checkFile.suffix().toUpper() == fileType){
+            if(fileType == "VBIN" or fileType == "STL" or fileType == "DAE"){
+                std::shared_ptr<VBIN> vbinFile(new VBIN);
+                vbinFile->fileExtension = fileType;
+                vbinFile->inputPath = checkFile.filePath();
+                ProgWindow::loadBulkFile(vbinFile);
+            } else if (fileType == "MESH.VBIN"){
+                std::shared_ptr<MeshVBIN> levelFile(new MeshVBIN);
+                levelFile->fileExtension = fileType;
+                levelFile->inputPath = checkFile.filePath();
+                ProgWindow::loadBulkFile(levelFile);
+            } else if (fileType == "ITF" or fileType == "BMP"){
+                std::shared_ptr<ITF> itfFile(new ITF);
+                itfFile->fileExtension = fileType;
+                itfFile->inputPath = checkFile.filePath();
+                ProgWindow::loadBulkFile(itfFile);
+            } else if (fileType == "BMD" or fileType == "TMD"){
+                std::shared_ptr<DefinitionFile> definitionFile(new DefinitionFile);
+                definitionFile->fileExtension = fileType;
+                definitionFile->inputPath = checkFile.filePath();
+                ProgWindow::loadBulkFile(definitionFile);
+            } else if (fileType == "BDB" or fileType == "TDB"){
+                std::shared_ptr<DatabaseFile> databaseFile(new DatabaseFile);
+                databaseFile->fileExtension = fileType;
+                databaseFile->inputPath = checkFile.filePath();
+                ProgWindow::loadBulkFile(databaseFile);
+            } else if (fileType == "VAC"){
+                std::shared_ptr<VACFile> vacFile(new VACFile);
+                vacFile->fileExtension = fileType;
+                vacFile->inputPath = checkFile.filePath();
+                ProgWindow::loadBulkFile(vacFile);
+            } else {
+                qDebug() << Q_FUNC_INFO << "File type" << fileType << "hasn't been implemented yet.";
+                return;
+            }
+        }
     }
 }
 
@@ -58,6 +140,7 @@ void ProgWindow::openFile(QString fileType){
         ProgWindow::loadFile(vacFile);
     } else {
         qDebug() << Q_FUNC_INFO << "File type" << fileType << "hasn't been implemented yet.";
+        return;
     }
 
 }

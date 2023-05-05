@@ -175,6 +175,12 @@ public:
 class VBIN : public TFFile {
 public:
     const QStringList knownSections = {"~SceneNode", "~Mesh", "~anAnimationPrototype", "~BoundingVolume"};
+    const QStringList validOutputs(){
+        return QStringList{"STL", "DAE"};
+    };
+    virtual const QString fileCategory(){
+        return "Model";
+    };
     AnimationSourceSet animationSet;
     int highestLOD;
     long currentLocation;

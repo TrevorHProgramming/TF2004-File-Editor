@@ -348,11 +348,11 @@ int VBIN::getSceneNodeTree(){
                 meshSection->headerData.name = meshSection->headerData.name + "_" + QString::number(nameAdjust);
             }
 
-            if (signature.name == "CollisionMesh") {
-                parent->messageError("It looks like you're trying to read a Collision Mesh. "
-                                     "These models have weird stuff going on and are not currently compatible with this program.");
-                return 1;
-            }
+//            if (signature.name == "CollisionMesh") {
+//                parent->messageError("It looks like you're trying to read a Collision Mesh. "
+//                                     "These models have weird stuff going on and are not currently compatible with this program.");
+//                return 1;
+//            }
 
             if(meshSection->readMesh()){
                 qDebug() << "Error while reading mesh";
@@ -514,7 +514,6 @@ void VBIN::load(QString fromType){
         parent->messageError("There was an error reading " + fileName);
         return;
     }
-    updateCenter();
 }
 
 //void ProgWindow::convertVBINToSTL(){
@@ -588,12 +587,12 @@ void VBIN::outputDataSTL(){
     //applyKeyframe();
 
     if(singleOutput){
-        QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", parent->tr("Model Files (*.stl)"));
-        if(fileOut.isEmpty()){
-            parent->messageError("STL export cancelled.");
-        }
-        QFile stlOut(fileOut);
-        QFile file(fileOut);
+//        QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output STL"), QDir::currentPath() + "/STL/", parent->tr("Model Files (*.stl)"));
+//        if(fileOut.isEmpty()){
+//            parent->messageError("STL export cancelled.");
+//        }
+        QFile stlOut(outputPath);
+        QFile file(outputPath);
         file.open(QFile::WriteOnly|QFile::Truncate);
         file.close();
 
@@ -625,13 +624,13 @@ void VBIN::outputDataDAE(){
 
     //applyKeyframe();
 
-    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output DAE"), QDir::currentPath() + "/DAE/", parent->tr("Model Files (*.dae)"));
-    if(fileOut.isEmpty()){
-        parent->messageError("DAE export cancelled.");
-        return;
-    }
-    QFile stlOut(fileOut);
-    QFile file(fileOut);
+//    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output DAE"), QDir::currentPath() + "/DAE/", parent->tr("Model Files (*.dae)"));
+//    if(fileOut.isEmpty()){
+//        parent->messageError("DAE export cancelled.");
+//        return;
+//    }
+    QFile stlOut(outputPath);
+    QFile file(outputPath);
     file.open(QFile::WriteOnly|QFile::Truncate);
     file.close();
 

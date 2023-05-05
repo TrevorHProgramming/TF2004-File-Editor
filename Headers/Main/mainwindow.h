@@ -93,7 +93,12 @@ private:
     void openWarpgateCalculator();
     void updateBackground();
     void updateCenter();
-    void saveFile(QString fromType, QString toType);
+    void saveFile(QString fromType);
+    void bulkSave(QString category);
+
+    void bulkOpen(QString fileType);
+    template <typename theFile>
+    void loadBulkFile(theFile fileToOpen);
 
     template <typename theFile>
     void loadFile(theFile fileToOpen);

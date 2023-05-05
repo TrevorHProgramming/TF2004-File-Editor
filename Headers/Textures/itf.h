@@ -18,6 +18,8 @@ public:
     uint32_t G;
     uint32_t B;
     uint32_t A;
+
+    const void operator=(Color input);
 };
 
 class Palette{
@@ -28,6 +30,12 @@ public:
 
 class ITF : public TFFile {
 public:
+    const QStringList validOutputs(){
+        return QStringList{"ITF", "BMP"};
+    };
+    virtual const QString fileCategory(){
+        return "Texture";
+    };
     int fileLength;
     int versionNum;
     int headerLength;
@@ -42,8 +50,8 @@ public:
     int dataLength;
     bool swizzled;
     std::vector<Palette> paletteList;
-    std::vector<int> pixelList;
-    std::vector<int> swizzledPixels;
+    std::vector<uint> pixelList;
+    std::vector<uint> swizzledPixels;
     int currentPalette;
     QComboBox *listPalettes;
     QTableWidget *paletteTable;

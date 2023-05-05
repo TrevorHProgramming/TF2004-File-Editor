@@ -19,7 +19,6 @@ void VACFile::load(QString fromType){
         parent->messageError("There was an error reading " + fileName);
         return;
     }
-    updateCenter();
 }
 
 int VACFile::tempRead(){
@@ -41,9 +40,9 @@ void VACFile::tempWrite(){
        parent->messageError("No audio files available to export. Please load an audio file.");
        return;
     }
-    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output VAC"), QDir::currentPath() + "/VAC/", parent->tr("Tone Files (*.vac)"));
-    QFile vacOut(fileOut);
-    QFile file(fileOut);
+    //QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output VAC"), QDir::currentPath() + "/VAC/", parent->tr("Tone Files (*.vac)"));
+    QFile vacOut(outputPath);
+    QFile file(outputPath);
     file.open(QFile::WriteOnly|QFile::Truncate);
     file.close();
 

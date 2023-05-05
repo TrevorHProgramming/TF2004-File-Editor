@@ -10,6 +10,12 @@ class ProgWindow;
 
 class VACFile : public TFFile {
   public:
+//    const QStringList validOutputs(){
+//        return QStringList{"TMD", "BMD"};
+//    }; //no valid outputs yet
+    virtual const QString fileCategory(){
+        return "Sound";
+    };
     long fileSize;
     int compressionCode;
     int channels;

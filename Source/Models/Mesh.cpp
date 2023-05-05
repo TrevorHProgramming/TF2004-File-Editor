@@ -126,11 +126,13 @@ int Mesh::readMesh(){
 
         //Texture Coords
         if (signature.type == "~TextureCoords") {
+            //qDebug() << Q_FUNC_INFO << "getting texture coords for" << headerData.name;
             for(int position = 0; position < (signature.sectionLength-4)/8; position++){
                 x_position = fileData->readFloat();
-                y_position = fileData->readFloat();
+                y_position = 1.0 - fileData->readFloat();
                 vertexSet.textureCoords.positionList.push_back(QVector2D(x_position, y_position));
             }
+            //qDebug() << Q_FUNC_INFO << vertexSet.textureCoords.positionList;
             fileData->signature(&signature);
         } else {
             //qDebug() << Q_FUNC_INFO << "Model does not have TextureCoords.";
@@ -292,8 +294,8 @@ int Mesh::readMesh(){
         elementArray.lodInfo.levels = fileData->readInt();
         std::vector<int> levelTargetArray;
         for (int readLevels = 0; readLevels < elementArray.lodInfo.levels; readLevels++) {
-            levelTargetArray.push_back(fileData->readInt());
-            levelTargetArray.push_back(fileData->readInt());
+            levelTargetArray.push_back(std::max(fileData->readInt(), 0));
+            levelTargetArray.push_back(std::max(fileData->readInt(), 0));
             elementArray.lodInfo.targetIndecies.push_back(levelTargetArray);
             levelTargetArray.clear();
             elementArray.lodInfo.levelDistance.push_back(fileData->readFloat());
@@ -355,7 +357,9 @@ void Mesh::writeEffectsDAE(QTextStream &fileOut){
     std::vector<int> chosenLOD = getChosenElements();
     QString textureName;
     QString meshName = file->fileName + "-" + headerData.name;
+    meshName = meshName.right(meshName.length() - (meshName.indexOf(".")+1));
     for (int element = chosenLOD[0]; element <= chosenLOD[1]; element++) {
+        //qDebug() << Q_FUNC_INFO << "element array";
         textureName = elementArray.elementArray[element].surfaceProperties.textureName;
         fileOut << "    <effect id=\"" + textureName +"Texture-effect\">" << Qt::endl;
         fileOut << "      <profile_COMMON>" << Qt::endl;
@@ -401,6 +405,8 @@ void Mesh::writeImagesDAE(QTextStream &fileOut){
 void Mesh::writeDataDAE(QTextStream &fileOut){
     std::vector<int> chosenLOD = getChosenElements();
     QString meshName = file->fileName + "-" + headerData.name;
+    meshName = meshName.right(meshName.length() - (meshName.indexOf(".")+1));
+    qDebug() << Q_FUNC_INFO << meshName;
     QString textureName;
     int triangle[3];
     QVector3D tempVec;
@@ -512,6 +518,7 @@ void Mesh::writeNodesDAE(QTextStream &fileOut){
     std::vector<int> chosenLOD = getChosenElements();
     QString textureName;
     QString meshName = file->fileName + "-" + headerData.name;
+    meshName = meshName.right(meshName.length() - (meshName.indexOf(".")+1));
     fileOut << "      <node id=\"" + meshName + "\" name=\"" + meshName + "\" type=\"NODE\">" << Qt::endl;
     fileOut << "        <matrix sid=\"transform\">1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1</matrix>" << Qt::endl;
     fileOut << "        <instance_geometry url=\"#" + meshName + "-mesh\" name=\"" + meshName + "\">" << Qt::endl;

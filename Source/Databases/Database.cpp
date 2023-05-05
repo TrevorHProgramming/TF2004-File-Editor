@@ -59,7 +59,6 @@ void DefinitionFile::load(QString fromType){
         parent->messageError("There was an error reading " + fileName);
         return;
     }
-    updateCenter();
 }
 
 //void ProgWindow::saveDefinitionFile(bool binary){
@@ -765,7 +764,7 @@ void DefinitionFile::readInstances(QStringList partSplit, int sectionIndex, QStr
     //qDebug() << Q_FUNC_INFO << "type index tmd:" << typeIndexTMD << "type Index TDB" << typeIndexTDB << "for name" << instanceName;
     //qDebug() << Q_FUNC_INFO << "line read" << partSplit;
     if(typeIndexTMD == -1){
-        qDebug() << Q_FUNC_INFO << "Item " << instanceName << " does not exist in " << inheritedFile->filePath <<". Verify that the TMD and TDB are both correct.";
+        qDebug() << Q_FUNC_INFO << "Item " << instanceName << " does not exist in " << inheritedFile->inputPath <<". Verify that the TMD and TDB are both correct.";
     }
 
     for(int i = 0; i<partSplit.length(); i++){
@@ -904,9 +903,9 @@ int DefinitionFile::readText(){
 
 
 void DatabaseFile::writeText(){
-    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output TDB"), QDir::currentPath() + "/TDB/", parent->tr("Definition Files (*.tdb)"));
-    QFile tdbOut(fileOut);
-    QFile file(fileOut);
+    //QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output TDB"), QDir::currentPath() + "/TDB/", parent->tr("Definition Files (*.tdb)"));
+    QFile tdbOut(outputPath);
+    QFile file(outputPath);
     file.open(QFile::WriteOnly|QFile::Truncate);
     file.close();
 
@@ -977,9 +976,9 @@ void DatabaseFile::writeText(){
 }
 
 void DefinitionFile::writeText(){
-    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output TMD"), QDir::currentPath() + "/TMD/", parent->tr("Definition Files (*.tmd)"));
-    QFile tmdOut(fileOut);
-    QFile file(fileOut);
+    //QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output TMD"), QDir::currentPath() + "/TMD/", parent->tr("Definition Files (*.tmd)"));
+    QFile tmdOut(outputPath);
+    QFile file(outputPath);
     file.open(QFile::WriteOnly|QFile::Truncate);
     file.close();
 
@@ -1036,9 +1035,9 @@ void DefinitionFile::writeText(){
 }
 
 void DefinitionFile::writeBinary(){
-    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output BMD"), QDir::currentPath() + "/BMD/", parent->tr("Definition Files (*.bmd)"));
-    QFile bmdOut(fileOut);
-    QFile file(fileOut);
+    //QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output BMD"), QDir::currentPath() + "/BMD/", parent->tr("Definition Files (*.bmd)"));
+    QFile bmdOut(outputPath);
+    QFile file(outputPath);
     file.open(QFile::WriteOnly|QFile::Truncate);
     file.close();
 
@@ -1055,10 +1054,12 @@ void DefinitionFile::writeBinary(){
         parent->binChanger.intWrite(bmdOut, versionNumber);
         bmdOut.write("~IncludedFiles");
         parent->binChanger.shortWrite(bmdOut, 0);
-        parent->binChanger.intWrite(bmdOut, 4+inheritedFile->fileName.length()); //file length could be an issue. needs to be handled in "edit item"
         if(inheritedFile->fileName.trimmed().size() != 0){
             qDebug() << Q_FUNC_INFO << "includedFile value" << inheritedFile->fileName.trimmed().toUtf8() << "length" << 4+inheritedFile->fileName.length();
+            parent->binChanger.intWrite(bmdOut, 4+inheritedFile->fileName.length()); //file length could be an issue. needs to be handled in "edit item"
             bmdOut.write(inheritedFile->fileName.trimmed().toUtf8());
+        } else {
+            parent->binChanger.intWrite(bmdOut, 4);
         }
         bmdOut.write("~Dictionary");
         parent->binChanger.shortWrite(bmdOut, 0);
@@ -1093,9 +1094,9 @@ void DefinitionFile::writeBinary(){
 }
 
 void DatabaseFile::writeBinary(){
-    QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output BDB"), QDir::currentPath() + "/BDB/", parent->tr("Definition Files (*.bdb)"));
-    QFile bmdOut(fileOut);
-    QFile file(fileOut);
+    //QString fileOut = QFileDialog::getSaveFileName(parent, parent->tr("Select Output BDB"), QDir::currentPath() + "/BDB/", parent->tr("Definition Files (*.bdb)"));
+    QFile bmdOut(outputPath);
+    QFile file(outputPath);
     file.open(QFile::WriteOnly|QFile::Truncate);
     file.close();
 

@@ -76,12 +76,34 @@ class FileData{
 
 class TFFile{
   public:
-    QString filePath;
+    QString inputPath;
+    QString outputPath;
     ProgWindow *parent;
     FileData *fileData;
     QString fileName;
     QString fileExtension;
+    int duplicateFileCount = 0; //defaults to 0, incremented by 1 for each file with a matching name
     bool binary; //0 for text file, 1 for binary
+
+    TFFile();
+
+    virtual const QStringList validOutputs(){
+        qDebug() << Q_FUNC_INFO << "The chosen file does not have a valid output list.";
+        return QStringList("");
+    };
+
+    virtual const QString fileCategory(){
+        qDebug() << Q_FUNC_INFO << "The chosen file does not have a valid category;";
+        return "";
+    };
+
+    virtual const QString fullFileName(){
+        if(duplicateFileCount > 0){
+            return fileName + "." + fileExtension + "(" + QString::number(duplicateFileCount) + ")";
+        } else {
+            return fileName + "." + fileExtension;
+        }
+    }
 
     virtual void save(QString toType);
     virtual void load(QString fromType);
