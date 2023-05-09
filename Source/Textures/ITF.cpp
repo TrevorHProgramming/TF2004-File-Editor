@@ -289,14 +289,40 @@ void ITF::writeITF(){
         parent->binChanger.intWrite(itfOut, unknown4Byte4);
         itfOut.write("TXTR");
         parent->binChanger.intWrite(itfOut, dataLength);
-        for(int i = 0; i<paletteCount;i++){
-            for(int j = 0; j < paletteList[i].paletteColors.size(); j++){
-                parent->binChanger.byteWrite(itfOut, paletteList[i].paletteColors[j].R);
-                parent->binChanger.byteWrite(itfOut, paletteList[i].paletteColors[j].G);
-                parent->binChanger.byteWrite(itfOut, paletteList[i].paletteColors[j].B);
-                parent->binChanger.byteWrite(itfOut, paletteList[i].paletteColors[j].A);
+        
+        std::vector<Color> outputPalette = paletteList[currentPalette].paletteColors;
+        // we also need to reorder the palette for all 8bpp ITF files. Fortunately the process is identical. We could change this to a function.
+        if(propertyByte&1){
+            //256 color
+            int k = 0;
+            for(int i = 0; i < 8; i++){
+                for(int j = 0; j < 8; j++){
+                    outputPalette[k] = paletteList[currentPalette].paletteColors[k+0];
+                    k++;
+                }
+                for(int j = 0; j < 8; j++){
+                    outputPalette[k] = paletteList[currentPalette].paletteColors[k+8];
+                    k++;
+                }
+                for(int j = 0; j < 8; j++){
+                    outputPalette[k] = paletteList[currentPalette].paletteColors[k-8];
+                    k++;
+                }
+                for(int j = 0; j < 8; j++){
+                    outputPalette[k] = paletteList[currentPalette].paletteColors[k+0];
+                    k++;
+                }
+            else {
+                outputPalette = paletteList[currentPalette].paletteColors
             }
         }
+        for(int j = 0; j < paletteList[currentPalette].paletteColors.size(); j++){
+            parent->binChanger.byteWrite(itfOut, outputPalette[i].B);
+            parent->binChanger.byteWrite(itfOut, outputPalette[i].G);
+            parent->binChanger.byteWrite(itfOut, outputPalette[i].R);
+            parent->binChanger.byteWrite(itfOut, outputPalette[i].A);
+        }
+        
         if(propertyByte&1){
             //256 color
             for (int i = 0; i<swizzledPixels.size();i++){
