@@ -305,7 +305,7 @@ int Mesh::readMesh(){
         }
     }
 
-    //qDebug() << Q_FUNC_INFO << "finished reading mesh at " << fileData->currentPosition;
+    qDebug() << Q_FUNC_INFO << "finished reading mesh at " << fileData->currentPosition;
     return 0;
 
 }

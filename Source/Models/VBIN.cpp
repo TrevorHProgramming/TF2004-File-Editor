@@ -271,7 +271,7 @@ bool FileSection::meshListContains(QString checkName){
     for(int i = 0; i<meshList.size(); i++){
         //qDebug() << Q_FUNC_INFO << "comparing name" << checkName << "against" << meshList[i]->headerData.name;
         if(meshList[i]->headerData.name == checkName){
-            qDebug() << Q_FUNC_INFO << "names" << checkName << "and" << meshList[i]->headerData.name << "matched, returning true";
+            //qDebug() << Q_FUNC_INFO << "names" << checkName << "and" << meshList[i]->headerData.name << "matched, returning true";
             return true;
         } else if (meshList[i]->meshListContains(checkName)){
             return true;
@@ -326,7 +326,7 @@ int VBIN::getSceneNodeTree(){
         fileData->signature(&signature);
 
 
-        ///qDebug() << Q_FUNC_INFO << "section" << signature.name << "of type" << signature.type <<"is" << signature.sectionLength << "bytes long at" << signature.sectionLocation;
+        qDebug() << Q_FUNC_INFO << "section" << signature.name << "of type" << signature.type <<"is" << signature.sectionLength << "bytes long at" << signature.sectionLocation;
 
         if (base.headerData.sectionLength == 0) {
             base.headerData.sectionLength = signature.sectionLength;
@@ -433,12 +433,12 @@ int VBIN::getSceneNodeTree(){
         if(signature.type == "~BoundingVolume"){
             readBoundingVolume(&signature);
         }
-        //qDebug() << Q_FUNC_INFO << "Expected end of section at location: " << parent->fileData.currentPosition;
+        qDebug() << Q_FUNC_INFO << "Expected end of section at location: " << parent->fileData.currentPosition << "with loops" << loopBreaker;
 
         loopBreaker++;
-        if (loopBreaker > 900 or parent->fileData.currentPosition > base.sectionEnd){
-            parent->messageError("Excessive looping detected or node tree exceeded for file " + fileName);
+        if (loopBreaker > 5000 or parent->fileData.currentPosition > base.sectionEnd){
             qDebug() << Q_FUNC_INFO << "Excessive looping detected or node tree exceeded. loopbreaker:" << loopBreaker;
+            parent->messageError("Excessive looping detected or node tree exceeded for file " + fileName);
             return 1;
         }
 
