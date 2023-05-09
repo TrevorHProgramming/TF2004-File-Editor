@@ -271,7 +271,7 @@ bool FileSection::meshListContains(QString checkName){
     for(int i = 0; i<meshList.size(); i++){
         //qDebug() << Q_FUNC_INFO << "comparing name" << checkName << "against" << meshList[i]->headerData.name;
         if(meshList[i]->headerData.name == checkName){
-            qDebug() << Q_FUNC_INFO << "names" << checkName << "and" << meshList[i]->headerData.name << "matched, returning true";
+            //qDebug() << Q_FUNC_INFO << "names" << checkName << "and" << meshList[i]->headerData.name << "matched, returning true";
             return true;
         } else if (meshList[i]->meshListContains(checkName)){
             return true;
@@ -326,7 +326,7 @@ int VBIN::getSceneNodeTree(){
         fileData->signature(&signature);
 
 
-        ///qDebug() << Q_FUNC_INFO << "section" << signature.name << "of type" << signature.type <<"is" << signature.sectionLength << "bytes long at" << signature.sectionLocation;
+        qDebug() << Q_FUNC_INFO << "section" << signature.name << "of type" << signature.type <<"is" << signature.sectionLength << "bytes long at" << signature.sectionLocation;
 
         if (base.headerData.sectionLength == 0) {
             base.headerData.sectionLength = signature.sectionLength;
@@ -389,17 +389,58 @@ int VBIN::getSceneNodeTree(){
 
         if(!knownSections.contains(signature.type)){
             /*unknown types include:
+            
+            (found in geometry.vbin for Cybertron only)
             taCybertronUnicronLocationManager
+                CybertronUnicronLocationManager
             taCybertronTowerManager
-            InformationNode
+                CybertronTowerManager
+                Towers
+                Tower
+            
             anAnimationActor
-            vlLODSwitcher
-            Instance
-            taOcclusionMap
-            taOcclusionNodeMapMarker
-            taCompressedShadowMap
             anAnimationSourceSet
-            ecoCollection*/
+            
+            (found in geometry.vbin/geometry.graph.vbin files and tower.vbin files for cybertron so far)
+            vlLODSwitcher
+                LODSwitcher
+                LevelMasks
+                
+            (found in geometry.vbin/geometry.graph.vbin files)
+            vlCellManager
+                Portals
+                vlCell
+                Cell 
+                ExcludedCells
+            Instance
+            taOcclusionNodeMapMarker
+                taOcclusionMap
+                taCompressedShadowMap
+                
+            (found in ecocollection.vbin)
+            ecoCollection
+                ecoSecondaryCollection
+                ecoSecondaryObjectLayout
+                SecondaryObjectMesh
+                ecoQuadtree
+                ecoSpriteGroupArray
+                ecoSpriteGroup
+                ecoQuadtreeNode
+                ChildNodes
+                
+            (found in buildingplacement.vbin)
+            InformationNode
+                IntegerDictionary
+                StringDictionary
+                
+            (found in ecoglobe.vbin)
+            ecoGlobe
+                ecoGlobe_TriangleSet
+                TriangleTypeArray
+                ecoGlobePatchArray
+                ecoGlobePatch
+            
+            */
             qDebug() << Q_FUNC_INFO << "Found" << signature.type << "at" << parent->fileData.currentPosition << "- skipping for now";
             parent->fileData.currentPosition = signature.sectionLength + signature.sectionLocation;
             qDebug() << Q_FUNC_INFO << "position after skip" << parent->fileData.currentPosition;
@@ -433,12 +474,12 @@ int VBIN::getSceneNodeTree(){
         if(signature.type == "~BoundingVolume"){
             readBoundingVolume(&signature);
         }
-        //qDebug() << Q_FUNC_INFO << "Expected end of section at location: " << parent->fileData.currentPosition;
+        qDebug() << Q_FUNC_INFO << "Expected end of section at location: " << parent->fileData.currentPosition << "with loops" << loopBreaker;
 
         loopBreaker++;
-        if (loopBreaker > 900 or parent->fileData.currentPosition > base.sectionEnd){
-            parent->messageError("Excessive looping detected or node tree exceeded for file " + fileName);
+        if (loopBreaker > 5000 or parent->fileData.currentPosition > base.sectionEnd){
             qDebug() << Q_FUNC_INFO << "Excessive looping detected or node tree exceeded. loopbreaker:" << loopBreaker;
+            parent->messageError("Excessive looping detected or node tree exceeded for file " + fileName);
             return 1;
         }
 

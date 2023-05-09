@@ -14,10 +14,11 @@ class ProgWindow;
 
 class Color{
 public:
-    uint32_t R;
-    uint32_t G;
-    uint32_t B;
-    uint32_t A;
+    uint32_t redInt;
+    uint32_t greenInt;
+    uint32_t blueInt;
+    uint32_t alphaInt;
+    uint32_t paletteIndex;
 
     const void operator=(Color input);
 };
@@ -49,9 +50,13 @@ public:
     int unknown4Byte4;
     int dataLength;
     bool swizzled;
+    bool hasPalette;
     std::vector<Palette> paletteList;
-    std::vector<uint> pixelList;
-    std::vector<uint> swizzledPixels;
+    std::vector<Color> pixelList;
+//    std::vector<float> pixelValues;
+//    //std::vector<uint> pixelList;
+//    std::vector<uint> pixelIndexes;
+//    std::vector<uint> swizzledPixelIndex;
     int currentPalette;
     QComboBox *listPalettes;
     QTableWidget *paletteTable;
@@ -59,6 +64,12 @@ public:
 
     void writeITF();
     void writeBMP();
+    void readPalette();
+    void readIndexedData();
+    void readImageData();
+    void writeIndexedData(QFile *fileOut);
+    void writeImageData(QFile *fileOut);
+    void standardizePixels();
     void populatePalette();
     void editPalette(int row, int column);
     void bruteForce(int imageheight, int imagewidth, int blockheight, int blockwidth, int relativeAddress);
@@ -66,6 +77,7 @@ public:
     void load(QString fromType);
     void updateCenter();
     void selectPalette(int palette);
+    int bytesPerPixel();
 
     private:
     void saveITFPalette();
