@@ -389,17 +389,58 @@ int VBIN::getSceneNodeTree(){
 
         if(!knownSections.contains(signature.type)){
             /*unknown types include:
+            
+            (found in geometry.vbin for Cybertron only)
             taCybertronUnicronLocationManager
+                CybertronUnicronLocationManager
             taCybertronTowerManager
-            InformationNode
+                CybertronTowerManager
+                Towers
+                Tower
+            
             anAnimationActor
-            vlLODSwitcher
-            Instance
-            taOcclusionMap
-            taOcclusionNodeMapMarker
-            taCompressedShadowMap
             anAnimationSourceSet
-            ecoCollection*/
+            
+            (found in geometry.vbin/geometry.graph.vbin files and tower.vbin files for cybertron so far)
+            vlLODSwitcher
+                LODSwitcher
+                LevelMasks
+                
+            (found in geometry.vbin/geometry.graph.vbin files)
+            vlCellManager
+                Portals
+                vlCell
+                Cell 
+                ExcludedCells
+            Instance
+            taOcclusionNodeMapMarker
+                taOcclusionMap
+                taCompressedShadowMap
+                
+            (found in ecocollection.vbin)
+            ecoCollection
+                ecoSecondaryCollection
+                ecoSecondaryObjectLayout
+                SecondaryObjectMesh
+                ecoQuadtree
+                ecoSpriteGroupArray
+                ecoSpriteGroup
+                ecoQuadtreeNode
+                ChildNodes
+                
+            (found in buildingplacement.vbin)
+            InformationNode
+                IntegerDictionary
+                StringDictionary
+                
+            (found in ecoglobe.vbin)
+            ecoGlobe
+                ecoGlobe_TriangleSet
+                TriangleTypeArray
+                ecoGlobePatchArray
+                ecoGlobePatch
+            
+            */
             qDebug() << Q_FUNC_INFO << "Found" << signature.type << "at" << parent->fileData.currentPosition << "- skipping for now";
             parent->fileData.currentPosition = signature.sectionLength + signature.sectionLocation;
             qDebug() << Q_FUNC_INFO << "position after skip" << parent->fileData.currentPosition;
