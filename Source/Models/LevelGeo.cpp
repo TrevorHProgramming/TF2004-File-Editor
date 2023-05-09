@@ -99,10 +99,10 @@ void GeometrySet::getVerticies(){
             recognizedSection = true;
             for(int i = 0 ; i < vertexCount; i++){
                 Color possibleColor;
-                possibleColor.R = fileData->readInt(1);
-                possibleColor.G = fileData->readInt(1);
-                possibleColor.B = fileData->readInt(1);
-                possibleColor.A = fileData->readInt(1);
+                possibleColor.R = fileData->readInt(1)/255*2;
+                possibleColor.G = fileData->readInt(1)/255*2;
+                possibleColor.B = fileData->readInt(1)/255*2;
+                possibleColor.A = fileData->readInt(1)/255*2;
                 geoSetColors.push_back(possibleColor);
             }
             //qDebug() << Q_FUNC_INFO << "6E ending" << fileData->currentPosition << "is first 6E" << first6E;
