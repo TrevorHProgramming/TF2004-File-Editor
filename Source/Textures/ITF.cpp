@@ -644,8 +644,10 @@ void ITF::swizzle(){
 
 void ITF::unswizzle(){
     std::vector<Color> unswizzledImage;
+    std::vector<Color> unswizzled_Index;
     //https://gist.github.com/Fireboyd78/1546f5c86ebce52ce05e7837c697dc72
     unswizzledImage.resize(pixelList.size());
+    unswizzled_Index.resize(pixelList.size());
     qDebug() << Q_FUNC_INFO << "swizzled image size" << pixelList.size();
     int InterlaceMatrix[] = {
         0x00, 0x10, 0x02, 0x12,
@@ -703,6 +705,7 @@ void ITF::unswizzle(){
             //qDebug() << Q_FUNC_INFO << "x" << x << "y" << y << "i" << i << "j" << j;
 
             unswizzledImage[j] = pixelList[i];
+            unswizzled_Index[i] = j;
         }
     }
     pixelList = unswizzledImage;
