@@ -370,10 +370,9 @@ void ITF::writeITF(){
 
     if(!swizzled){
         qDebug() << Q_FUNC_INFO << "no swizzled data to write.";
-        //if the user imported a BMP, we'll need to swizzle the texture
-        //unfortunately we can't yet :)
-        //shouldn't be too long though, now that normal swizzling works
-        //swizzle();
+        //I think you want to swizzle the pixels, you can do that like this:
+        unswizzle_or_swizzle = false;
+        unswizzle();
     }
 
     if (itfOut.open(QIODevice::ReadWrite)){
@@ -499,6 +498,8 @@ void ITF::writeBMP(){
     std::vector<Color> outputPalette = paletteList[currentPalette].paletteColors;
 
     if(swizzled){
+        //Looks like here we want to unswizzle the data, so:
+        unswizzle_or_swizzle = true;
         unswizzle();
     }
 
@@ -586,62 +587,6 @@ void ITF::writeBMP(){
 
 }
 
-void ITF::swizzle(){
-    std::vector<Color> swizzledImage;
-    swizzledImage.resize(pixelList.size());
-
-    //block height and width must be powers of 2
-    int blockwidth = 64;
-    int blockheight = 32;
-    int startBlockPos = width*blockwidth;
-
-    int rowblocks = width/blockwidth;
-    int pagex = 0;
-    int pagey = 0;
-    int px = 0;
-    int py = 0;
-    int blockx = 0;
-    int blocky = 0;
-    int block = 0;
-    int bx = 0;
-    int by = 0;
-    int column = 0;
-    int cx = 0;
-    int cy = 0;
-    int cw = 0;
-    int page = 0;
-    int block_address = 0;
-    int pixelIndex = 0;
-    for (int j = 0; j < height; j++) {
-        for (int i = 0; i < width; i++) {
-            pagex = i/blockwidth;
-            pagey = j/blockheight;
-            page = pagex+(pagey*rowblocks);
-
-            px = i-(blockx*blockwidth);
-            py = j-(blocky*blockheight);
-
-            blockx = px/8;
-            blocky = py/8;
-            block = blockx + (blocky*8);
-
-            bx = px - (blockx*8);
-            by = py - (blocky*8);
-
-            column = by/2;
-
-            cx= bx;
-            cy = by-column*2;
-            cw = cx+(cy*8);
-
-            swizzledImage[pixelIndex] = pixelList[startBlockPos+(page*blockwidth*blockheight)+(block*blockwidth)+(column*blockheight)+cw];
-
-        }
-    }
-    pixelList = swizzledImage;
-    swizzled = true;
-}
-
 void ITF::unswizzle(){
     std::vector<Color> unswizzledImage;
     //https://gist.github.com/Fireboyd78/1546f5c86ebce52ce05e7837c697dc72
@@ -701,8 +646,11 @@ void ITF::unswizzle(){
             int j = yy * width + xx;
 
             //qDebug() << Q_FUNC_INFO << "x" << x << "y" << y << "i" << i << "j" << j;
-
-            unswizzledImage[j] = pixelList[i];
+            if (unswizzle_or_swizzle = true){
+                unswizzledImage[j] = pixelList[i];
+            } else {
+                unswizzledImage[i] = pixelList[j];
+            }
         }
     }
     pixelList = unswizzledImage;
