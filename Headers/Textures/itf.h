@@ -51,6 +51,7 @@ public:
     int dataLength;
     bool swizzled;
     bool hasPalette;
+    bool unswizzle_or_swizzle;
     std::vector<Palette> paletteList;
     std::vector<Color> pixelList;
 //    std::vector<float> pixelValues;
@@ -86,7 +87,6 @@ public:
     void unswizzle_4bit();
     void unswizzle_GPT();
     void unswizzle();
-    void swizzle();
     void convertBMPtoPNG(QString bmpPath);
 };
 
