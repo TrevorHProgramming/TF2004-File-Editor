@@ -1,582 +1,877 @@
-/*I have relegated all of the switch statements to one source file because I really want them gone.*/
-
 #include "Headers/Main/mainwindow.h"
 
-QMap<int, QStringList> DefinitionFile::bdbTypeLength = {
-    {0, {"Bool"}},
-    {1, {"String", "Integer", "Float"}},
-    {3, {"Point"}},
-    {4, {"Quaternion", "Color"}}
-};
-
-void DefinitionFile::getFileLengths(){
-    for(int i = 0; i < classList.size(); i++){
-        classList[i].length = 0;
-        //qDebug() << Q_FUNC_INFO << "class name:" << classList[i].name;
-        classList[i].length += 4;
-        for(int j = 0; j<classList[i].itemList.size();j++){
-            //qDebug() << Q_FUNC_INFO << "item name:" << classList[i].itemList[j].name;
-            if(!database){
-                classList[i].length += classList[i].itemList[j].type.length() + 4;
-                if(classList[i].itemList[j].active){
-                    classList[i].length += 8; //lengthint + "True"
-                } else {
-                    classList[i].length += 9; //lengthint + "False"
-                }
-            }
-            classList[i].length += classList[i].itemList[j].name.length() + 4;
-            if(!database){
-                classList[i].length += itemLength(classList[i].itemList[j]);
-            }
-        }
-    }
-    for(int i = 0; i < instanceList.size(); i++){
-        //repeat for instances
-        instanceList[i].length = 0;
-        //qDebug() << Q_FUNC_INFO << "class name:" << instanceList[i].name;
-        //instanceList[i].length += instanceList[i].name.length()+2;
-        instanceList[i].length += 6; //section length, int, plus instance ID, short
-        for(int j = 0; j < instanceList[i].itemList.size(); j++){
-            instanceList[i].length += instanceLength(instanceList[i].itemList[j]);
-        }
-    }
-}
-
-int DefinitionFile::itemLength(dictItem itemDetails){
-    itemDetails.length = 0;
-    if(multiTypes.contains(itemDetails.type)){
-        switch(multiTypes.indexOf(itemDetails.type)){
-        case 0:{
-            //enum. stored as a single int in bdb files.
-            itemDetails.length += 4;
-            break;}
-        case 1:{
-            //Point. stored as 3 floats
-            itemDetails.length += 12;
-            break;}
-        case 2:{
-            //Quaternion. stored as 4 floats
-            itemDetails.length += 16;
-            break;}
-        case 7:{
-            //Link Array. stored as list of shorts + int indicator of list count
-            itemDetails.length += 4 + (itemDetails.valueList.size()*2);
-            break;}
-        case 8:{
-            //Vector Array. stored as list of floats + int indicator of list count
-            qDebug() << Q_FUNC_INFO << "item name" << itemDetails.name << "list length" << itemDetails.valueList.size();
-            itemDetails.length += 4 + (itemDetails.valueList.size()*12);
-            break;}
-        default:{
-            parent->messageError("Unknown type " + itemDetails.type);
-            break;}
-        }
-    } else if (singleTypes.contains(itemDetails.type)){
-        switch(singleTypes.indexOf(itemDetails.type)){
-        case 0:{
-            //enum
-            break;}
-        case 1:{
-            //float
-            itemDetails.length += 4;
-            break;}
-        case 2:{
-            //bool
-            itemDetails.length += 1;
-            break;}
-        case 3:{
-            //string
-            itemDetails.length += itemDetails.value.length()+4;
-            break;}
-        case 4:{
-            //integer
-            itemDetails.length += 4;
-            break;}
-        case 5:{
-            //Link, linked item IDs, stored as short
-            itemDetails.length += 2;
-            break;}
-        case 6:{
-            //Flag. seems like it's just an int
-            itemDetails.length += 4;
-            break;}
-        default:{
-            parent->messageError("Unknown type " + itemDetails.type);
-            break;}
-        }
+std::shared_ptr<taData> DefinitionFile::createItem(QString itemType){
+    if(itemType == "Bool"){
+        std::shared_ptr<taDataBool<bool>> boolItem(new taDataBool<bool>);
+        boolItem->file = this;
+        return boolItem;
+    } else if(itemType == "String"){
+        std::shared_ptr<taDataString<QString>> stringItem(new taDataString<QString>);
+        stringItem->file = this;
+        return stringItem;
+    } else if(itemType == "Float"){
+        std::shared_ptr<taDataFloat<float>> floatItem(new taDataFloat<float>);
+        floatItem->file = this;
+        return floatItem;
+    } else if(itemType == "Quaternion"){
+        std::shared_ptr<taDataQuaternion<QQuaternion>> quatItem(new taDataQuaternion<QQuaternion>);
+        quatItem->file = this;
+        return quatItem;
+    } else if(itemType == "Integer"){
+        std::shared_ptr<taDataInteger<int>> intItem(new taDataInteger<int>);
+        intItem->file = this;
+        return intItem;
+    } else if(itemType == "Link"){
+        std::shared_ptr<taDataLink<uint16_t>> linkItem(new taDataLink<uint16_t>);
+        linkItem->file = this;
+        return linkItem;
+    } else if(itemType == "Flag"){
+        std::shared_ptr<taDataFlag<int>> flagItem(new taDataFlag<int>);
+        flagItem->file = this;
+        return flagItem;
+    } else if(itemType == "Point"){
+        std::shared_ptr<taDataPoint<QVector3D>> pointItem(new taDataPoint<QVector3D>);
+        pointItem->file = this;
+        return pointItem;
+    } else if(itemType == "Enum"){
+        std::shared_ptr<taDataEnum> enumItem(new taDataEnum);
+        enumItem->file = this;
+        return enumItem;
+    } else if(itemType == "StringArray"){
+        std::shared_ptr<taDataStringArray<QString>> stringArrayItem(new taDataStringArray<QString>);
+        stringArrayItem->file = this;
+        return stringArrayItem;
+    } else if(itemType == "IntegerArray"){
+        std::shared_ptr<taDataIntArray<int>> intArrayItem(new taDataIntArray<int>);
+        intArrayItem->file = this;
+        return intArrayItem;
+    } else if(itemType == "FloatArray"){
+        std::shared_ptr<taDataFloatArray<float>> floatArrayItem(new taDataFloatArray<float>);
+        floatArrayItem->file = this;
+        return floatArrayItem;
+    } else if(itemType == "VectorArray"){
+        std::shared_ptr<taDataVectorArray<QVector3D>> vectorArrayItem(new taDataVectorArray<QVector3D>);
+        vectorArrayItem->file = this;
+        return vectorArrayItem;
+    } else if(itemType == "LinkArray"){
+        std::shared_ptr<taDataLinkArray<uint16_t>> linkArrayItem(new taDataLinkArray<uint16_t>);
+        linkArrayItem->file = this;
+        return linkArrayItem;
+    } else if(itemType == "Color"){
+        std::shared_ptr<taDataColor<QColor>> colorItem(new taDataColor<QColor>);
+        colorItem->file = this;
+        return colorItem;
     } else {
-        parent->messageError("Unknown type " + itemDetails.type);
+        parent->log("Data type " + itemType + " hasn't been implemented yet. | " + QString(Q_FUNC_INFO));
+        qDebug() << Q_FUNC_INFO << "Data type" << itemType << "hasn't been implemented yet.";
+        return nullptr;
     }
-
-    return itemDetails.length;
 }
 
-int DefinitionFile::instanceLength(dictItem itemDetails){
-    int instanceLength = 1; //default notdefault bit
+/*---------- taData ----------*/
 
-    if(!itemDetails.isDefault){
-        instanceLength += itemLength(itemDetails);
-    }
-
-    return instanceLength;
+void taData::read(){
+    //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid read function";
 }
 
-dictItem DefinitionFile::addItem(dictItem itemDetails, FileData *tempRead){
-    QList<QStringList> mapValues = bdbTypeLength.values();
-    QList<int> mapItems = bdbTypeLength.keys();
+void taData::write(QFile& file){
+    //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid write function";
+}
 
-    int nameLength = 0;
-    //qDebug() << Q_FUNC_INFO << "type" << itemDetails.type << "name" << itemDetails.name << tempRead->currentPosition;
+QString taData::display(){
+    //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid display value";
+    return "";
+}
 
-    if(multiTypes.contains(itemDetails.type)){
-        switch(multiTypes.indexOf(itemDetails.type)){
-        case 0:{
-            //enum, not present in existing bmd files, but present in BDB files
-            //itemDetails.value = QString::number(tempRead->readInt());
-            int enumIndex = tempRead->readUInt();
-            itemDetails.value = itemDetails.valueList[enumIndex];
-            //would be more fitting in "singlevalues" but this works too.
-            break;}
-        case 1:{
-            //Point
-            itemDetails.valueList.clear();
-            itemDetails.valueList.push_back(QString::number(tempRead->readFloat()));
-            itemDetails.valueList.push_back(QString::number(tempRead->readFloat()));
-            itemDetails.valueList.push_back(QString::number(tempRead->readFloat()));
-            break;}
-        case 2:{
-            //Quaternion
-            itemDetails.valueList.clear();
-            //qDebug() << Q_FUNC_INFO << "reading" << itemDetails.name << "index" << itemDetails.index << "quaternion at location" << tempRead->currentPosition;
-            itemDetails.valueList.push_back(QString::number(tempRead->readFloat()));
-            itemDetails.valueList.push_back(QString::number(tempRead->readFloat()));
-            itemDetails.valueList.push_back(QString::number(tempRead->readFloat()));
-            itemDetails.valueList.push_back(QString::number(tempRead->readFloat()));
-            //qDebug() << Q_FUNC_INFO << "after reading" << tempRead->currentPosition << "with value" << itemDetails.valueList;
-            break;}
-        case 7:{
-            //LinkArray
-            itemDetails.valueList.clear();
-            int arrayItems = tempRead->readUInt();
-            //qDebug() << Q_FUNC_INFO << "vector items" << vectorItems;
-            for (int i = 0; i<arrayItems; i++) {
-                //qDebug() << Q_FUNC_INFO << "current position" << tempRead->currentPosition;
-                itemDetails.valueList.push_back(QString::number(tempRead->readInt(2)));
-            }
-            break;}
-        case 8:{
-            //VectorArray
-            itemDetails.valueList.clear();
-            int arrayItems = tempRead->readUInt();
-            //qDebug() << Q_FUNC_INFO << "vector items" << vectorItems;
-            for (int i = 0; i<arrayItems; i++) {
-                //qDebug() << Q_FUNC_INFO << "current position" << tempRead->currentPosition;
-                QString item1 = QString::number(tempRead->readFloat());
-                QString item2 = QString::number(tempRead->readFloat());
-                QString item3 = QString::number(tempRead->readFloat());
-                itemDetails.valueList.push_back(item1 + ", " + item2 + ", " + item3 + "; ");
-            }
-            break;}
-        default:{
-            parent->messageError("Unknown type " + itemDetails.type);
-            break;}
-        }
-    } else if (singleTypes.contains(itemDetails.type)){
-        switch(singleTypes.indexOf(itemDetails.type)){
-        case 0:{
-            //enum
-            break;}
-        case 1:{
-            //float
-            itemDetails.value = QString::number(tempRead->readFloat());
-            break;}
-        case 2:{
-            //bool
-            if(tempRead->readUInt(1) == 1){
-                itemDetails.value = "true";
-            } else {
-                itemDetails.value = "false";
-            }
-            break;}
-        case 3:{
-            //string
-            nameLength = tempRead->readUInt();
-            //itemDetails.value = tempRead.readHex(nameLength);
-            tempRead->hexValue(&itemDetails.value, nameLength);
-            //itemDetails.value = QString(tempRead->readHex(nameLength));
-            //qDebug() << Q_FUNC_INFO << "value read as:" << itemDetails.value << "with current position" << tempRead->currentPosition;
-            break;}
-        case 4:{
-            //integer
-            itemDetails.value = QString::number(tempRead->readInt());
-            break;}
-        case 5:{
-            //Link
-            itemDetails.value = QString::number(tempRead->readUInt(2));
-            break;}
-        case 6:{
-            //Flag
-            itemDetails.value = QString::number(tempRead->readUInt());
-            break;}
-        default:{
-            parent->messageError("Unknown type " + itemDetails.type);
-            break;}
-        }
+QString taData::definitionOutput(){
+    //qDebug() << Q_FUNC_INFO << "Outputting default definition display value";
+    return display() + " \"" + comment + "\" ";
+}
+
+QString taData::databaseOutput(){
+    //qDebug() << Q_FUNC_INFO << "Outputting default database display value";
+    return display() + " ";
+}
+
+QString taData::backupDisplay(){
+    //qDebug() << Q_FUNC_INFO << "Item of this data type really does not have a valid display value";
+    return "";
+}
+
+QString taData::options(){
+    //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid multi-option value";
+    return "";
+}
+
+QString taData::stringValue(){
+    //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid multi-option value";
+    return "";
+}
+
+QVector3D taData::vectorValue(){
+    //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid multi-option value";
+    return QVector3D(0,0,0);
+}
+
+QQuaternion taData::quatValue(){
+    //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid multi-option value";
+    return QQuaternion(0,0,0,0);
+}
+
+int taData::intValue(){
+    //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid multi-option value";
+    return 0;
+}
+
+void taData::setValue(QString changedValue){
+    //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid value-setting function.";
+}
+
+std::shared_ptr<taData> taData::clone(){
+    file->parent->log("Data type " + type + " doesn't have a clone operation yet. | " + QString(Q_FUNC_INFO));
+    return nullptr;
+}
+
+taDataEnum* taData::cloneEnum(){
+    return nullptr;
+}
+
+int taData::binarySize(){
+    int sectionLength = 0;
+    sectionLength += 4; //length of type string
+    sectionLength += type.size();
+    sectionLength += 4; //length of active string
+    if(active){
+        sectionLength += 4;
     } else {
-        parent->messageError("Unknown type " + itemDetails.type);
+        sectionLength += 5;
     }
+    sectionLength += 4; //length of name string
+    sectionLength += name.size();
+    sectionLength += size();
 
-    //swap back to this at some point
-    /*for(int i = 0; i < mapValues.size();i++){
-        if(mapValues[i].contains(itemDetails.type)){
-            //read that many items, put into either value or valuelist
-            if(mapItems[i] == 1){
-                //read a single-value item
-                if(itemDetails.type == "String"){
+    return sectionLength;
+}
 
-                } else {
-                    itemDetails.value = QString::number(parent->fileData.readInt());
-                }
-            } else {
-                if(arrayTypes.contains(itemDetails.type)){
-                    //read one item, then read that many items
-                    itemDetails.value = QString::number(parent->fileData.readInt());
-                } else {
-                    //read however many items we're supposed to read
-                    for(int j = 0; j < mapItems[i]; j++){
-                        itemDetails.valueList.push_back(QString::number(parent->fileData.readFloat()));
-                    }
-                }
-            }
+/*---------- taDataSingle ----------*/
+
+template <class valueType>
+valueType taDataSingle<valueType>::giveValue(){
+    return value;
+}
+
+template <class valueType>
+QString taDataSingle<valueType>::display(){
+    QString displayValue = QVariant(value).value<QString>();
+    //qDebug() << Q_FUNC_INFO << "generating display value for item" << name << "with value" << value << ":" << QVariant(value).value<QString>() << ".";
+    if(this->type == "String"){
+        displayValue = "\"" + displayValue + "\"";
+    }
+    if(displayValue == "" or displayValue.left(1) == ","){
+        displayValue = backupDisplay();
+    }
+    return displayValue;
+}
+
+/*---------- Float ----------*/
+
+template <>
+std::shared_ptr<taData> taDataFloatArray<float>::clone(){
+    std::shared_ptr<taDataFloatArray<float>> vectorArrayItem(new taDataFloatArray<float>(*this));
+    vectorArrayItem->values = values;
+    return vectorArrayItem;
+}
+
+/*---------- Bool ----------*/
+
+template <>
+std::shared_ptr<taData> taDataBool<bool>::clone(){
+    //qDebug() << Q_FUNC_INFO << "Cloning item of type" << type << "with default value" << value;
+    std::shared_ptr<taDataBool<bool>> stringItem(new taDataBool<bool>(*this));
+    stringItem->value = value;
+    return stringItem;
+}
+
+template <>
+void taDataBool<bool>::setValue(QString changedValue){
+    if(changedValue == "True"){
+        value = true;
+    } else {
+        value = false;
+    }
+}
+
+template <class valueType>
+void taDataBool<valueType>::read(){
+    if(this->file->binary){
+        this->value = this->file->fileData->readBool();
+    } else {
+        if(this->file->fileData->textWord() =="true"){
+            this->value = true;
+        } else {
+            this->value = false;
         }
+    }
+}
+
+template <class valueType>
+void taDataBool<valueType>::write(QFile& file){
+    this->file->parent->binChanger.byteWrite(file, this->value);
+}
+
+/*---------- Float ----------*/
+
+template <>
+std::shared_ptr<taData> taDataFloat<float>::clone(){
+    //qDebug() << Q_FUNC_INFO << "Cloning item of type" << type << "with default value" << value;
+    std::shared_ptr<taDataFloat<float>> stringItem(new taDataFloat<float>(*this));
+    stringItem->value = value;
+    return stringItem;
+}
+
+template <>
+void taDataFloat<float>::setValue(QString changedValue){
+    value = changedValue.toFloat();
+}
+
+template <class valueType>
+void taDataFloat<valueType>::read(){
+    if(this->file->binary){
+        this->value = this->file->fileData->readFloat();
+    } else {
+        this->value = this->file->fileData->textWord().toFloat();
+    }
+}
+
+template <class valueType>
+void taDataFloat<valueType>::write(QFile& file){
+    QByteArray hexFloat = this->file->parent->binChanger.float_to_hex(this->value);
+    this->file->parent->binChanger.hexWrite(file, hexFloat);
+}
+
+template <class valueType>
+QString taDataFloat<valueType>::display(){
+    //qDebug() << Q_FUNC_INFO << "Generating float display value";
+    return QString::number(this->value, 'g', 5);
+}
+
+/*---------- String ----------*/
+
+template <>
+std::shared_ptr<taData> taDataString<QString>::clone(){
+    //qDebug() << Q_FUNC_INFO << "Cloning item of type" << type << "with default value" << value;
+    std::shared_ptr<taDataString<QString>> stringItem(new taDataString<QString>(*this));
+    stringItem->value = value;
+    return stringItem;
+}
+
+template <>
+void taDataString<QString>::setValue(QString changedValue){
+    value = changedValue;
+}
+
+template <class valueType>
+void taDataString<valueType>::read(){
+    static QRegularExpression quoteRemover = QRegularExpression("[\[\"\\]]");
+    if(this->file->binary){
+        int length = 0;
+        length = this->file->fileData->readInt();
+        this->value = this->file->fileData->readHex(length);
+    } else {
+        QString tempRead2 = this->file->fileData->textWord();
+        if(tempRead2.count('"') < 2){
+            //qDebug() <<Q_FUNC_INFO << "string only contains one quote. this means there's a space in the string. Read again.";
+            tempRead2 += " " + this->file->fileData->textWord();
+        }
+        tempRead2 = tempRead2.remove(quoteRemover);
+        //qDebug() << Q_FUNC_INFO << "setting string value to" << tempRead2;
+        this->value = tempRead2;
+    }
+}
+
+template <class valueType>
+void taDataString<valueType>::write(QFile& file){
+    this->file->parent->binChanger.intWrite(file, this->value.length());
+    this->file->parent->binChanger.hexWrite(file, this->value.toUtf8());
+}
+
+template <class valueType>
+QString taDataString<valueType>::stringValue(){
+    static QRegularExpression quoteRemover = QRegularExpression("[\[\"\\]]");
+    return this->value.remove(quoteRemover);
+}
+
+/*---------- Int ----------*/
+
+template <>
+std::shared_ptr<taData> taDataInteger<int>::clone(){
+    //qDebug() << Q_FUNC_INFO << "Cloning item of type" << type << "with default value" << value;
+    std::shared_ptr<taDataInteger<int>> stringItem(new taDataInteger<int>(*this));
+    stringItem->value = value;
+    return stringItem;
+}
+
+template <>
+void taDataInteger<int>::setValue(QString changedValue){
+    value = changedValue.toInt();
+}
+
+template <class valueType>
+void taDataInteger<valueType>::read(){
+    if(this->file->binary){
+        this->value = this->file->fileData->readInt();
+    } else {
+        this->value = this->file->fileData->textWord().toInt();
+    }
+}
+
+template <class valueType>
+void taDataInteger<valueType>::write(QFile& file){
+    this->file->parent->binChanger.intWrite(file, this->value);
+}
+
+/*---------- Link ----------*/
+
+template <>
+std::shared_ptr<taData> taDataLink<uint16_t>::clone(){
+    //qDebug() << Q_FUNC_INFO << "Cloning item of type" << type << "with default value" << value;
+    std::shared_ptr<taDataLink<uint16_t>> stringItem(new taDataLink<uint16_t>(*this));
+    stringItem->value = value;
+    return stringItem;
+}
+
+template <>
+void taDataLink<uint16_t>::setValue(QString changedValue){
+    value = changedValue.toInt();
+}
+
+template <class valueType>
+void taDataLink<valueType>::read(){
+    if(this->file->binary){
+        this->value = this->file->fileData->readInt(2);
+    } else {
+        this->value = this->file->fileData->textWord().toInt();
+    }
+}
+
+template <class valueType>
+void taDataLink<valueType>::write(QFile& file){
+    this->file->parent->binChanger.shortWrite(file, this->value);
+}
+
+/*---------- Flag ----------*/
+
+template <>
+std::shared_ptr<taData> taDataFlag<int>::clone(){
+    //qDebug() << Q_FUNC_INFO << "Cloning item of type" << type << "with default value" << value;
+    std::shared_ptr<taDataFlag<int>> flagItem(new taDataFlag<int>(*this));
+    flagItem->value = value;
+    return flagItem;
+}
+
+template <>
+void taDataFlag<int>::setValue(QString changedValue){
+    value = changedValue.toInt();
+}
+
+template <class valueType>
+void taDataFlag<valueType>::read(){
+    if(this->file->binary){
+        this->value = this->file->fileData->readInt();
+    } else {
+        this->value = this->file->fileData->textWord().toInt();
+    }
+}
+
+template <class valueType>
+void taDataFlag<valueType>::write(QFile& file){
+    this->file->parent->binChanger.intWrite(file, this->value);
+}
+
+/*---------- Point ----------*/
+
+template <>
+std::shared_ptr<taData> taDataPoint<QVector3D>::clone(){
+    //qDebug() << Q_FUNC_INFO << "Cloning item of type" << type << "with default value" << value;
+    std::shared_ptr<taDataPoint<QVector3D>> stringItem(new taDataPoint<QVector3D>(*this));
+    stringItem->value = value;
+    return stringItem;
+}
+
+template <>
+void taDataPoint<QVector3D>::setValue(QString changedValue){
+    QStringList splitValue = changedValue.split(",");
+    value = QVector3D(splitValue[0].toFloat(),splitValue[1].toFloat(),splitValue[2].toFloat());
+}
+
+template <class valueType>
+void taDataPoint<valueType>::read(){
+    if(this->file->binary){
+        this->value = this->file->fileData->read3DVector();
+    } else {
+        QString tempx = this->file->fileData->textWord();
+        float x = tempx.toFloat();
+        QString tempy = this->file->fileData->textWord();
+        float y = tempy.toFloat();
+        QString tempz = this->file->fileData->textWord();
+        float z = tempz.toFloat();
+        this->value = QVector3D(x,y,z);
+        //qDebug() << Q_FUNC_INFO << "made point" << this->value << "from values" << tempx << x << tempy << y << tempz << z << "at" << this->file->fileData->currentPosition;
+    }
+}
+
+template <class valueType>
+void taDataPoint<valueType>::write(QFile& file){
+    QByteArray hexFloat;
+    hexFloat = this->file->parent->binChanger.float_to_hex(this->value.x());
+    this->file->parent->binChanger.hexWrite(file, hexFloat);
+    hexFloat = this->file->parent->binChanger.float_to_hex(this->value.y());
+    this->file->parent->binChanger.hexWrite(file, hexFloat);
+    hexFloat = this->file->parent->binChanger.float_to_hex(this->value.z());
+    this->file->parent->binChanger.hexWrite(file, hexFloat);
+}
+
+template <class valueType>
+QString taDataPoint<valueType>::backupDisplay(){
+    QString displayValue;
+    displayValue = QString::number(this->value.x()) + ", " + QString::number(this->value.y()) + ", "+QString::number(this->value.z());
+    return displayValue;
+}
+
+template <class valueType>
+QString taDataPoint<valueType>::definitionOutput(){
+    QString outputValue;
+    outputValue = QString::number(this->value.x()) + " " + QString::number(this->value.y()) + " "+QString::number(this->value.z());
+    outputValue += " \"" + this->comment + "\" ";
+    return outputValue;
+}
+
+template <class valueType>
+QString taDataPoint<valueType>::databaseOutput(){
+    QString outputValue;
+    outputValue = QString::number(this->value.x()) + " " + QString::number(this->value.y()) + " "+QString::number(this->value.z()) + " ";
+    return outputValue;
+}
+
+template <class valueType>
+QVector3D taDataPoint<valueType>::vectorValue(){
+    return this->value;
+}
+
+/*---------- Color ----------*/
+
+template <class valueType>
+void taDataColor<valueType>::read(){
+    if(this->file->binary){
+        int r = this->file->fileData->readInt();
+        int g = this->file->fileData->readInt();
+        int b = this->file->fileData->readInt();
+        int a = this->file->fileData->readInt();
+        this->value = QColor(r, g, b, a);
+    } else {
+        float r = this->file->fileData->textWord().toFloat();
+        float g = this->file->fileData->textWord().toFloat();
+        float b = this->file->fileData->textWord().toFloat();
+        float a = this->file->fileData->textWord().toFloat();
+        //qDebug() << Q_FUNC_INFO << "color values on read:" << r << g << b << a;
+        this->value = QColor::fromRgbF(r, g, b, a);
+        //qDebug() << Q_FUNC_INFO << "Color values on value set:" << this->value;
+    }
+}
+
+template <class valueType>
+void taDataColor<valueType>::write(QFile& file){
+    this->file->parent->binChanger.intWrite(file, this->value.red());
+    this->file->parent->binChanger.intWrite(file, this->value.green());
+    this->file->parent->binChanger.intWrite(file, this->value.blue());
+    this->file->parent->binChanger.intWrite(file, this->value.alpha());
+}
+
+template <class valueType>
+QString taDataColor<valueType>::definitionOutput(){
+    QString outputValue;
+    outputValue = QString::number(this->value.redF(), 'g', 5) + " " + QString::number(this->value.greenF(), 'g', 5)
+            + " " + QString::number(this->value.blueF(), 'g', 5) + " " + QString::number(this->value.alphaF(), 'g', 5);
+    outputValue += " \"" + this->comment + "\" ";
+    return outputValue;
+}
+
+template <class valueType>
+QString taDataColor<valueType>::databaseOutput(){
+    QString outputValue;
+    outputValue = QString::number(this->value.redF(), 'g', 5) + " " + QString::number(this->value.greenF(), 'g', 5)
+            + " " + QString::number(this->value.blueF(), 'g', 5) + " " + QString::number(this->value.alphaF(), 'g', 5);
+    outputValue += " ";
+    return outputValue;
+}
+
+template <>
+std::shared_ptr<taData> taDataColor<QColor>::clone(){
+    //qDebug() << Q_FUNC_INFO << "Cloning item of type" << type << "with default value" << value;
+    std::shared_ptr<taDataColor<QColor>> stringItem(new taDataColor<QColor>(*this));
+    stringItem->value = value;
+    return stringItem;
+}
+
+template <>
+void taDataColor<QColor>::setValue(QString changedValue){
+    QStringList splitValue = changedValue.split(",");
+    value = QColor(splitValue[0].toInt(),splitValue[1].toInt(),splitValue[2].toInt(),splitValue[3].toInt());
+}
+
+/*---------- Quaternion ----------*/
+
+template <>
+std::shared_ptr<taData> taDataQuaternion<QQuaternion>::clone(){
+    //qDebug() << Q_FUNC_INFO << "Cloning item of type" << type << "with default value" << value;
+    std::shared_ptr<taDataQuaternion<QQuaternion>> stringItem(new taDataQuaternion<QQuaternion>(*this));
+    stringItem->value = value;
+    return stringItem;
+}
+
+template <>
+void taDataQuaternion<QQuaternion>::setValue(QString changedValue){
+    QStringList splitValue = changedValue.split(",");
+    value = QQuaternion(splitValue[0].toFloat(),splitValue[1].toFloat(),splitValue[2].toFloat(),splitValue[3].toFloat());
+}
+
+template <class valueType>
+void taDataQuaternion<valueType>::read(){
+    if(this->file->binary){
+        this->value = this->file->fileData->readQuaternion();
+    } else {
+        int x = this->file->fileData->textWord().toFloat();
+        int y = this->file->fileData->textWord().toFloat();
+        int z = this->file->fileData->textWord().toFloat();
+        int m = this->file->fileData->textWord().toFloat();
+        this->value = QQuaternion(m,x,y,z);
+    }
+}
+
+template <class valueType>
+void taDataQuaternion<valueType>::write(QFile& file){
+    QByteArray hexFloat;
+    hexFloat = this->file->parent->binChanger.float_to_hex(this->value.x());
+    this->file->parent->binChanger.hexWrite(file, hexFloat);
+    hexFloat = this->file->parent->binChanger.float_to_hex(this->value.y());
+    this->file->parent->binChanger.hexWrite(file, hexFloat);
+    hexFloat = this->file->parent->binChanger.float_to_hex(this->value.z());
+    this->file->parent->binChanger.hexWrite(file, hexFloat);
+    hexFloat = this->file->parent->binChanger.float_to_hex(this->value.scalar());
+    this->file->parent->binChanger.hexWrite(file, hexFloat);
+}
+
+template <class valueType>
+QString taDataQuaternion<valueType>::backupDisplay(){
+    QString displayValue;
+    displayValue = QString::number(this->value.x(), 'g', 5) + ", " + QString::number(this->value.y(), 'g', 5) + ", "
+            +QString::number(this->value.z(), 'g', 5) + ", "+QString::number(this->value.scalar(), 'g', 5);
+    return displayValue;
+}
+
+template <class valueType>
+QQuaternion taDataQuaternion<valueType>::quatValue(){
+    return this->value;
+}
+
+/*---------- taDataArray ----------*/
+
+template <class valueType>
+QString taDataArray<valueType>::options(){
+    QString displayValue;
+    for(int i = 0; i < this->values.size(); i++){
+        if(i != 0){
+            displayValue += ", ";
+        }
+        displayValue += QVariant(values[i]).value<QString>();
+    }
+    //qDebug() << Q_FUNC_INFO << "generating display value for" << values << ":" << displayValue << ".";
+    /*if(displayValue == ""){
+        displayValue = backupDisplay();
     }*/
-
-    return itemDetails;
+    return displayValue;
 }
 
-void DefinitionFile::removeItem(QString className, int itemIndex){
-    int dictIndex = indexIn(className);
-    classList[dictIndex].itemList.erase(classList[dictIndex].itemList.begin() + itemIndex);
-}
-
-void DatabaseFile::removeItem(int instanceIndex, int itemIndex){
-    instanceList[instanceIndex].itemList.erase(instanceList[instanceIndex].itemList.begin() + itemIndex);
-}
-
-void DefinitionFile::removeClass(int classIndex){
-    classList.erase(classList.begin() + classIndex);
-}
-
-void DatabaseFile::removeInstance(int instanceIndex){
-    instanceList.erase(instanceList.begin() + instanceIndex);
-}
-
-
-QStringList DefinitionFile::editItem(QString className, int itemIndex){
-    dictItem itemDetails;
-    itemDetails.file = this;
-    bool cancelled;
-    int dictIndex = indexIn(className);
-    QStringList changedValue;
-    qDebug()<<Q_FUNC_INFO << "name: " << className << "index" << dictIndex << "item: " << itemIndex<<"value type" << classList[dictIndex].itemList[itemIndex].type;
-    if (classList[dictIndex].itemList[itemIndex].type == "Enum"){
-        qDebug() << Q_FUNC_INFO << "item" << classList[dictIndex].itemList[itemIndex].name << "is an enum";
-        QString text = classList[dictIndex].itemList[itemIndex].valueList.join("\n");
-        text = QInputDialog::getMultiLineText(parent, parent->tr("Enter New Values:"), parent->tr("Value:"), text, &cancelled);
-        QStringList textList = text.split('\n');
-        qDebug() << Q_FUNC_INFO << "new value" << textList;
-        classList[dictIndex].itemList[itemIndex].valueList = textList;
-        changedValue = textList;
-        text = QInputDialog::getItem(parent, parent->tr("Enter selected value:"), parent->tr("Value:"), textList);
-        classList[dictIndex].itemList[itemIndex].value = QString::number(textList.indexOf(text));
-        changedValue.prepend(text);
-        changedValue.prepend("ENUM");
-    } else {
-        if (itemDetails.file->multiTypes.contains(classList[dictIndex].itemList[itemIndex].type)) {
-            qDebug() << Q_FUNC_INFO << "type" << classList[dictIndex].itemList[itemIndex].type << "is a multi-value type";
-            QString text = QInputDialog::getMultiLineText(parent, parent->tr("Enter New Values:"), parent->tr("Value:"), "", &cancelled);
-            QStringList textList = text.split('\n');
-            qDebug() << Q_FUNC_INFO << "new value" << textList;
-            classList[dictIndex].itemList[itemIndex].valueList = textList;
-
-            changedValue = textList;
-        }
-        if(itemDetails.file->singleTypes.contains(classList[dictIndex].itemList[itemIndex].type)){
-            QString text = QInputDialog::getText(parent, parent->tr("Enter New Value:"), parent->tr("Value:"), QLineEdit::Normal, "", &cancelled);
-            qDebug() << Q_FUNC_INFO << "type" << classList[dictIndex].itemList[itemIndex].type << "is a single-value type with new value" << text;
-            classList[dictIndex].itemList[itemIndex].value = text;
-            changedValue.append(text);
-            changedValue.append("SINGLEVALUE"); //this is so hacky but it'll work
-        }
+template <class valueType>
+QString taDataArray<valueType>::definitionOutput(){
+    QString outputValue = QString::number(this->values.size());
+    for(int i = 0; i < this->values.size(); i++){
+        outputValue += " ";
+        outputValue += QVariant(values[i]).value<QString>();
     }
-
-    return changedValue;
+    //qDebug() << Q_FUNC_INFO << "generating output value for" << values << ":" << outputValue << ".";
+    outputValue += " \"" + this->comment + "\" ";
+    return outputValue;
 }
 
-QStringList DatabaseFile::editItem(int searchIndex, int itemIndex){
-    dictItem itemDetails;
-    bool cancelled;
-    bool setDefault;
-    int instanceIndex = instanceIndexIn(searchIndex);
-    QStringList changedValue;
-    if(searchIndex == 0){
-        //working with filedictionary section
-        //QString text = QInputDialog::getText(parent, parent->tr("Enter New Value:"), parent->tr("Value:"), QLineEdit::Normal, "", &cancelled);
-        parent->messageError("Please don't edit the FileDictionary section. I'm not even sure how you did that, that section shouldn't display. If you aren't trying to edit"
-                             "the FileDictionary section and got this error, let Trevor know.");
-    } else {
-        QMessageBox msgBox;
-        msgBox.setText("Set item to default value?");
-        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-        msgBox.setDefaultButton(QMessageBox::No);
-        int choice = msgBox.exec();
-        qDebug() << Q_FUNC_INFO << choice;
-        switch(choice){
-        case 16384: //yes
-            qDebug() << Q_FUNC_INFO << "setting item to default value";
-            itemDetails.isDefault = true;
-            changedValue.push_back("SETDEFAULT");
-            break;
-        case 65536: //no
-            qDebug() << Q_FUNC_INFO << "prompting for new value";
-            if (instanceList[instanceIndex].itemList[itemIndex].type == "Enum"){
-                qDebug() << Q_FUNC_INFO << "type" << instanceList[instanceIndex].itemList[itemIndex].type << "is an enum";
-                QString text = instanceList[instanceIndex].itemList[itemIndex].valueList.join("\n");
-                text = QInputDialog::getMultiLineText(parent, parent->tr("Enter New Values:"), parent->tr("Value:"), text, &cancelled);
-                QStringList textList = text.split('\n');
-                qDebug() << Q_FUNC_INFO << "new value" << textList;
-                instanceList[instanceIndex].itemList[itemIndex].valueList = textList;
-                changedValue = textList;
-                text = QInputDialog::getItem(parent, parent->tr("Enter selected value:"), parent->tr("Value:"), textList);
-                instanceList[instanceIndex].itemList[itemIndex].value = text;
-                changedValue.prepend(text);
-                changedValue.prepend("ENUM");
-            } else {
-                if (multiTypes.contains(instanceList[instanceIndex].itemList[itemIndex].type)) {
-                    qDebug() << Q_FUNC_INFO << "type" << instanceList[instanceIndex].itemList[itemIndex].type << "is a multi-value type";
-                    QString text = QInputDialog::getMultiLineText(parent, parent->tr("Enter New Values:"), parent->tr("Value:"), "", &cancelled);
-                    QStringList textList = text.split('\n');
-                    qDebug() << Q_FUNC_INFO << "new value" << textList;
-                    instanceList[instanceIndex].itemList[itemIndex].valueList = textList;
-                    changedValue = textList;
-                }
-                if(singleTypes.contains(instanceList[instanceIndex].itemList[itemIndex].type)){
-                    QString text = QInputDialog::getText(parent, parent->tr("Enter New Value:"), parent->tr("Value:"), QLineEdit::Normal, "", &cancelled);
-                    qDebug() << Q_FUNC_INFO << "type" << instanceList[instanceIndex].itemList[itemIndex].type << "is a single-value type with new value" << text;
-                    instanceList[instanceIndex].itemList[itemIndex].value = text;
-                    changedValue.append(text);
-                    changedValue.prepend("SINGLEVALUE"); //this is so hacky but it'll work
-                }
-            }
-            itemDetails.isDefault = false;
-            break;
-        }
-
+template <class valueType>
+QString taDataArray<valueType>::databaseOutput(){
+    QString outputValue = QString::number(this->values.size());
+    for(int i = 0; i < this->values.size(); i++){
+        outputValue += " ";
+        outputValue += QVariant(values[i]).value<QString>();
     }
-
-
-    return changedValue;
+    outputValue += " ";
+    //qDebug() << Q_FUNC_INFO << "generating output value for" << values << ":" << outputValue << ".";
+    return outputValue;
 }
 
-void DefinitionFile::binaryOutput(QFile &file, dictItem itemDetails){
+/*---------- IntArray ----------*/
 
-    if(multiTypes.contains(itemDetails.type)){
-        switch(multiTypes.indexOf(itemDetails.type)){
-        case 0:{
-            //enum. stored as a single int in bdb files.
-            qDebug() << Q_FUNC_INFO << "enum value" << itemDetails.value << "index" << itemDetails.valueList.indexOf(itemDetails.value);
-            parent->binChanger.intWrite(file, itemDetails.valueList.indexOf(itemDetails.value));
-            break;}
-        case 1:{
-            //Point. stored as 3 floats
-            for(int i = 0; i < itemDetails.valueList.size(); i++){
-                //qDebug() << Q_FUNC_INFO << "writing point float" << itemDetails.valueList[i];
-                file.write(parent->binChanger.float_to_hex(itemDetails.valueList[i].toFloat(nullptr)));
-            }
-            break;}
-        case 2:{
-            //Quaternion. stored as 4 floats
-            for(int i = 0; i < itemDetails.valueList.size(); i++){
-                file.write(parent->binChanger.float_to_hex(itemDetails.valueList[i].toFloat(nullptr)));
-            }
-            break;}
-        case 7:{
-            //Link Array. stored as list of shorts + int indicator of list count
-            parent->binChanger.intWrite(file, itemDetails.valueList.size());
-            for(int i = 0; i < itemDetails.valueList.size(); i++){
-                parent->binChanger.shortWrite(file, itemDetails.valueList[i].toShort(nullptr));
-            }
-            break;}
-        case 8:{
-            //Vector Array. stored as list of floats + int indicator of list count
-            parent->binChanger.intWrite(file, itemDetails.valueList.size());
-            QStringList tempList;
-            for(int i = 0; i < itemDetails.valueList.size(); i++){
-                itemDetails.valueList[i].remove(";");
-                tempList = itemDetails.valueList[i].split(",");
-                for(int j = 0; j < tempList.size(); j++){
-                    tempList[j] = tempList[j].trimmed();
-                    //qDebug() << Q_FUNC_INFO << "writing float" << tempList[j];
-                    file.write(parent->binChanger.float_to_hex(tempList[j].toFloat(nullptr)));
-                }
-            }
-            break;}
-        default:{
-            parent->messageError("Unknown type " + itemDetails.type);
-            break;}
-        }
-    } else if (singleTypes.contains(itemDetails.type)){
-        switch(singleTypes.indexOf(itemDetails.type)){
-        case 0:{
-            //enum
-            break;}
-        case 1:{
-            //float
-            file.write(parent->binChanger.float_to_hex(itemDetails.value.toFloat(nullptr)));
-            break;}
-        case 2:{
-            //bool
-            if(itemDetails.value == "true" or itemDetails.value == "True"){
-                parent->binChanger.byteWrite(file, 1);
-            } else {
-                parent->binChanger.byteWrite(file, 0);
-            }
-            break;}
-        case 3:{
-            //string
-            parent->binChanger.intWrite(file, itemDetails.value.length());
-            file.write(itemDetails.value.toUtf8());
-            break;}
-        case 4:{
-            //integer
-            parent->binChanger.intWrite(file, itemDetails.value.toInt(nullptr));
-            break;}
-        case 5:{
-            //Link, linked item IDs, stored as short
-            parent->binChanger.shortWrite(file, itemDetails.value.toShort(nullptr));
-            break;}
-        case 6:{
-            //Flag. seems like it's just an int
-            parent->binChanger.intWrite(file, itemDetails.value.toInt(nullptr));
-            break;}
-        default:{
-            parent->messageError("Unknown type " + itemDetails.type);
-            break;}
+template <>
+std::shared_ptr<taData> taDataIntArray<int>::clone(){
+    std::shared_ptr<taDataIntArray<int>> intArrayItem(new taDataIntArray<int>(*this));
+    intArrayItem->values = values;
+    return intArrayItem;
+}
+
+template <class valueType>
+void taDataIntArray<valueType>::read(){
+    int arrayCount = 0;
+    if(this->file->binary){
+        arrayCount = this->file->fileData->readInt();
+        for(int i = 0; i < arrayCount; i++){
+            this->values.push_back(this->file->fileData->readInt());
         }
     } else {
-        parent->messageError("Unknown type " + itemDetails.type);
+        arrayCount = this->file->fileData->textWord().toInt();
+        for(int i = 0; i < arrayCount; i++){
+            this->values.push_back(this->file->fileData->textWord().toInt());
+        }
     }
 }
 
-QString DefinitionFile::outputValue(dictItem itemDetails){
-    QString tempString;
-    QString valueSpace; //hacky fix for double-spaces on null values, EX Link type
-    if(itemDetails.value != "" or itemDetails.valueList.size() != 0){
-        valueSpace = " ";
+template <class valueType>
+void taDataIntArray<valueType>::write(QFile& file){
+    this->file->parent->binChanger.intWrite(file, this->values.size());
+    for(int i = 0; i < this->values.size(); i++){
+        this->file->parent->binChanger.intWrite(file, this->values[i]);
     }
-    if(itemDetails.type == "Enum"){
-        tempString = "\"" + itemDetails.value + "\" \"[" + itemDetails.valueList.join(',') +"]\" ";
-    } else if (itemDetails.type == "String"){
-        tempString = "\"" + itemDetails.value + itemDetails.valueList.join(" ") + "\" \"" + itemDetails.comment + "\" ";
-    } else {
-        tempString = itemDetails.value + itemDetails.valueList.join(" ") + valueSpace + "\"" + itemDetails.comment + "\" ";}
-    return tempString;
 }
 
-QString DatabaseFile::outputValue(dictItem itemDetails){
-    QString tempString;
-    QString valueSpace;
-    if(itemDetails.value != "" and !itemDetails.valueList.isEmpty()){
-        valueSpace = " ";
-    } else if (itemDetails.type == "LinkArray" and !itemDetails.valueList.isEmpty()){
-        valueSpace = " ";
-    }
-    if(itemDetails.type == "Enum"){
-        tempString = QString::number(itemDetails.valueList.indexOf(itemDetails.value)) + " ";
-        //tempString = "\"" + itemDetails.value + "\" \"[" + itemDetails.valueList.join(',') +"]\"";
-    } else if (itemDetails.type == "LinkArray") {
-        tempString = QString::number(itemDetails.valueList.size()) + valueSpace + itemDetails.valueList.join(" ") + " ";
-    } else if (stringTypes.contains(itemDetails.type)){
-        if(multiTypes.contains(itemDetails.type)){
-            tempString = itemDetails.value + valueSpace + "\"" + itemDetails.valueList.join("\" \"") + "\" ";
-        } else {
-            tempString = "\"" + itemDetails.value + "\" ";
+/*---------- FloatArray ----------*/
+
+template <class valueType>
+void taDataFloatArray<valueType>::read(){
+    //All array types are handled the same in definition files
+    int arrayCount = 0;
+    if(this->file->binary){
+        arrayCount = this->file->fileData->readInt();
+        for(int i = 0; i < arrayCount; i++){
+            this->values.push_back(this->file->fileData->readFloat());
         }
     } else {
-        tempString = itemDetails.value + valueSpace + itemDetails.valueList.join(" ") + " ";
+        arrayCount = this->file->fileData->textWord().toInt();
+        for(int i = 0; i < arrayCount; i++){
+            this->values.push_back(this->file->fileData->textWord().toFloat());
+        }
     }
-    return tempString;
 }
 
-
-QString DefinitionFile::displayValue(dictItem itemDetails){
-    return itemDetails.value;
+template <class valueType>
+void taDataFloatArray<valueType>::write(QFile& file){
+    this->file->parent->binChanger.intWrite(file, this->values.size());
+    for(int i = 0; i < this->values.size(); i++){
+        QByteArray hexFloat = this->file->parent->binChanger.float_to_hex(this->values[i]);
+        this->file->parent->binChanger.hexWrite(file, hexFloat);
+    }
 }
 
-dictItem DatabaseFile::addItem(dictItem itemDetails, QString tempRead){
-    QStringList readListItems;
+/*---------- LinkArray ----------*/
 
-    qDebug() << "name " << itemDetails.name << "type" << itemDetails.type << "tempread" << tempRead;
-    if(multiTypes.contains(itemDetails.type)){
-        if(itemDetails.type == "Enum"){
-            //qDebug() << Q_FUNC_INFO << "temp read" << tempRead << "space index" << tempRead.indexOf(" ");
-            itemDetails.value = itemDetails.valueList[tempRead.mid(0, tempRead.indexOf(" ")).toInt(nullptr, 10)];
-        } else if (arrayTypes.contains(itemDetails.type)){
-            itemDetails.valueList.clear();
-            itemDetails.value = tempRead.mid(0, tempRead.indexOf(" "));
-            if(itemDetails.value.toInt(nullptr) == 0){
-                tempRead = "";
-            } else {
-                tempRead = tempRead.mid(tempRead.indexOf(" ")+1, tempRead.length() - tempRead.indexOf(" "));
-                readListItems = tempRead.split(" ");
-                for (int i = 0; i < readListItems.length(); i++) {
-                    itemDetails.valueList.push_back(readListItems[i]);
-                }
+template <class valueType>
+void taDataLinkArray<valueType>::read(){
+    //qDebug() << Q_FUNC_INFO << "reading link array value from" << this->file->binary << "true = binary";
+    int arrayCount = 0;
+    if(this->file->binary){
+        arrayCount = this->file->fileData->readInt();
+        //qDebug() << Q_FUNC_INFO << "read link array count at" << this->file->fileData->currentPosition << "count=" << arrayCount;
+        for(int i = 0; i < arrayCount; i++){
+            this->values.push_back(this->file->fileData->readInt(2));
+            //qDebug() << Q_FUNC_INFO << "read link array value at" << this->file->fileData->currentPosition;
+        }
+    } else {
+        arrayCount = this->file->fileData->textWord().toInt();
+        for(int i = 0; i < arrayCount; i++){
+            this->values.push_back(this->file->fileData->textWord().toInt());
+        }
+    }
+}
+
+template <class valueType>
+void taDataLinkArray<valueType>::write(QFile& file){
+    this->file->parent->binChanger.intWrite(file, this->values.size());
+    for(int i = 0; i < this->values.size(); i++){
+        this->file->parent->binChanger.shortWrite(file, this->values[i]);
+    }
+}
+
+template <>
+std::shared_ptr<taData> taDataLinkArray<uint16_t>::clone(){
+    std::shared_ptr<taDataLinkArray<uint16_t>> linkArrayItem(new taDataLinkArray<uint16_t>(*this));
+    linkArrayItem->values = values;
+    //linkArrayItem->file = file;
+    return linkArrayItem;
+}
+
+/*---------- StringArray ----------*/
+
+template <>
+std::shared_ptr<taData> taDataStringArray<QString>::clone(){
+    std::shared_ptr<taDataStringArray<QString>> stringArrayItem(new taDataStringArray<QString>(*this));
+    stringArrayItem->values = values;
+    return stringArrayItem;
+}
+
+template <class valueType>
+void taDataStringArray<valueType>::read(){
+    int length = 0;
+    int arrayCount = 0;
+    if(this->file->binary){
+        //pretty sure string arrays never occur in binary files
+        //wouldn't be surprised if the engine can handle them though
+        arrayCount = this->file->fileData->readInt();
+        for(int i = 0; i < arrayCount; i++){
+            length = this->file->fileData->readInt();
+            this->values.push_back(this->file->fileData->readHex(length));
+        }
+    } else {
+        arrayCount = this->file->fileData->textWord().toInt();
+        for(int i = 0; i < arrayCount; i++){
+            this->values.push_back(this->file->fileData->textWord());
+        }
+    }
+}
+
+template <class valueType>
+void taDataStringArray<valueType>::write(QFile& file){
+    this->file->parent->binChanger.intWrite(file, this->values.size());
+    for(int i = 0; i < this->values.size(); i++){
+        this->file->parent->binChanger.intWrite(file, this->values[i].length());
+        this->file->parent->binChanger.hexWrite(file, this->values[i].toUtf8());
+    }
+}
+
+/*---------- VectorArray ----------*/
+
+template <>
+std::shared_ptr<taData> taDataVectorArray<QVector3D>::clone(){
+    std::shared_ptr<taDataVectorArray<QVector3D>> vectorArrayItem(new taDataVectorArray<QVector3D>(*this));
+    vectorArrayItem->values = values;
+    return vectorArrayItem;
+}
+
+template <class valueType>
+void taDataVectorArray<valueType>::read(){
+    int arrayCount = 0;
+    if(this->file->binary){
+        arrayCount = this->file->fileData->readInt();
+        for(int i = 0; i < arrayCount; i++){
+            float x = this->file->fileData->readFloat();
+            float y = this->file->fileData->readFloat();
+            float z = this->file->fileData->readFloat();
+            this->values.push_back(QVector3D(x,y,z));
+        }
+    } else {
+        arrayCount = this->file->fileData->textWord().toInt();
+        for(int i = 0; i < arrayCount; i++){
+            float x = this->file->fileData->textWord().toFloat();
+            float y = this->file->fileData->textWord().toFloat();
+            float z = this->file->fileData->textWord().toFloat();
+            this->values.push_back(QVector3D(x,y,z));
+        }
+    }
+}
+
+template <class valueType>
+void taDataVectorArray<valueType>::write(QFile& file){
+    this->file->parent->binChanger.intWrite(file, this->values.size());
+    QByteArray hexFloat;
+    for(int i = 0; i < this->values.size(); i++){
+        hexFloat = this->file->parent->binChanger.float_to_hex(this->values[i].x());
+        this->file->parent->binChanger.hexWrite(file, hexFloat);
+        hexFloat = this->file->parent->binChanger.float_to_hex(this->values[i].y());
+        this->file->parent->binChanger.hexWrite(file, hexFloat);
+        hexFloat = this->file->parent->binChanger.float_to_hex(this->values[i].z());
+        this->file->parent->binChanger.hexWrite(file, hexFloat);
+    }
+}
+
+template <class valueType>
+QString taDataVectorArray<valueType>::backupDisplay(){
+    QString displayValue;
+    for(int i = 0; i < this->values.size(); i++){
+        displayValue = QString::number(this->values[i].x()) + ", " + QString::number(this->values[i].y()) + ", "+QString::number(this->values[i].z());
+
+    }
+    return displayValue;
+}
+
+/*---------- Enum ----------*/
+
+QString taDataEnum::options(){
+    return valueOptions.join(", ");
+}
+
+QString taDataEnum::display(){
+    //qDebug() << Q_FUNC_INFO << "Generating display value from enum using:" << defaultValue << "with" << valueOptions.size() << "options";
+    return valueOptions[defaultValue];
+}
+
+std::shared_ptr<taData> taDataEnum::clone(){
+    //qDebug() << Q_FUNC_INFO << "Cloning item of type" << type << "with default value" << defaultValue;
+    std::shared_ptr<taDataEnum> stringItem(new taDataEnum(*this));
+    stringItem->defaultValue = defaultValue;
+    stringItem->valueOptions = valueOptions;
+    return stringItem;
+}
+
+QString taDataEnum::definitionOutput(){
+    QString totalOutput = "\"" + valueOptions[defaultValue] + "\" \"";
+    if(this->comment != ""){
+        totalOutput += this->comment + " ";
+    }
+    totalOutput += "[" + valueOptions.join(",") + "]\" ";
+    return totalOutput;
+}
+
+QString taDataEnum::databaseOutput(){
+    return QString::number(this->defaultValue) + " ";
+}
+
+void taDataEnum::read(){
+    static QRegularExpression quoteRemover = QRegularExpression("[\[\"\\]]");
+    QString tempList;
+    QString value;
+    if(file->binary){
+        //enums are only present in binary database files, not definition files
+        //this means that we only need to get the index of the value
+        qDebug() << Q_FUNC_INFO << "reading binary default at" << file->fileData->currentPosition;
+        defaultValue = file->fileData->readInt();
+        qDebug() << Q_FUNC_INFO << "binary default value read as" << defaultValue << "at" << file->fileData->currentPosition;
+    } else {
+        value = file->fileData->textWord().remove(quoteRemover);
+        tempList = file->fileData->textWord();
+        if(tempList == ""){
+            //textWord will return "" if it attempts to get a word at the end of a line.
+            defaultValue = value.toInt();
+        }
+        else {
+            if (tempList.contains("Range")){
+                tempList = file->fileData->textWord();
             }
-        } else {
-            itemDetails.valueList.clear();
-            readListItems = tempRead.split(" ");
-            for (int i = 0; i < readListItems.length(); i++) {
-                itemDetails.valueList.push_back(readListItems[i]);
-            }
+            tempList = tempList.remove(quoteRemover);
+            valueOptions = tempList.split(",");
+            //qDebug() << Q_FUNC_INFO << "Setting default value of enum to" << value << "found at index" << valueOptions.indexOf(value);
+            defaultValue = valueOptions.indexOf(value);
         }
-    } else if(singleTypes.contains(itemDetails.type)){
-        itemDetails.value = tempRead;
-        //itemDetails.value = tempRead.mid(0, tempRead.indexOf(" "));
-        //qDebug() << Q_FUNC_INFO << "single type fed value" << tempRead << "and saved" << itemDetails.value;
-        tempRead = tempRead.mid(tempRead.indexOf(" ")+1, tempRead.length() - tempRead.indexOf(" "));
     }
-    itemDetails.value = itemDetails.value.trimmed();
-
-    //qDebug() << Q_FUNC_INFO << "value: " << itemDetails.value << "valueList " << itemDetails.valueList;
-    return itemDetails;
 }
 
-dictItem DefinitionFile::addItem(dictItem itemDetails, QString tempRead){
-    QStringList readListItems;
-
-    //qDebug() << Q_FUNC_INFO << "name " << itemDetails.name << "type" << itemDetails.type << "tempread" << tempRead;
-    if(itemDetails.file->multiTypes.contains(itemDetails.type)){
-        if(itemDetails.type == "Enum"){
-            int spaceLocation = tempRead.indexOf(" ");
-            itemDetails.value = tempRead.mid(1, spaceLocation-1);
-            tempRead = tempRead.mid(spaceLocation+3, tempRead.length() - spaceLocation-5);
-            readListItems = tempRead.split(",");
-        } else {
-            itemDetails.value = tempRead.mid(tempRead.indexOf("\"")-1, tempRead.length() - tempRead.indexOf("\""));
-            readListItems = tempRead.mid(0, tempRead.indexOf("\"")-1).split(" ");
-        }
-        for (int i = 0; i < readListItems.length(); i++) {
-            itemDetails.valueList.push_back(readListItems[i]);
-        }
-    } else if(itemDetails.file->singleTypes.contains(itemDetails.type)){
-        itemDetails.value = tempRead;
-        //itemDetails.value = tempRead.mid(0, tempRead.indexOf(" "));
-        //qDebug() << Q_FUNC_INFO << "single type fed value" << tempRead << "and saved" << itemDetails.value;
-        tempRead = tempRead.mid(tempRead.indexOf(" ")+1, tempRead.length() - tempRead.indexOf(" "));
-    }
-    //qDebug() << Q_FUNC_INFO << "value: " << itemDetails.value << "valueList " << itemDetails.valueList;
-    return itemDetails;
+void taDataEnum::write(QFile& file){
+    //this->file->parent->log("Enum values cannot be written to binary Definition (BMD) files. Incompatible item: " + this->name);
+    this->file->parent->binChanger.intWrite(file, this->defaultValue);
 }
+
 
 

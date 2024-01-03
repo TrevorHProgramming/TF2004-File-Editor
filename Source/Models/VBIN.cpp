@@ -40,77 +40,6 @@ void BoundingVolume::populateData(){
     qDebug() << Q_FUNC_INFO << "location" << headerData.sectionLocation << "radius" << radius << "hasvolume" << hasVolume << "type" << type;
 }
 
-/*//these will need to be put back in as VBIN functons once animation progress continues
-  void ProgWindow::createAnimationList(AnimationSourceSet animations){
-    if(ListAnimation == nullptr){
-           qDebug() << Q_FUNC_INFO << "The dropdown does not exist.";
-        ListAnimation = new QComboBox(this);
-        ListAnimation -> setGeometry(QRect(QPoint(650,50), QSize(150,30)));
-        if (animations.sourceCount <= 0){
-            ListAnimation->insertItem(0, "No animations");
-        } else {
-            for(int i=0; i<animations.sourceCount; ++i){
-                ListAnimation->insertItem(i, animations.streamArray[i]->name);
-            }
-        }
-        //connect(ListAnimation, &QComboBox::currentIndexChanged, this, [this] {animationSelectChange();});
-        ListAnimation->show();
-    } else {
-        ListAnimation->clear();
-        ListAnimation -> setGeometry(QRect(QPoint(650,50), QSize(150,30)));
-        if (animations.sourceCount <= 0){
-            ListAnimation->insertItem(0, "No animations");
-        } else {
-            for(int i=0; i<animations.sourceCount; ++i){
-                ListAnimation->insertItem(i, animations.streamArray[i]->name);
-            }
-        }
-        ListAnimation->show();
-    }
-    qDebug() << Q_FUNC_INFO << "animation list size" << animations.streamArray.size() << "name" << animations.name;
-    if (animations.streamArray.size() > 0) {
-        qDebug() << Q_FUNC_INFO << "channel array size" << animations.streamArray[0]->channelArray.size() << "name" << animations.streamArray[0]->name;
-        if (animations.streamArray[0]->channelArray.size() > 0) {
-            qDebug() << Q_FUNC_INFO << "keyframe count for channel" << animations.streamArray[0]->channelArray[0]->name << ":" << animations.streamArray[0]->channelArray[0]->keyframeCount;
-            createFrameList(animations.streamArray[0]->channelArray[0]->keyframeCount);
-        }
-    }
-}
-
-void ProgWindow::createFrameList(int frames){
-    qDebug() << Q_FUNC_INFO << "CREATING THE LIST WITH " << frames << "LEVELS";
-    if(ListFrame == nullptr){
-           qDebug() << Q_FUNC_INFO << "The dropdown does not exist.";
-        ListFrame = new QComboBox(this);
-        ListFrame -> setGeometry(QRect(QPoint(850,50), QSize(150,30)));
-        if (frames <= 0){
-            ListFrame->insertItem(0, "1");
-        } else {
-            for(int i=0; i<frames; ++i){
-                ListFrame->insertItem(i, QString::number(i+1));
-            }
-        }
-        ListFrame->show();
-    } else {
-        ListFrame->clear();
-        ListFrame -> setGeometry(QRect(QPoint(850,50), QSize(150,30)));
-        if (frames <= 0){
-            ListFrame->insertItem(0, "1");
-        } else {
-            for(int i=0; i<frames; ++i){
-                ListFrame->insertItem(i, QString::number(i+1));
-            }
-        }
-        ListFrame->show();
-    }
-}
-
-void ProgWindow::animationSelectChange(){
-    if (fileMode == "VBIN" && ListAnimation->currentIndex() >= 0) {
-        createFrameList(vbinFiles[ListFiles->currentIndex()].animationSet.streamArray[ListAnimation->currentIndex()]->channelArray[0]->keyframeCount);
-    }
-}*/
-
 int VBIN::readDataVBIN(){
 
     //gets all scene nodes in the file, populates their PositionArrays and IndexArrays, and gets modifications
@@ -121,11 +50,14 @@ int VBIN::readDataVBIN(){
         qDebug() << Q_FUNC_INFO << "Error while reading scene node tree";
         return 1;
     }
-    base.printInfo(0);
-    std::vector<Modifications> addedMods;
-    base.modifyPosArrays(addedMods);
+
+    //base.printInfo(0);
+    //std::vector<Modifications> addedMods;
+    //base.modifyPosArrays(addedMods);
 
     //parent->createLevelList(highestLOD);
+
+    selectedLOD = highestLOD;
 
     qDebug() << Q_FUNC_INFO << "section list size" << base.sectionList.size() << "mesh list size" << base.meshList.size();
 
@@ -149,7 +81,7 @@ void FileSection::printInfo(int depth){
     }
 }
 
-void FileSection::modifyPosArrays(std::vector<Modifications> addedMods){
+/*void FileSection::modifyPosArrays(std::vector<Modifications> addedMods){
     QMatrix3x3 rotMatrix;
     Mesh modifyMesh;
     SceneNode modifyNode;
@@ -166,7 +98,7 @@ void FileSection::modifyPosArrays(std::vector<Modifications> addedMods){
         sectionList[i]->modifyPosArrays(addedMods);
     }
     return;
-}
+}*/
 
 const void BoundingVolume::operator=(BoundingVolume input){
     headerData = input.headerData;
@@ -197,7 +129,7 @@ void VBIN::readAnimationPrototype(){
         int unknown4Byte5 = parent->fileData.readInt();
 
         fileData->signature(&signature);
-        if(signature.type == "~NeutralData"){
+        if(signature.type == "NeutralData"){
             parent->fileData.currentPosition = signature.sectionLength + signature.sectionLocation;
         }
     }
@@ -210,7 +142,7 @@ void VBIN::readBoundingVolume(SectionHeader* signature){
 
     fileData->signature(signature);
     //this is such a bad way to do this but w/e
-    if(signature->type == "~BoundingVolume"){
+    if(signature->type == "BoundingVolume"){
         parent->fileData.currentPosition = signature->sectionLength + signature->sectionLocation;
     }
 }
@@ -220,7 +152,7 @@ void FileSection::readModifications(){
     float m_value = 0;
     //offset properties
     offsets = fileData->readInt(1);
-    //qDebug() << Q_FUNC_INFO << "offsets read as" << offsets;
+    //qDebug() << Q_FUNC_INFO << "offsets read as" << offsets << "at" << fileData->currentPosition;
     if (!(offsets & 1)) {
         //position offset
         mods.offset = fileData->read3DVector();
@@ -248,7 +180,7 @@ void VBIN::readModifications(){
     int offsets = 0;
     //offset properties
     offsets = parent->fileData.readInt(1);
-    qDebug() << Q_FUNC_INFO << "offsets read as" << offsets;
+    //qDebug() << Q_FUNC_INFO << "offsets read as" << offsets;
     if (!(offsets & 1)) {
         //position offset
         parent->fileData.currentPosition += 12;
@@ -297,6 +229,8 @@ int VBIN::getSceneNodeTree(){
     int nameAdjust = 0;
     FileSection* currentBranch;
     FileSection* possibleBranch;
+    int elementCount = 0; //this is used to interface graph.vbins with mesh.vbins
+    meshCount = 0;
 
     base.headerData = signature;
     base.headerData.name = "vbinbase";
@@ -333,13 +267,15 @@ int VBIN::getSceneNodeTree(){
             base.sectionEnd = parent->fileData.currentPosition -4 + signature.sectionLength;
         }
 
-        if(signature.type == "~Mesh"){
+        if(signature.type == "Mesh"){
             Mesh *meshSection = new Mesh();
             meshSection->file = this; //file will need to be reassigned later as the current VBIN object is temporary
             meshSection->fileData = &parent->fileData;
             meshSection->parent = currentBranch;
             meshSection->headerData = signature;
             meshSection->sectionEnd = signature.sectionLength + signature.sectionLocation;
+            meshSection->elementOffset = elementCount;
+            meshCount++;
 
             //This exists to remove duplicate mesh names. This is necessary for DAE outputs
             //an arguement could be made that this should only be done for the DAE output, but it's easier to just do it when we read the file in the first place.
@@ -358,6 +294,7 @@ int VBIN::getSceneNodeTree(){
                 qDebug() << "Error while reading mesh";
                 return 1;
             }
+            elementCount += meshSection->elementCount;
             unknown4Byte1 = parent->fileData.readInt();
             meshSection->readModifications();
             //qDebug() << Q_FUNC_INFO << "mesh offsets: scale" << meshSection->mods.scale << "offset" << meshSection->mods.offset << "rotation" << meshSection->mods.rotation;
@@ -367,7 +304,7 @@ int VBIN::getSceneNodeTree(){
             //qDebug() << Q_FUNC_INFO << "name " << meshSection->name << "with parent" << meshSection->parent->name << "finished at" << fileData->currentPosition;
         }
 
-        if(signature.type == "~SceneNode"){
+        if(signature.type == "SceneNode"){
             SceneNode *sceneSection = new SceneNode();
             sceneSection->file = this;
             sceneSection->fileData = &parent->fileData;
@@ -381,7 +318,95 @@ int VBIN::getSceneNodeTree(){
             //qDebug() << Q_FUNC_INFO << "name " << sceneSection->name << "with parent" << sceneSection->parent->name;
         }
 
-        if(signature.type == "~anAnimationPrototype"){
+        if(signature.type == "Instance"){
+            Instance *instanceSection = new Instance();
+            instanceSection->file = this;
+            instanceSection->fileData = &parent->fileData;
+            instanceSection->parent = currentBranch;
+            instanceSection->headerData = signature;
+            instanceSection->sectionEnd = signature.sectionLength + signature.sectionLocation;
+            instanceSection->unknownValue = fileData->readInt();
+            int referenceLength = fileData->readInt();
+            instanceSection->modelReference = QString(fileData->readHex(referenceLength));
+            if(!instanceNameList.contains(instanceSection->modelReference)){
+                instanceNameList.push_back(instanceSection->modelReference);
+            }
+
+            unknown4Byte1 = parent->fileData.readInt(); //appears to be a version number of some kind
+            instanceSection->readModifications();
+            currentBranch->sectionList.push_back(instanceSection);
+            possibleBranch = instanceSection;
+            //qDebug() << Q_FUNC_INFO << "name " << sceneSection->name << "with parent" << sceneSection->parent->name;
+        }
+
+        if(signature.type == "vlCellManager"){
+            CellManager *cellSection = new CellManager();
+            cellSection->file = this;
+            cellSection->fileData = &parent->fileData;
+            cellSection->parent = currentBranch;
+            cellSection->headerData = signature;
+            cellSection->sectionEnd = signature.sectionLength + signature.sectionLocation;
+
+            fileData->signature(&signature); //should read "~CellManager"
+            //if we wanted to entirely skip the cellmanager data without losing the rest of the file, we could use this signature's section length
+            //but might as well read the portals and skip each of those
+
+            cellSection->unknownValue1 = fileData->readInt();
+            cellSection->portalCount = fileData->readInt();
+
+            fileData->signature(&signature); //should read "~Portals"
+            cellSection->readPortals();
+
+            unknown4Byte1 = parent->fileData.readInt(); //appears to be a version number of some kind
+            cellSection->readModifications();
+            currentBranch->sectionList.push_back(cellSection);
+            possibleBranch = cellSection;
+        }
+
+        if(signature.type == "vlCell"){
+            CellManager *cellSection = new CellManager();
+            cellSection->file = this;
+            cellSection->fileData = &parent->fileData;
+            cellSection->parent = currentBranch;
+            cellSection->headerData = signature;
+            cellSection->sectionEnd = signature.sectionLength + signature.sectionLocation;
+
+            cellSection->readCell();
+            /*fileData->signature(&signature); //should read "~Cell"
+            fileData->currentPosition = signature.sectionLocation + signature.sectionLength; //just skipping the cell data itself, for now*/
+
+
+            unknown4Byte1 = parent->fileData.readInt(); //appears to be a version number of some kind
+            cellSection->readModifications();
+            currentBranch->sectionList.push_back(cellSection);
+            possibleBranch = cellSection;
+        }
+
+        if(signature.type == "vlLODSwitcher"){
+            vlLodSwitcher *lodSwitcher = new vlLodSwitcher();
+            lodSwitcher->file = this;
+            lodSwitcher->fileData = &parent->fileData;
+            lodSwitcher->parent = currentBranch;
+            lodSwitcher->headerData = signature;
+            lodSwitcher->sectionEnd = signature.sectionLength + signature.sectionLocation;
+            parent->log("vlLODSwitcher found in file. Export will not be accurate. Section name: " + signature.name + " | " + QString(Q_FUNC_INFO));
+            fileData->signature(&signature); //gets data for LODSwitcher section
+            fileData->currentPosition += 4;
+            qDebug() << Q_FUNC_INFO << "vllodswitcher 1" << signature.name << "of type" << signature.type <<"is" << signature.sectionLength << "bytes long at" << signature.sectionLocation;
+            fileData->signature(&signature); //gets data for levelmasks
+            qDebug() << Q_FUNC_INFO << "vllodswitcher 2" << signature.name << "of type" << signature.type <<"is" << signature.sectionLength << "bytes long at" << signature.sectionLocation;
+            /*qDebug() << Q_FUNC_INFO << "comparing levelmasks section length" << signature.sectionLength <<"to lodswitcher section end" << lodSwitcher->sectionEnd <<". currently at" << fileData->currentPosition;
+            if(signature.sectionLength > lodSwitcher->sectionEnd){
+                signature.sectionLength = lodSwitcher->sectionEnd - fileData->currentPosition - 16;
+            }*/
+            //skip to end of section
+            fileData->currentPosition = signature.sectionLength + signature.sectionLocation;
+            unknown4Byte1 = parent->fileData.readInt(); //appears to be a version number of some kind
+            lodSwitcher->readModifications();
+            currentBranch->sectionList.push_back(lodSwitcher);
+        }
+
+        if(signature.type == "anAnimationPrototype"){
             readAnimationPrototype();
             unknown4Byte1 = parent->fileData.readInt();
             readModifications();
@@ -441,25 +466,27 @@ int VBIN::getSceneNodeTree(){
                 ecoGlobePatch
             
             */
-            qDebug() << Q_FUNC_INFO << "Found" << signature.type << "at" << parent->fileData.currentPosition << "- skipping for now";
+            parent->log("Found section of " + signature.type + " at " + QString::number(parent->fileData.currentPosition) + ". These are not currently handled. Data will be skipped. Length:" + QString::number(signature.sectionLength) + " | " + QString(Q_FUNC_INFO));
+            //qDebug() << Q_FUNC_INFO << "Found" << signature.type << "at" << parent->fileData.currentPosition << "- skipping for now";
             parent->fileData.currentPosition = signature.sectionLength + signature.sectionLocation;
-            qDebug() << Q_FUNC_INFO << "position after skip" << parent->fileData.currentPosition;
+            qDebug() << Q_FUNC_INFO << " position after skip " << parent->fileData.currentPosition;
             continue;
         }
 
-        if(signature.type == "~anAnimationSourceSet"){
+        if(signature.type == "anAnimationSourceSet"){
+            qDebug() << Q_FUNC_INFO << "Reading animation data.";
             //qDebug() << Q_FUNC_INFO << "End of tree located - leaving at Animation Data";
             //break;
 //            animationSet.file = this;
 //            animationSet.fileLocation = parent->fileData.currentPosition-4;
-//            animationSet.sectionLength = sectionLength;
-//            animationSet.sectionEnd = animationSet.fileLocation + sectionLength;
-//            animationSet.name = sectionName;
+//            animationSet.sectionLength = signature.sectionLength;
+//            animationSet.sectionEnd = animationSet.fileLocation + signature.sectionLength;
+//            animationSet.name =signature.name;
 //            animationSet.readAnimationSet();
             qDebug() << Q_FUNC_INFO << "Found animation data at " << parent->fileData.currentPosition << "- skipping for now";
             parent->fileData.currentPosition = signature.sectionLength + signature.sectionLocation;
             qDebug() << Q_FUNC_INFO << "position after skip" << parent->fileData.currentPosition;
-            continue;
+            continue; //continuing after reading animation, the bounding volume is contained in them.
         }
 
         //readModifications();
@@ -471,20 +498,22 @@ int VBIN::getSceneNodeTree(){
 
         fileData->signature(&signature);
 
-        if(signature.type == "~BoundingVolume"){
+        if(signature.type == "BoundingVolume"){
             readBoundingVolume(&signature);
         }
-        qDebug() << Q_FUNC_INFO << "Expected end of section at location: " << parent->fileData.currentPosition << "with loops" << loopBreaker;
+        //qDebug() << Q_FUNC_INFO << "Expected end of section at location: " << parent->fileData.currentPosition << "with loops" << loopBreaker;
 
         loopBreaker++;
         if (loopBreaker > 5000 or parent->fileData.currentPosition > base.sectionEnd){
-            qDebug() << Q_FUNC_INFO << "Excessive looping detected or node tree exceeded. loopbreaker:" << loopBreaker;
+            qDebug() << Q_FUNC_INFO << "Excessive looping detected or node tree exceeded. loopbreaker:" << loopBreaker << "current position:" << parent->fileData.currentPosition;
             parent->messageError("Excessive looping detected or node tree exceeded for file " + fileName);
             return 1;
         }
 
         if (parent->fileData.currentPosition == base.sectionEnd){
             qDebug() << Q_FUNC_INFO << "Reached end of tree. Exiting now.";
+            qDebug() << Q_FUNC_INFO << "file contans" << meshCount << "meshes";
+            qDebug() << Q_FUNC_INFO << "texture list contains" << textureNameList.size() << "textures";
             return 0;
         }
 
@@ -500,16 +529,18 @@ void VBIN::updateCenter(){
     ListLods -> setGeometry(QRect(QPoint(250,150), QSize(150,30)));
     if (highestLOD <= 0){
         ListLods->insertItem(0, "1");
+        highestLOD = 1;
     } else {
         for(int i=0; i<highestLOD; ++i){
             ListLods->insertItem(i, QString::number(i+1));
         }
     }
+
     QComboBox::connect(ListLods, &QComboBox::currentIndexChanged, parent, [ListLods, this] {setLevel(ListLods->currentIndex());});
     //QAbstractButton::connect(ListLods, &QComboBox::currentIndexChanged, parent, [parent = this->parent]() {parent->levelSelectChange();});
     ListLods->show();
     parent->currentModeWidgets.push_back(ListLods);
-    selectedLOD = 0;
+    ListLods->setCurrentIndex(highestLOD-1);
 
     QRadioButton* radioSingle = new QRadioButton("Single file output", parent->centralContainer);
     radioSingle->setGeometry(QRect(QPoint(340,120), QSize(200,30)));
@@ -544,9 +575,25 @@ void VBIN::save(QString toType){
     }
 }
 
+void VBIN::save(QString toType, QTextStream &stream){
+    if (toType == "Effect"){
+        writeEffectListDAE(stream);
+    } else if (toType == "Image"){
+        writeImageListDAE(stream);
+    } else if (toType == "Material"){
+        writeMaterialListDAE(stream);
+    } else if (toType == "Geometry"){
+        writeGeometryListDAE(stream);
+    } else if (toType == "Animation"){
+        writeAnimationListDAE(stream);
+    } else if (toType == "Node"){
+        writeNodeListDAE(stream);
+    }
+}
+
 void VBIN::load(QString fromType){
     int failedRead = 0;
-    if(fromType == "VBIN"){
+    if(fromType == "VBIN" or fromType == "GRAPH.VBIN"){
         failedRead = readDataVBIN();
     } else {
         failedRead = 1;
@@ -670,16 +717,51 @@ void VBIN::outputDataDAE(){
 //        parent->messageError("DAE export cancelled.");
 //        return;
 //    }
-    QFile stlOut(outputPath);
+    std::shared_ptr<TFFile> testLoaded;
+    std::vector<std::shared_ptr<TFFile>> loadedInstances;
+    for(int i = 0; i < instanceNameList.size(); i++){
+        testLoaded = parent->matchFile(instanceNameList[i] + ".VBIN");
+        if(testLoaded == nullptr){
+            //putting this separate from the while - don't want to run this check multiple times if it won't do anything
+            QFileInfo dir(inputPath);
+            QString instancePath = dir.absolutePath() + "/" + instanceNameList[i] + ".VBIN";
+            bool isFileInDirectory = QFileInfo::exists(instancePath);
+            qDebug() << Q_FUNC_INFO << "file directory is" << dir.absolutePath() << "and file exists?" << isFileInDirectory;
+            if(isFileInDirectory){
+                parent->openFile("VBIN", instancePath);
+            }
+            testLoaded = parent->matchFile(instanceNameList[i] + ".VBIN");
+        }
+        while(testLoaded == nullptr){
+            parent->messageError("Please load a file " + instanceNameList[i]+".VBIN");
+            parent->openFile("VBIN");
+            testLoaded = parent->matchFile(instanceNameList[i] + ".VBIN");
+        }
+        testLoaded->outputPath = outputPath;
+        loadedInstances.push_back(testLoaded);
+    }
+
+    for(int i = 0; i < loadedInstances.size(); i++){
+        QFileInfo dir(outputPath);
+        QString instancePath = dir.absolutePath() + "/" + loadedInstances[i]->fileName + ".DAE";
+        bool isFileInDirectory = QFileInfo::exists(instancePath);
+        qDebug() << Q_FUNC_INFO << "file" << loadedInstances[i]->fileName << "has already been exported to this directory?" << isFileInDirectory;
+        if(!isFileInDirectory){
+            loadedInstances[i]->outputPath = instancePath;
+            loadedInstances[i]->save("DAE");
+        }
+    }
+
+    QFile daeOut(outputPath);
     QFile file(outputPath);
     file.open(QFile::WriteOnly|QFile::Truncate);
     file.close();
 
-    if(!stlOut.open(QIODevice::ReadWrite)){
+    if(!daeOut.open(QIODevice::ReadWrite)){
         parent->messageError("DAE export failed, could not open output file.");
         return;
     }
-    QTextStream stream(&stlOut);
+    QTextStream stream(&daeOut);
     //return;
 
     stream << "<?xml version=\"1.0\" encoding=\"utf-8\"?>" << Qt::endl;
@@ -697,29 +779,53 @@ void VBIN::outputDataDAE(){
     stream << "  </asset>" << Qt::endl;
 
     stream << "  <library_effects>" << Qt::endl;
-    base.searchListsWriteDAE(stream, &Mesh::writeEffectsDAE);
+    /*for(int i = 0; i < instanceNameList.size(); i++){
+        loadedInstances[i]->save("Effect", stream);
+    }*/
+    writeEffectListDAE(stream);
+    //base.searchListsWriteDAE(stream, &Mesh::writeEffectsDAE);
     stream << "  </library_effects>" << Qt::endl;
 
-
     stream << "  <library_images>" << Qt::endl;
-    base.searchListsWriteDAE(stream, &Mesh::writeImagesDAE);
-    //base.writeImageListDAE(stream);
+    /*for(int i = 0; i < instanceNameList.size(); i++){
+        loadedInstances[i]->save("Image", stream);
+    }*/
+    writeImageListDAE(stream);
     stream << "  </library_images>" << Qt::endl;
 
     stream << "  <library_materials>" << Qt::endl;
-    base.searchListsWriteDAE(stream, &Mesh::writeMaterialsDAE);
-    //base.writeMaterialListDAE(stream);
+    /*for(int i = 0; i < instanceNameList.size(); i++){
+        loadedInstances[i]->save("Material", stream);
+    }*/
+    writeMaterialListDAE(stream);
     stream << "  </library_materials>" << Qt::endl;
 
     stream << "  <library_geometries>" << Qt::endl;
-    base.searchListsWriteDAE(stream, &Mesh::writeDataDAE);
+    /*for(int i = 0; i < instanceNameList.size(); i++){
+        loadedInstances[i]->save("Geometry", stream);
+    }*/
+    writeGeometryListDAE(stream);
+    //base.searchListsWriteDAE(stream, &Mesh::writeDataDAE);
     //base.writeSectionListDAE(stream);
     stream << "  </library_geometries>" << Qt::endl;
 
+    stream << "  <library_animations>" << Qt::endl;
+    writeAnimationListDAE(stream);
+    //animationSet.writeAnimationsDAE(stream);
+    stream << "  </library_animations>" << Qt::endl;
+
+    stream << "  <library_nodes>" << Qt::endl;
+    /*for(int i = 0; i < instanceNameList.size(); i++){
+        loadedInstances[i]->save("Node", stream);
+    }*/
+    stream << "  </library_nodes>" << Qt::endl;
+
     stream << "  <library_visual_scenes>" << Qt::endl;
     stream << "    <visual_scene id=\"Scene\" name=\"Scene\">" << Qt::endl;
-    base.searchListsWriteDAE(stream, &Mesh::writeNodesDAE);
-    //base.writeSceneListDAE(stream);
+    ////base.searchListsWriteDAE(stream, &Mesh::writeNodesDAE);
+    writeNodeListDAE(stream);
+    //base.writeNodes(stream);
+    ////base.writeSceneListDAE(stream);
     stream << "    </visual_scene>" << Qt::endl;
     stream << "  </library_visual_scenes>" << Qt::endl;
 
@@ -729,8 +835,43 @@ void VBIN::outputDataDAE(){
 
     stream << "</COLLADA>" << Qt::endl;
 
-    parent->messageSuccess("DAE file saved.");
     qDebug() << Q_FUNC_INFO << "DAE output complete.";
+}
+
+void VBIN::writeEffectListDAE(QTextStream &stream){
+    base.searchListsWriteDAE(stream, &Mesh::writeEffectsDAE);
+}
+
+void VBIN::writeImageListDAE(QTextStream &stream){
+    QString textureName;
+    for (int texture = 0; texture < textureNameList.size(); texture++) {
+        textureName = textureNameList[texture];
+        stream << "    <image id=\"" + textureName +"_png\" name=\"" + textureName +"_png\">" << Qt::endl;
+        stream << "      <init_from>" + textureName +".png</init_from>" << Qt::endl;
+        stream << "    </image>" << Qt::endl;
+    }
+}
+
+void VBIN::writeMaterialListDAE(QTextStream &stream){
+    QString textureName;
+    for (int material = 0; material < textureNameList.size(); material++) {
+        textureName = textureNameList[material];
+        stream << "    <material id=\"" + textureName +"Texture-material\" name=\"" + textureName + "Texture\">" << Qt::endl;
+        stream << "      <instance_effect url=\"#" + textureName + "Texture-effect\"/>" << Qt::endl;
+        stream << "    </material>" << Qt::endl;
+    }
+}
+
+void VBIN::writeGeometryListDAE(QTextStream &stream){
+    base.searchListsWriteDAE(stream, &Mesh::writeDataDAE);
+}
+
+void VBIN::writeAnimationListDAE(QTextStream &stream){
+    animationSet.writeAnimationsDAE(stream);
+}
+
+void VBIN::writeNodeListDAE(QTextStream &stream){
+    base.writeNodes(stream);
 }
 
 void VBIN::applyKeyframe(){

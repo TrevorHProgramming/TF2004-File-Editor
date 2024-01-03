@@ -1,9 +1,9 @@
 #include "Headers/Main/mainwindow.h"
 
 AnimationBase *makeAnimation(QString animationSignature){
-    if (animationSignature == "~anAnimationTranslation") {
+    if (animationSignature == "anAnimationTranslation") {
         return new AnimationTranslation;
-    } else if (animationSignature == "~anAnimationOrientation") {
+    } else if (animationSignature == "anAnimationOrientation") {
         return new AnimationOrientation;
     } /*else if (animationSignature == "~anAnimationScale") {
         return new AnimationScale;
@@ -20,12 +20,10 @@ void AnimationSourceSet::readAnimationSet(){
 
 
     file->fileData->signature(&signature);
-    if(signature.type != "~StreamArray"){
+    if(signature.type != "StreamArray"){
         qDebug() << Q_FUNC_INFO << "Expected Stream Array at" << file->fileData->currentPosition;
         return;
     }
-
-    int arrayLength = file->fileData->readInt();
 
     for (int animation = 0; animation < sourceCount; animation++) {
         AnimationStream *animationStream = new AnimationStream;
@@ -38,15 +36,19 @@ void AnimationSourceSet::readAnimationSet(){
 void AnimationStream::readAnimationStream(){
     SectionHeader signature;
     file->fileData->signature(&signature);
-    if(signature.type != "~anAnimationStream") {
-        qDebug() << Q_FUNC_INFO << "Expected Animation Stream at" << file->fileData->currentPosition;
+    if(signature.type != "anAnimationStream") {
+        qDebug() << Q_FUNC_INFO << "Expected Animation Stream at" << file->fileData->currentPosition << ". Instead found" << signature.type;
+        file->fileData->currentPosition = sectionEnd;
         return;
     }
 
-    int nameLength = file->fileData->readInt();
-    file->fileData->hexValue(&name, nameLength);
+    name = signature.name;
+    sectionLength = signature.sectionLength;
+
+    //int nameLength = file->fileData->readInt();
+    //file->fileData->hexValue(&name, nameLength);
     //name = file->fileData->readHex(nameLength);
-    sectionLength = file->fileData->readInt();
+    //sectionLength = file->fileData->readInt();
 
     version1 = file->fileData->readInt();
     minimumLOD = file->fileData->readInt();
@@ -56,24 +58,26 @@ void AnimationStream::readAnimationStream(){
     channelCount = file->fileData->readInt();
 
     file->fileData->signature(&signature);
-    if(signature.type != "~channelArray") {
-        qDebug() << Q_FUNC_INFO << "Expected Channel Array at" << file->fileData->currentPosition;
+    if(signature.type != "channelArray") {
+        qDebug() << Q_FUNC_INFO << "Expected Channel Array at" << file->fileData->currentPosition << ". Instead found" << signature.type;
+        file->fileData->currentPosition = sectionEnd;
         return;
     }
 
-    int channelDataLength = file->fileData->readInt();
-
+    qDebug() << Q_FUNC_INFO << "total channels" << channelCount;
     for(int channelIndex = 0; channelIndex < channelCount; channelIndex++){
+        qDebug() << Q_FUNC_INFO << "checking channel" << channelIndex << "at" << file->fileData->currentPosition;
         SectionHeader channel;
         file->fileData->signature(&channel);
         int ending = channel.sectionLength + channel.sectionLocation;
 
         AnimationBase *animationChannel = makeAnimation(channel.type);
         if (animationChannel == nullptr) {
-            qDebug() << Q_FUNC_INFO << "Unsupported channel type" << channel.type << ". Skipping for now.";
+            qDebug() << Q_FUNC_INFO << "Unsupported channel type" << channel.type << " found at" << file->fileData->currentPosition << ". Skipping for now.";
             file->parent->fileData.currentPosition = ending;
             continue;
         }
+        animationChannel->hasScalar = false;
         qDebug() << Q_FUNC_INFO << "reading an animation channel" << channel.name << "of type" << channel.type << "at" << file->fileData->currentPosition;
         animationChannel->file = file;
         animationChannel->animationType = channel.type;
@@ -83,27 +87,30 @@ void AnimationStream::readAnimationStream(){
         animationChannel->version3 = file->fileData->readInt();
         animationChannel->keyframeCount = file->fileData->readInt();
         animationChannel->subVersion = file->fileData->readInt();
-        if(channel.type == "~anAnimationOrientation"){
+        if(channel.type == "anAnimationOrientation"){
             animationChannel->has4DSpline = file->fileData->readBool();
             animationChannel->hasPackedSpline = file->fileData->readBool();
         }
 
         SectionHeader motion;
         file->fileData->signature(&motion);
+        animationChannel->motionType = motion.type;
+
         if(motion.type == "Scalar"){
             animationChannel->readScalar();
             file->fileData->signature(&motion);
         }
 
-        if (motion.type == "~Linear") {
+        if (motion.type == "Linear") {
             animationChannel->readLinear();
-        } else if (motion.type == "~Cubic") {
+        } else if (motion.type == "Cubic") {
             animationChannel->readCubic();
-        } else if (motion.type == "~CubicC2") {
+        } else if (motion.type == "CubicC2") {
             animationChannel->readCubicC2();
         } else {
             qDebug() << Q_FUNC_INFO << "Unsupported motion type" << motion.type << ". Skipping for now.";
             file->fileData->currentPosition = ending;
+            continue;
         }
         animationChannel->maxTime = 0;
         for(int i = 0; i < animationChannel->keyframeTimes.size(); i++){
@@ -113,12 +120,13 @@ void AnimationStream::readAnimationStream(){
         }
         channelArray.push_back(animationChannel);
     }
+    qDebug() << Q_FUNC_INFO << "location after animation read:" << file->fileData->currentPosition;
 }
 
 void AnimationBase::readScalar(){
-    qDebug() << Q_FUNC_INFO << "reading an animation scalar modifier";
+    qDebug() << Q_FUNC_INFO << "reading an animation scalar modifier at" << file->parent->fileData.currentPosition;
     hasScalar = true;
-    sectionLength = file->fileData->readInt();
+    //sectionLength = file->fileData->readInt();
     version3 = file->fileData->readInt();
     keyframeCount = file->fileData->readInt();
     subVersion = file->fileData->readInt();
@@ -126,11 +134,12 @@ void AnimationBase::readScalar(){
     float y_pos = file->fileData->readFloat();
     float z_pos = file->fileData->readFloat();
     vectorList.push_back(QVector3D(x_pos, y_pos, z_pos));
+    qDebug() << Q_FUNC_INFO << "scalar modifier read as" << QVector3D(x_pos, y_pos, z_pos);
 }
 
 void AnimationTranslation::readLinear(){
     qDebug() << Q_FUNC_INFO << "reading a translation animation linear motion";
-    sectionLength = file->fileData->readInt();
+    //sectionLength = file->fileData->readInt();
     version3 = file->fileData->readInt();
     keyframeCount = file->fileData->readInt();
     subVersion = file->fileData->readInt();
@@ -142,12 +151,14 @@ void AnimationTranslation::readLinear(){
         float z_pos = file->fileData->readFloat();
         vectorList.push_back(QVector3D(x_pos, y_pos, z_pos));
     }
+    qDebug() << Q_FUNC_INFO << "linear translation has keyframes" << keyframeTimes;
+    qDebug() << Q_FUNC_INFO << "linear translation has values:" << vectorList;
 }
 
 void AnimationTranslation::readCubic(){
     if(hasScalar){
         qDebug() << Q_FUNC_INFO << "reading a translation animation cubic motion";
-        sectionLength = file->fileData->readInt();
+        //sectionLength = file->fileData->readInt();
         version3 = file->fileData->readInt();
         keyframeCount = file->fileData->readInt();
         subVersion = file->fileData->readInt();
@@ -172,7 +183,7 @@ void AnimationTranslation::readCubic(){
 
 void AnimationOrientation::readLinear(){
     qDebug() << Q_FUNC_INFO << "reading an orientation animation linear motion";
-    sectionLength = file->fileData->readInt();
+    //sectionLength = file->fileData->readInt();
     version3 = file->fileData->readInt();
     keyframeCount = file->fileData->readInt();
     subVersion = file->fileData->readInt();
@@ -189,29 +200,34 @@ void AnimationOrientation::readLinear(){
 
 void AnimationOrientation::readCubic(){
     //might need to add check for miniquat
+    qDebug() << Q_FUNC_INFO << "reading an orientation animation cubic motion at" << file->parent->fileData.currentPosition;
+    version3 = file->parent->fileData.readInt();
+    keyframeCount = file->parent->fileData.readInt();
+    subVersion = file->parent->fileData.readInt();
     if(hasScalar){
-        qDebug() << Q_FUNC_INFO << "reading an orientation animation cubic motion";
-        sectionLength = file->parent->fileData.readInt();
-        version3 = file->parent->fileData.readInt();
-        keyframeCount = file->parent->fileData.readInt();
-        subVersion = file->parent->fileData.readInt();
-        qDebug() << Q_FUNC_INFO << "reading" << keyframeCount << "values";
+        qDebug() << Q_FUNC_INFO << "animation has a scalar component";
+        //sectionLength = file->parent->fileData.readInt();
         for (int frameData = 0; frameData < keyframeCount; frameData++) {
             keyframeTimes.push_back(file->parent->fileData.readFloat());
             rotationList.push_back(file->fileData->readMiniQuaternion());
         }
     } else {
-        keyframeTimes.push_back(file->parent->fileData.readFloat());
-        for(int i = 0; i < 3; i++){
-            rotationList.push_back(file->fileData->readMiniQuaternion());
+        qDebug() << Q_FUNC_INFO << "animation does not have a scalar component";
+        for (int frameData = 0; frameData < keyframeCount; frameData++) {
+            keyframeTimes.push_back(file->parent->fileData.readFloat());
+            for(int i = 0; i < 3; i++){
+                rotationList.push_back(file->fileData->readMiniQuaternion());
+            }
         }
     }
+
+    qDebug() << Q_FUNC_INFO << "finished reading cubic orientation at" << file->parent->fileData.currentPosition;
 }
 
 void AnimationOrientation::readCubicC2(){
     //might need to add check for miniquat
     qDebug() << Q_FUNC_INFO << "reading an orientation animation cubic2 motion";
-    sectionLength = file->parent->fileData.readInt();
+    //sectionLength = file->parent->fileData.readInt();
     version3 = file->parent->fileData.readInt();
     keyframeCount = file->parent->fileData.readInt();
     subVersion = file->parent->fileData.readInt();
@@ -226,7 +242,7 @@ void AnimationOrientation::readCubicC2(){
 
 void AnimationTranslation::readCubicC2(){
     qDebug() << Q_FUNC_INFO << "reading an translation animation cubic2 motion";
-    sectionLength = file->parent->fileData.readInt();
+    //sectionLength = file->parent->fileData.readInt();
     version3 = file->parent->fileData.readInt();
     keyframeCount = file->parent->fileData.readInt();
     subVersion = file->parent->fileData.readInt();
@@ -258,4 +274,135 @@ void AnimationBase::readCubic(){
 
 void AnimationBase::readCubicC2(){
     file->parent->messageError("THIS SHOULD NOT RUN");
+}
+
+void AnimationSourceSet::writeAnimationsDAE(QTextStream &fileOut){
+    for(int animations = 0; animations < streamArray.size(); animations++){
+        streamArray[animations]->writeAnimationStreamDAE(fileOut);
+    }
+}
+
+void AnimationStream::writeAnimationStreamDAE(QTextStream &fileOut){
+    //<animation id="action_container-SENTRYDRONE-Gun" name="SENTRYDRONE-Gun">
+    fileOut << "    <animation id=\"action_container-" + name +"\">" << Qt::endl;
+    for(int channel = 0; channel < channelArray.size(); channel++){
+        channelArray[channel]->writeAnimationChannelDAE(fileOut, name);
+    }
+    fileOut << "    </animation>" << Qt::endl;
+}
+
+void AnimationBase::writeAnimationChannelDAE(QTextStream &fileOut, QString animationName){
+    qDebug() << Q_FUNC_INFO << "Virtual function overwrite was not called.";
+}
+
+void AnimationTranslation::writeAnimationChannelDAE(QTextStream &fileOut, QString animationName){
+    //this one might need different versions for each channel type
+    fileOut << "      <animation id=\"" + name + "_" + animationName + "_Translation\">" << Qt::endl;
+    fileOut << "        <source id=\"" + name + "_" + animationName + "-input\">" << Qt::endl;
+    fileOut << "          <float_array id=\"" + name + "_" + animationName + "-input-array\" count=\"" + QString::number(keyframeCount) +"\">";
+    for(int frame = 0; frame < keyframeTimes.size(); frame++){
+        fileOut << QString::number(keyframeTimes[frame]) << " ";
+    }
+    fileOut << "</float_array>" << Qt::endl;
+    fileOut << "          <technique_common>" << Qt::endl;
+    fileOut << "            <accessor source=\"#" + name + "_" + animationName + "-input-array\" count=\"" + QString::number(keyframeCount) +"\" stride=\"1\">" << Qt::endl;
+    fileOut << "              <param name=\"TIME\" type=\"float\"/>" << Qt::endl;
+    fileOut << "            </accessor>" << Qt::endl;
+    fileOut << "          </technique_common>" << Qt::endl;
+    fileOut << "        </source>" << Qt::endl;
+
+    fileOut << "        <source id=\"" + name + "_" + animationName + "-output\">" << Qt::endl;
+    fileOut << "          <float_array id=\"" + name + "_" + animationName + "-output-array\" count=\"" + QString::number(keyframeCount*3) +"\">";
+    for(int frame = 0; frame < keyframeTimes.size(); frame++){
+        fileOut << QString::number(vectorList[frame].x()) << " ";
+        fileOut << QString::number(vectorList[frame].y()) << " ";
+        fileOut << QString::number(vectorList[frame].z()) << " ";
+    }
+    fileOut << "</float_array>" << Qt::endl;
+    fileOut << "          <technique_common>" << Qt::endl;
+    fileOut << "            <accessor source=\"#" + name + "_" + animationName + "-output-array\" count=\"" + QString::number(keyframeCount) +"\" stride=\"3\">" << Qt::endl;
+    fileOut << "              <param name=\"X\" type=\"float\"/>" << Qt::endl;
+    fileOut << "              <param name=\"Y\" type=\"float\"/>" << Qt::endl;
+    fileOut << "              <param name=\"Z\" type=\"float\"/>" << Qt::endl;
+    fileOut << "            </accessor>" << Qt::endl;
+    fileOut << "          </technique_common>" << Qt::endl;
+    fileOut << "        </source>" << Qt::endl;
+
+    fileOut << "        <source id=\"" + name + "_" + animationName + "-interpolation\">" << Qt::endl;
+    fileOut << "          <Name_array id=\"" + name + "_" + animationName + "-interpolation-array\" count=\"" + QString::number(keyframeCount) +"\">";
+    for(int frame = 0; frame < keyframeTimes.size(); frame++){
+        fileOut << motionType.toUpper() << " ";
+    }
+    fileOut << "</Name_array>" << Qt::endl;
+    fileOut << "          <technique_common>" << Qt::endl;
+    fileOut << "            <accessor source=\"#" + name + "_" + animationName + "-interpolation-array\" count=\"" + QString::number(keyframeCount) +"\" stride=\"1\">" << Qt::endl;
+    fileOut << "              <param name=\"INTERPOLATION\" type=\"name\"/>" << Qt::endl;
+    fileOut << "            </accessor>" << Qt::endl;
+    fileOut << "          </technique_common>" << Qt::endl;
+    fileOut << "        </source>" << Qt::endl;
+
+    fileOut << "        <sampler id=\"" + name + "_" + animationName + "-sampler\">" << Qt::endl;
+    fileOut << "          <input semantic=\"INPUT\" source=\"#" + name + "_" + animationName + "-input\"/>" << Qt::endl;
+    fileOut << "          <input semantic=\"OUTPUT\" source=\"#" + name + "_" + animationName + "-output\"/>" << Qt::endl;
+    fileOut << "          <input semantic=\"INTERPOLATION\" source=\"#" + name + "_" + animationName + "-interpolation\"/>" << Qt::endl;
+    fileOut << "        </sampler>" << Qt::endl;
+    fileOut << "        <channel source=\"#" + name + "_" + animationName + "-sampler\" target=\"" + name + "/translate\"/>" << Qt::endl;
+    fileOut << "      </animation>" << Qt::endl;
+}
+
+void AnimationOrientation::writeAnimationChannelDAE(QTextStream &fileOut, QString animationName){
+    //this one might need different versions for each channel type
+    fileOut << "      <animation id=\"" + name + "_" + animationName + "_orientation\">" << Qt::endl;
+    fileOut << "        <source id=\"" + name + "_" + animationName + "-input\">" << Qt::endl;
+    fileOut << "          <float_array id=\"" + name + "_" + animationName + "-input-array\" count=\"" + QString::number(keyframeCount) +"\">";
+    for(int frame = 0; frame < keyframeTimes.size(); frame++){
+        fileOut << QString::number(keyframeTimes[frame]) << " ";
+    }
+    fileOut << "</float_array>" << Qt::endl;
+    fileOut << "          <technique_common>" << Qt::endl;
+    fileOut << "            <accessor source=\"#" + name + "_" + animationName + "-input-array\" count=\"" + QString::number(keyframeCount) +"\" stride=\"1\">" << Qt::endl;
+    fileOut << "              <param name=\"TIME\" type=\"float\"/>" << Qt::endl;
+    fileOut << "            </accessor>" << Qt::endl;
+    fileOut << "          </technique_common>" << Qt::endl;
+    fileOut << "        </source>" << Qt::endl;
+
+    fileOut << "        <source id=\"" + name + "_" + animationName + "-output\">" << Qt::endl;
+    fileOut << "          <float_array id=\"" + name + "_" + animationName + "-output-array\" count=\"" + QString::number(keyframeCount*3) +"\">";
+    QVector3D eulerRotation;
+    for(int frame = 0; frame < keyframeTimes.size(); frame++){
+        eulerRotation = rotationList[frame].toEulerAngles();
+        fileOut << QString::number(eulerRotation.x()) << " ";
+        fileOut << QString::number(eulerRotation.y()) << " ";
+        fileOut << QString::number(eulerRotation.z()) << " ";
+    }
+    fileOut << "</float_array>" << Qt::endl;
+    fileOut << "          <technique_common>" << Qt::endl;
+    fileOut << "            <accessor source=\"#" + name + "_" + animationName + "-output-array\" count=\"" + QString::number(keyframeCount) +"\" stride=\"3\">" << Qt::endl;
+    fileOut << "              <param name=\"X\" type=\"float\"/>" << Qt::endl;
+    fileOut << "              <param name=\"Y\" type=\"float\"/>" << Qt::endl;
+    fileOut << "              <param name=\"Z\" type=\"float\"/>" << Qt::endl;
+    fileOut << "            </accessor>" << Qt::endl;
+    fileOut << "          </technique_common>" << Qt::endl;
+    fileOut << "        </source>" << Qt::endl;
+
+    fileOut << "        <source id=\"" + name + "_" + animationName + "-interpolation\">" << Qt::endl;
+    fileOut << "          <Name_array id=\"" + name + "_" + animationName + "-interpolation-array\" count=\"" + QString::number(keyframeCount) +"\">";
+    for(int frame = 0; frame < keyframeTimes.size(); frame++){
+        fileOut << motionType.toUpper() << " ";
+    }
+    fileOut << "</Name_array>" << Qt::endl;
+    fileOut << "          <technique_common>" << Qt::endl;
+    fileOut << "            <accessor source=\"#" + name + "_" + animationName + "-interpolation-array\" count=\"" + QString::number(keyframeCount) +"\" stride=\"1\">" << Qt::endl;
+    fileOut << "              <param name=\"INTERPOLATION\" type=\"name\"/>" << Qt::endl;
+    fileOut << "            </accessor>" << Qt::endl;
+    fileOut << "          </technique_common>" << Qt::endl;
+    fileOut << "        </source>" << Qt::endl;
+
+    fileOut << "        <sampler id=\"" + name + "_" + animationName + "-sampler\">" << Qt::endl;
+    fileOut << "          <input semantic=\"INPUT\" source=\"#" + name + "_" + animationName + "-input\"/>" << Qt::endl;
+    fileOut << "          <input semantic=\"OUTPUT\" source=\"#" + name + "_" + animationName + "-output\"/>" << Qt::endl;
+    fileOut << "          <input semantic=\"INTERPOLATION\" source=\"#" + name + "_" + animationName + "-interpolation\"/>" << Qt::endl;
+    fileOut << "        </sampler>" << Qt::endl;
+    fileOut << "        <channel source=\"#" + name + "_" + animationName + "-sampler\" target=\"" + name + "/translate\"/>" << Qt::endl;
+    fileOut << "      </animation>" << Qt::endl;
 }

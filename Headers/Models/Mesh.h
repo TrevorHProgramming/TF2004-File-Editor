@@ -119,6 +119,7 @@ public:
     VertexSet vertexSet;
     ElementArray elementArray;
     int elementCount;
+    int elementOffset;
 
     void clear();
     void applyKeyframe(QVector3D keyOffset);

@@ -2,7 +2,7 @@
 #include "ui_mainwindow.h"
 
 template <typename theFile>
-void ProgWindow::loadFile(theFile fileToOpen){
+void ProgWindow::loadFile(theFile fileToOpen, QString givenPath){
     clearWindow();
     std::shared_ptr<TFFile> checkFile;
     qDebug() << Q_FUNC_INFO << "running this function";
@@ -13,7 +13,12 @@ void ProgWindow::loadFile(theFile fileToOpen){
     openSelector = "Select " + fileToOpen->fileExtension;
     QString openLimiter;
     openLimiter = fileToOpen->fileExtension + " files (*." + fileToOpen->fileExtension + ")";
-    QString fileIn = QFileDialog::getOpenFileName(this, tr(openSelector.toStdString().c_str()), QDir::currentPath() + "/" + fileToOpen->fileExtension + "/", tr(openLimiter.toStdString().c_str()));
+    QString fileIn;
+    if(givenPath == ""){
+        fileIn = QFileDialog::getOpenFileName(this, tr(openSelector.toStdString().c_str()), QDir::currentPath() + "/" + fileToOpen->fileExtension + "/", tr(openLimiter.toStdString().c_str()));
+    } else {
+        fileIn = givenPath;
+    }
     if(!fileIn.isNull()){
         fileMode = fileToOpen->fileExtension;
         fileToOpen->inputPath = fileIn;
@@ -23,6 +28,7 @@ void ProgWindow::loadFile(theFile fileToOpen){
         inputFile.open(QIODevice::ReadOnly);
         QFileInfo fileInfo(inputFile);
         fileToOpen->fileName = fileInfo.fileName().left(fileInfo.fileName().indexOf("."));
+        fileToOpen->fileExtension = fileInfo.fileName().right(fileInfo.fileName().length() - (fileInfo.fileName().indexOf(".")+1));
         checkFile = matchFile(fileToOpen->fullFileName());
         while(checkFile != nullptr){
             fileToOpen->duplicateFileCount = checkFile->duplicateFileCount + 1;
@@ -31,6 +37,7 @@ void ProgWindow::loadFile(theFile fileToOpen){
 
         fileToOpen->load(fileToOpen->fileExtension);
         loadedFiles.push_back(fileToOpen);
+        loadedFileNames.push_back(fileToOpen->fullFileName().toUpper());
         fileBrowser->addItem(fileToOpen->fullFileName());
         qDebug() << Q_FUNC_INFO << "number of items in file browser" << fileBrowser->count();
         fileBrowser->setCurrentRow(fileBrowser->count()-1);
@@ -42,7 +49,7 @@ template <typename theFile>
 void ProgWindow::loadBulkFile(theFile fileToOpen){
     clearWindow();
     std::shared_ptr<TFFile> checkFile;
-    qDebug() << Q_FUNC_INFO << "running this function";
+    //qDebug() << Q_FUNC_INFO << "running this function";
     fileData.input = true;
     fileToOpen->fileData = &fileData;
     fileToOpen->parent = this;
@@ -63,9 +70,9 @@ void ProgWindow::loadBulkFile(theFile fileToOpen){
 
     fileToOpen->load(fileToOpen->fileExtension);
     loadedFiles.push_back(fileToOpen);
+    loadedFileNames.push_back(fileToOpen->fullFileName().toUpper());
     fileBrowser->addItem(fileToOpen->fullFileName());
-    qDebug() << Q_FUNC_INFO << "number of items in file browser" << fileBrowser->count();
-    fileBrowser->setCurrentRow(fileBrowser->count()-1);
+    //qDebug() << Q_FUNC_INFO << "number of items in file browser" << fileBrowser->count();
 
 }
 
@@ -84,7 +91,7 @@ void ProgWindow::bulkOpen(QString fileType){
                 levelFile->fileExtension = fileType;
                 levelFile->inputPath = checkFile.filePath();
                 ProgWindow::loadBulkFile(levelFile);
-            } else if (fileType == "ITF" or fileType == "BMP"){
+            } else if (fileType == "ITF" or fileType == "Image Files (*." + QImageWriter::supportedImageFormats().join(";*.")+")"){
                 std::shared_ptr<ITF> itfFile(new ITF);
                 itfFile->fileExtension = fileType;
                 itfFile->inputPath = checkFile.filePath();
@@ -110,34 +117,44 @@ void ProgWindow::bulkOpen(QString fileType){
             }
         }
     }
+    fileBrowser->setCurrentRow(fileBrowser->count()-1);
 }
 
-void ProgWindow::openFile(QString fileType){
+void ProgWindow::openFile(QString fileType, QString givenPath){
     qDebug() << Q_FUNC_INFO << "running this function";
-    if(fileType == "VBIN" or fileType == "STL" or fileType == "DAE"){
+    if(fileType == "VBIN" or fileType == "STL" or fileType == "DAE" or fileType == "GRAPH.VBIN"){
         std::shared_ptr<VBIN> vbinFile(new VBIN);
         vbinFile->fileExtension = fileType;
-        ProgWindow::loadFile(vbinFile);
+        vbinFile->isSplitFile = false;
+        ProgWindow::loadFile(vbinFile, givenPath);
     } else if (fileType == "MESH.VBIN"){
+
         std::shared_ptr<MeshVBIN> levelFile(new MeshVBIN);
         levelFile->fileExtension = fileType;
-        ProgWindow::loadFile(levelFile);
-    } else if (fileType == "ITF" or fileType == "BMP"){
+        ProgWindow::loadFile(levelFile, givenPath);
+
+        std::shared_ptr<VBIN> graphFile(new VBIN);
+        graphFile->meshFile = levelFile;
+        graphFile->isSplitFile = true;
+        graphFile->fileExtension = "GRAPH.VBIN";
+        ProgWindow::loadFile(graphFile, givenPath);
+
+    } else if (fileType == "ITF" or fileType == "Image Files (*." + QImageWriter::supportedImageFormats().join(";*.")+")"){
         std::shared_ptr<ITF> itfFile(new ITF);
         itfFile->fileExtension = fileType;
-        ProgWindow::loadFile(itfFile);
+        ProgWindow::loadFile(itfFile, givenPath);
     } else if (fileType == "BMD" or fileType == "TMD"){
         std::shared_ptr<DefinitionFile> definitionFile(new DefinitionFile);
         definitionFile->fileExtension = fileType;
-        ProgWindow::loadFile(definitionFile);
+        ProgWindow::loadFile(definitionFile, givenPath);
     } else if (fileType == "BDB" or fileType == "TDB"){
         std::shared_ptr<DatabaseFile> databaseFile(new DatabaseFile);
         databaseFile->fileExtension = fileType;
-        ProgWindow::loadFile(databaseFile);
+        ProgWindow::loadFile(databaseFile, givenPath);
     } else if (fileType == "VAC"){
         std::shared_ptr<VACFile> vacFile(new VACFile);
         vacFile->fileExtension = fileType;
-        ProgWindow::loadFile(vacFile);
+        ProgWindow::loadFile(vacFile, givenPath);
     } else {
         qDebug() << Q_FUNC_INFO << "File type" << fileType << "hasn't been implemented yet.";
         return;

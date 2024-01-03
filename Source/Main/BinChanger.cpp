@@ -8,6 +8,12 @@ TFFile::TFFile(){
     this->fileData = nullptr;
 }
 
+uint32_t FileData::readSpecial(int length, long location){
+    uint32_t readValue = parent->binChanger.reverse_input(parent->binChanger.reverse_input(dataBytes.mid(currentPosition + location, length).toHex(),2), 1).toUInt(nullptr, 16);
+    currentPosition += length;
+    return readValue;
+}
+
 long FileData::readLong(int length, long location){
     long readValue = parent->binChanger.reverse_input(dataBytes.mid(currentPosition + location, length).toHex(),2).toLong(nullptr, 16);
     currentPosition += length;
@@ -63,6 +69,15 @@ QVector3D FileData::read3DVector(){
     return vector;
 }
 
+QVector3D FileData::readMini3DVector(){
+    float x_value = readMiniFloat();
+    float y_value = readMiniFloat();
+    float z_value = readMiniFloat();
+    QVector3D vector = QVector3D(x_value, y_value, z_value);
+
+    return vector;
+}
+
 QVector4D FileData::read4DVector(){
     float x_value = readFloat();
     float y_value = readFloat();
@@ -71,6 +86,25 @@ QVector4D FileData::read4DVector(){
     QVector4D vector = QVector4D(x_value, y_value, z_value, w_value);
 
     return vector;
+}
+
+QColor FileData::readColor(bool isFloat){
+    QColor color;
+    if(isFloat){
+        float r_value = readFloat();
+        float g_value = readFloat();
+        float b_value = readFloat();
+        float a_value = readFloat();
+        color = QColor(r_value, g_value, b_value, a_value);
+    } else {
+        int r_value = readInt();
+        int g_value = readInt();
+        int b_value = readInt();
+        int a_value = readInt();
+        color = QColor(r_value, g_value, b_value, a_value);
+    }
+
+    return color;
 }
 
 QQuaternion FileData::readQuaternion(){
@@ -140,18 +174,18 @@ QQuaternion FileData::readMiniQuaternion(){
 //    }
 //}
 
-//QByteArray FileData::readHex(int length, long location){
-//    QByteArray readValue = dataBytes.mid(currentPosition + location, length);
-//    currentPosition += length;
-//    return readValue;
-//}
+QByteArray FileData::readHex(int length, long location){
+    QByteArray readValue = dataBytes.mid(currentPosition + location, length);
+    currentPosition += length;
+    return readValue;
+}
 
 void FileData::hexValue(QString* value, int length, long location){
     if(input){
         *value = QString(dataBytes.mid(currentPosition + location, length));
         currentPosition += length;
     } else {
-        parent->messageError("This is not currently supported. It shouldn't even be called. How did you do that? Let Trevor know. " + QString(Q_FUNC_INFO));
+        parent->messageError("Writing hex strings is not currently supported. It shouldn't even be called. How did you do that? Let Trevor know. " + QString(Q_FUNC_INFO));
     }
 }
 
@@ -160,7 +194,7 @@ void FileData::hexValue(QByteArray* value, int length, long location){
         *value = dataBytes.mid(currentPosition + location, length);
         currentPosition += length;
     } else {
-        parent->messageError("This is not currently supported. It shouldn't even be called. How did you do that? Let Trevor know. " + QString(Q_FUNC_INFO));
+        parent->messageError("Writing hex byte arrays is not currently supported. It shouldn't even be called. How did you do that? Let Trevor know. " + QString(Q_FUNC_INFO));
     }
 }
 
@@ -204,19 +238,123 @@ const void SectionHeader::operator=(SectionHeader input){
     sectionLength = input.sectionLength;
 }
 
+QString FileData::textWord(){
+    QByteArray expectedWord;
+    QString word;
+    if(input){
+        long wordStart = 0;
+        long wordEnd = 0;
+
+        wordStart = currentPosition;
+        //qDebug() << Q_FUNC_INFO << "reading text word at" << wordStart;
+
+        QByteArrayMatcher findWordEnd;
+        findWordEnd.setPattern(QByteArray::fromHex(QString("20").toUtf8()));
+        wordEnd = findWordEnd.indexIn(dataBytes, wordStart);
+
+        if(wordEnd < wordStart){
+            parent->log("Word end was found earier than word start. Search started at " + QString::number(wordStart) + " | " + QString(Q_FUNC_INFO));
+            wordEnd = wordStart;
+        }
+        expectedWord = mid(wordStart, wordEnd-wordStart);
+
+        QByteArrayMatcher findLineEnd;
+        findLineEnd.setPattern(QByteArray::fromHex(QString("0D0A").toUtf8()));
+        if(findLineEnd.indexIn(expectedWord) >= 0){
+            //qDebug() << Q_FUNC_INFO << "Attempt to get a word crossed into the next line. That's not cool.";
+            return "";
+        }
+
+        word = expectedWord;
+        currentPosition = wordEnd+1; //+1 to skip the space, otherwise the next word find will fail.
+    } else {
+        parent->messageError("Writing wordss is not currently supported. It shouldn't even be called. How did you do that? Let Trevor know. " + QString(Q_FUNC_INFO));
+        return "";
+    }
+    return word.trimmed();
+}
+
+void FileData::nextLine(){
+    //qDebug() << Q_FUNC_INFO << "going to next line, starting at" << currentPosition;
+    QByteArrayMatcher findEndLine;
+    findEndLine.setPattern(QByteArray::fromHex(QString("0D0A").toUtf8()));
+    currentPosition = findEndLine.indexIn(dataBytes, currentPosition)+2;
+    line++;
+    //qDebug() << Q_FUNC_INFO << "Starting next line at" << currentPosition;
+}
+
+/*Skips a line. If set to check for empty, will return true on non-empty line.*/
+int FileData::skipLine(bool checkEmpty){
+    //qDebug() << Q_FUNC_INFO << "skipping line, starting at" << currentPosition;
+    QString lineContents;
+    QByteArrayMatcher findEndLine;
+    findEndLine.setPattern(QByteArray::fromHex(QString("0D0A").toUtf8()));
+    long endLine = findEndLine.indexIn(dataBytes, currentPosition) - currentPosition;
+    lineContents = dataBytes.mid(currentPosition, endLine).trimmed();
+    //qDebug() << Q_FUNC_INFO << "line contents read as" << lineContents << "with length" << lineContents.length();
+    if(checkEmpty){
+        if(lineContents.length() != 0){
+            //qDebug() << Q_FUNC_INFO << "Line was not empty at" << currentPosition;
+            return 1;
+        }
+    }
+    currentPosition += endLine+2;
+    line++;
+    //qDebug() << Q_FUNC_INFO << "Starting next line at" << currentPosition;
+    return 0;
+}
+
+void FileData::textSignature(SectionHeader *signature){
+    if(input){
+        QString nameCheck;
+        long signatureStart = 0;
+        long signatureEnd = 0;
+
+        //qDebug() << Q_FUNC_INFO << "checking for signature at" << currentPosition;
+        signatureStart = currentPosition;
+
+        QByteArrayMatcher findSignatureEnd;
+        findSignatureEnd.setPattern(QByteArray::fromHex(QString("20").toUtf8()));
+        signatureEnd = findSignatureEnd.indexIn(dataBytes, signatureStart);
+
+        if(signatureEnd < signatureStart){
+            qDebug()<< Q_FUNC_INFO << "Signature end was found earier than signature start. Search started at " << signatureStart;
+            signatureEnd = signatureStart;
+        }
+        nameCheck = mid(signatureStart, signatureEnd-signatureStart).trimmed();
+        if(nameCheck.left(1) == "~"){
+            //qDebug() << Q_FUNC_INFO << "Signature verified as" << nameCheck;
+            nameCheck = nameCheck.right(nameCheck.size()-1);
+            signature->type = nameCheck;
+            currentPosition = signatureEnd;
+            signature->hasName = false;
+            signature->sectionLocation = line;
+        } else {
+            //qDebug() << Q_FUNC_INFO << "Signature not verified. Read as:" << nameCheck;
+            currentPosition -= nameCheck.length();
+            return;
+        }
+    } else {
+        parent->messageError("Writing signatures is not currently supported. It shouldn't even be called. How did you do that? Let Trevor know. " + QString(Q_FUNC_INFO));
+    }
+}
+
 void FileData::signature(SectionHeader *signature){
     if(input){
         long signatureStart = 0;
         long signatureEnd = 0;
 
-        signatureStart = currentPosition;
+        signatureStart = currentPosition+1;
 
         QByteArrayMatcher findSignatureEnd;
         findSignatureEnd.setPattern(QByteArray::fromHex(QString("00").toUtf8()));
-        signatureEnd = findSignatureEnd.indexIn(dataBytes, currentPosition);
+        signatureEnd = findSignatureEnd.indexIn(dataBytes, signatureStart);
+
+        //qDebug() << Q_FUNC_INFO << "signature start:" << signatureStart << "signature end" << signatureEnd << "current position" << currentPosition;
 
         if(signatureEnd < signatureStart){
             qDebug()<< Q_FUNC_INFO << "Signature end was found earier than signature start. Search started at " << signatureStart;
+            signatureEnd = signatureStart;
         }
         signature->type = mid(signatureStart, signatureEnd-signatureStart);
 
@@ -233,7 +371,7 @@ void FileData::signature(SectionHeader *signature){
 
         //qDebug() << Q_FUNC_INFO << "position after signature read:" << currentPosition <<". last data read as" << signature->sectionLength << "at" << signature->sectionLocation;
     } else {
-        parent->messageError("This is not currently supported. It shouldn't even be called. How did you do that? Let Trevor know. " + QString(Q_FUNC_INFO));
+        parent->messageError("Writing signatures is not currently supported. It shouldn't even be called. How did you do that? Let Trevor know. " + QString(Q_FUNC_INFO));
     }
 }
 
@@ -465,7 +603,17 @@ QByteArray BinChanger::float_to_hex(float input){
         array.push_back(pf[i]);
 
     }
+    //qDebug() << Q_FUNC_INFO << "Float value" << input << "converted to" << array;
     return array;
+}
+
+qint64 BinChanger::hexWrite(QFile& file, QByteArray var) {
+    qint64 written = 0;
+    for(int i = 0; i < var.size(); i++){
+      written = byteWrite(file, var.at(i));
+    }
+    //qDebug () << "out: " << written;
+    return written;
 }
 
 qint64 BinChanger::byteWrite(QFile& file, int8_t var) {
@@ -510,6 +658,10 @@ qint64 BinChanger::longWrite( QFile& file, int64_t var ) {
 
 void TFFile::save(QString toType){
     qDebug() << Q_FUNC_INFO << "The class you tried to save doesn't have a valid save function.";
+}
+
+void TFFile::save(QString toType, QTextStream &stream){
+    qDebug() << Q_FUNC_INFO << "The class you tried to save doesn't have a valid save function (textstream version).";
 }
 
 void TFFile::load(QString fromType){
