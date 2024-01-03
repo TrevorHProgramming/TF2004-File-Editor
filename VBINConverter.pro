@@ -9,8 +9,8 @@ CONFIG += c++11
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    Source/Databases/DatabaseModel.cpp \
     Source/Models/Antioch2.cpp \
-    Source/Textures/BMPandPNGConversion.cpp \
     Source/Main/BinChanger.cpp \
     Source/Databases/Database.cpp \
     Source/Databases/DatabaseItems.cpp \
@@ -25,6 +25,7 @@ SOURCES += \
     Source/Main/openfile.cpp \
 
 HEADERS += \
+    Headers/Main/CustomQT.h \
     Headers/Models/Antioch2.h \
     Headers/Main/BinChanger.h \
     Headers/Databases/Database.h \
@@ -34,7 +35,8 @@ HEADERS += \
     Headers/Audio/ToneLibraries.h \
     Headers/Textures/itf.h \
     Headers/Main/mainwindow.h \
-    Headers/Models/vbin.h
+    Headers/Models/vbin.h \
+    winsparkle.h
 
 FORMS += \
     mainwindow.ui
@@ -44,5 +46,16 @@ qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
-DISTFILES +=
+RC_FILE += \
+    TF04Converter_Version.rc
 
+DISTFILES += \
+    TF04Converter_Version.rc
+
+INCLUDEPATH += \
+    $$PWD/WinSparkle-0.8.0/include
+
+win32: LIBS += -L$$PWD/WinSparkle-0.8.0/x64/release/ -lWinSparkle
+
+INCLUDEPATH += $$PWD/WinSparkle-0.8.0/x64/Release
+DEPENDPATH += $$PWD/WinSparkle-0.8.0/x64/Release

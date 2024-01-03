@@ -61,6 +61,63 @@ const void PositionArray::operator=(PositionArray input){
     fileLocation = input.fileLocation;
 }
 
+void CellManager::readPortals(){
+    qDebug() << Q_FUNC_INFO << "Portal section started reading at" << fileData->currentPosition << "with" << portalCount << "portals";
+    SectionHeader signature;
+    for(int i = 0; i < portalCount; i++){
+        Portal *currentPortal = new Portal;
+        fileData->signature(&signature); //should read "Portal"
+        currentPortal->possibleVersion = fileData->readInt();
+        for(int i = 0; i < 4; i++){
+            currentPortal->references.push_back(fileData->readInt(2));
+        }
+        currentPortal->unknownPoint = fileData->read3DVector();
+        for(int i = 0; i < 5; i++){
+            currentPortal->pointList.push_back(fileData->read3DVector());
+        }
+        currentPortal->unknownValue = fileData->readFloat();
+        //fileData->currentPosition = signature.sectionLocation + signature.sectionLength;
+        portalList.push_back(currentPortal);
+    }
+    qDebug() << Q_FUNC_INFO << "Portal section finished reading at" << fileData->currentPosition;
+}
+
+void CellManager::readCell(){
+    SectionHeader signature;
+    fileData->signature(&signature); //should read "Cell"
+    qDebug() << Q_FUNC_INFO << "read section:" << signature.type;
+    if(signature.type != "Cell"){
+        file->parent->log(QString::number(fileData->currentPosition) + " | Found unexpected section. Expected: Cell. | " + QString(Q_FUNC_INFO));
+    }
+    Cell *currentCell = new Cell;
+    currentCell->possibleVersion = fileData->readInt();
+    currentCell->unknownShort = fileData->readInt(2);
+    fileData->signature(&signature); //should be AABB
+    for(int i = 0; i < 2; i++){
+        currentCell->axisBounds.push_back(fileData->read3DVector());
+    }
+    qDebug() << Q_FUNC_INFO << "finished reading axis bounds at" << fileData->currentPosition << "with values" << currentCell->axisBounds;
+    //fileData->currentPosition = signature.sectionLocation + signature.sectionLength;
+    fileData->signature(&signature); //should be OBB
+    for(int i = 0; i < 5; i++){
+        currentCell->orientationBounds.push_back(fileData->read3DVector());
+    }
+    qDebug() << Q_FUNC_INFO << "finished reading orientation bounds at" << fileData->currentPosition << "with values" << currentCell->orientationBounds;
+    //fileData->currentPosition = signature.sectionLocation + signature.sectionLength;
+
+    int portalCount = fileData->readInt();
+    fileData->signature(&signature); //should be Portals
+    for(int i = 0; i < portalCount; i++){
+        currentCell->portals.push_back(fileData->readInt());
+    }
+    int excludedCellCount = fileData->readInt();
+    fileData->signature(&signature); //should be ExcludedCells
+    for(int i = 0; i < excludedCellCount; i++){
+        currentCell->excludedCells.push_back(fileData->readInt());
+    }
+
+}
+
 int Mesh::readMesh(){
     SectionHeader signature;
     int indexEnd = 0;
@@ -68,14 +125,18 @@ int Mesh::readMesh(){
     float y_position = 0;
     float z_position = 0;
     float a_position = 0;
+    file->meshCount += 1;
+    bool hasVertexSet = false;
     //qDebug() << Q_FUNC_INFO << "Do mesh stuff";
+
     elementCount = fileData->readInt();
     fileData->signature(&signature); //get extended info
-    if(signature.type == "~ExtendedInfo"){
+    if(signature.type == "ExtendedInfo"){
         fileData->currentPosition = signature.sectionLength + signature.sectionLocation;
         fileData->signature(&signature); //then read vertex set
     }
-    if (signature.type == "~VertexSet") {
+    if (signature.type == "VertexSet") {
+        hasVertexSet = true;
         //fileData->currentPosition += subSectionLength - 4;
         vertexSet.vertexCount = fileData->readInt();
         //qDebug() << Q_FUNC_INFO << "reading unknown values at" << fileData->currentPosition;
@@ -85,7 +146,7 @@ int Mesh::readMesh(){
 
         //Position Array
         fileData->signature(&signature);
-        if (signature.type == "~PositionArray") {
+        if (signature.type == "PositionArray") {
             for(int position = 0; position < (signature.sectionLength-4)/12; position++){
                 x_position = fileData->readFloat();
                 //qDebug() << Q_FUNC_INFO << "X float: " << x_position << " from hex: " << file->parent->binChanger.reverse_input(fileData->mid(positionLocation + (i*12), 4).toHex(), 2);
@@ -101,11 +162,23 @@ int Mesh::readMesh(){
 
 
         //Normal Array
-        if (signature.type == "~NormalArray") {
+        if (signature.type == "NormalArray") {
             for(int position = 0; position < (signature.sectionLength-4)/12; position++){
+                /*This needs to be placed elsewhere - bbatt's reading algorithm is structured differently from mine.
+                if (newTriangleStrip){
+                    QVector3D averageNormal = normalArray.positionList[i] + normalArray.positionList[i+1] + normalArray.positionList[i+2];
+                    QVector3D faceNormal = QVector3D::crossProduct((normalArray.positionList[i+1] - normalArray.positionList[i]), (normalArray.positionList[i+2] + normalArray.positionList[i])).normalize();
+                    float dotResult = QVector3D::dotProduct(faceNormal, averageNormal);
+                    if(dotResult > 0){
+                        //write faceNormal? I guess?
+                    } else {
+                        //write -faceNormal
+                    }
+
+
+                }*/
                 vertexSet.normalArray.positionList.push_back(fileData->read3DVector());
             }
-
             fileData->signature(&signature);
         } else {
             //qDebug() << Q_FUNC_INFO << "Model does not have NormalArray";
@@ -113,9 +186,9 @@ int Mesh::readMesh(){
 
 
         //Color Array
-        if (signature.type == "~ColorArray") {
+        if (signature.type == "ColorArray") {
             for(int position = 0; position < (signature.sectionLength-4)/16; position++){
-                vertexSet.colorArray.positionList.push_back(fileData->read4DVector());
+                vertexSet.colorArray.positionList.push_back(fileData->readColor(true));
             }
 
             fileData->signature(&signature);
@@ -125,7 +198,7 @@ int Mesh::readMesh(){
 
 
         //Texture Coords
-        if (signature.type == "~TextureCoords") {
+        if (signature.type == "TextureCoords") {
             //qDebug() << Q_FUNC_INFO << "getting texture coords for" << headerData.name;
             for(int position = 0; position < (signature.sectionLength-4)/8; position++){
                 x_position = fileData->readFloat();
@@ -138,14 +211,15 @@ int Mesh::readMesh(){
             //qDebug() << Q_FUNC_INFO << "Model does not have TextureCoords.";
         }
     } else {
-        qDebug() << Q_FUNC_INFO << "Model does not have VertexSet. Expected at " << fileData->currentPosition << ": " << signature.type << ". Moving on.";
+        hasVertexSet = false;
+        //qDebug() << Q_FUNC_INFO << "Model does not have VertexSet. Expected at " << fileData->currentPosition << ": " << signature.type << ". Moving on.";
     }
 
 
 
     //Element Array
-    if (signature.type != "~ElementArray") {
-        qDebug() << Q_FUNC_INFO << "Expected ElementArray. Unexpected section found at " << fileData->currentPosition << ": " << signature.type;
+    if (signature.type != "ElementArray") {
+        qDebug() << Q_FUNC_INFO << "Expected ElementArray. Unexpected section found at " << fileData->currentPosition << ": " << signature.type <<". Exiting.";
         return 1;
     }
     //ElementArray *elementArray = new ElementArray;
@@ -154,24 +228,25 @@ int Mesh::readMesh(){
         fileData->signature(&signature);
         element->meshFaceSet.indexArray.triangleCount = 0;
         //need to check for LODINFO bit to see if we even read LODInfo
-        if (signature.type == "~LODInfo") {
+        if (signature.type == "LODInfo") {
             qDebug() << Q_FUNC_INFO << "Reached LOD Info at " << fileData->currentPosition << ": " << signature.type;
             break;
         }
         element->version = fileData->readInt();
 
         fileData->signature(&signature);
-        if (signature.type == "~MeshFaceSet") {
+        if (signature.type == "MeshFaceSet") {
             element->meshFaceSet.version = fileData->readInt();
             element->meshFaceSet.indexCount = fileData->readInt();
             element->meshFaceSet.primitiveType = fileData->readInt();
-
             fileData->signature(&signature);
         } else {
-            qDebug() << Q_FUNC_INFO << "Model does not have MeshFaceSet. Unexpected section found at " << fileData->currentPosition << ": " << signature.type;
+            //qDebug() << Q_FUNC_INFO << "Model does not have MeshFaceSet. Unexpected section found at " << fileData->currentPosition << ": " << signature.type <<". Moving on.";
         }
 
-        if (signature.type == "~IndexArray") {
+
+        int triStripLength = 0;
+        if (signature.type == "IndexArray") {
             indexEnd = signature.sectionLength + signature.sectionLocation;
             //qDebug() << Q_FUNC_INFO << "subsectionlength" << subSectionLength << "indexEnd" << indexEnd;
             //skipping IndexArray for now
@@ -179,12 +254,14 @@ int Mesh::readMesh(){
             while(fileData->currentPosition < indexEnd){
                 TriangleStrip *triangleStrip = new TriangleStrip;
                 if(element->meshFaceSet.primitiveType == 1){
+                    //triangle strips
                     triangleStrip->stripIndecies.resize(fileData->readInt(2));
                     for (int triangle = 0; triangle<triangleStrip->stripIndecies.size();triangle++){
                         element->meshFaceSet.indexArray.triangleCount += 1;
                         triangleStrip->stripIndecies[triangle] = fileData->readInt(2);
                     }
                 } else {
+                    //just triangles, not triangle strips. All triangles are read to strip 0 for simplicity
                     triangleStrip->stripIndecies.resize(element->meshFaceSet.indexCount);
                     for (int triangle = 0; triangle<triangleStrip->stripIndecies.size();triangle++){
                         element->meshFaceSet.indexArray.triangleCount += 1;
@@ -203,26 +280,54 @@ int Mesh::readMesh(){
 //            }
 
             fileData->signature(&signature);
-        } else {
-            qDebug() << Q_FUNC_INFO << "Expected IndexArray. Unexpected section found at " << fileData->currentPosition << ": " << signature.type;
+        } else if(file->isSplitFile){
+            int targetGeoSet = elementOffset+readElement;
+            element->meshFaceSet.indexArray.triangleStrips.resize(file->meshFile->geoSets[targetGeoSet].indexArray.size());
+            for(int i = 0; i < file->meshFile->geoSets[targetGeoSet].indexArray.size(); i++){
+                for(int j = 0; j < file->meshFile->geoSets[targetGeoSet].indexArray[i].stripIndecies.size(); j++){
+                    element->meshFaceSet.indexArray.triangleStrips[i].stripIndecies.push_back(file->meshFile->geoSets[targetGeoSet].indexArray[i].stripIndecies[j] + vertexSet.positionArray.positionList.size());
+                }
+            }
+            //element->meshFaceSet.indexArray.triangleStrips = file->meshFile->geoSets[targetGeoSet].indexArray;
+            if(!hasVertexSet){
+                for(int i = 0; i < file->meshFile->geoSets[targetGeoSet].geoSetVerticies.size(); i++){
+                    vertexSet.positionArray.positionList.push_back(file->meshFile->geoSets[targetGeoSet].geoSetVerticies[i]);
+                }
+                for(int i = 0; i < file->meshFile->geoSets[targetGeoSet].geoSetTexCoords.size(); i++){
+                    vertexSet.textureCoords.positionList.push_back(file->meshFile->geoSets[targetGeoSet].geoSetTexCoords[i]);
+                }
+                for(int i = 0; i < file->meshFile->geoSets[targetGeoSet].geoSetNormals.size(); i++){
+                    vertexSet.normalArray.positionList.push_back(file->meshFile->geoSets[targetGeoSet].geoSetNormals[i]);
+                }
+                for(int i = 0; i < file->meshFile->geoSets[targetGeoSet].geoSetColors.size(); i++){
+                    vertexSet.colorArray.positionList.push_back(file->meshFile->geoSets[targetGeoSet].geoSetColors[i]);
+                }
+            }
+            //qDebug() << Q_FUNC_INFO << "Model does not have IndexArray. Unexpected section found at " << fileData->currentPosition << ": " << signature.type <<". Moving on.";
         }
 
-        if (signature.type != "~SurfaceProperties") {
-            qDebug() << Q_FUNC_INFO << "Expected SurfaceProperties. Unexpected section found at " << fileData->currentPosition << ": " << signature.type;
+        if (signature.type != "SurfaceProperties") {
+            qDebug() << Q_FUNC_INFO << "Expected SurfaceProperties. Unexpected section found at " << fileData->currentPosition << ": " << signature.type <<". Exiting.";
             return 1;
         }
         element->surfaceProperties.version = fileData->readInt(); //seems like a version number
         int nameLength = fileData->readInt();
         fileData->hexValue(&element->surfaceProperties.textureName, nameLength);
         //element->surfaceProperties.textureName = fileData->readHex(nameLength);
+//        if(!hasVertexSet){
+//            file->textureNameList.push_back(element->surfaceProperties.textureName);
+//        }
+        if(!file->textureNameList.contains(element->surfaceProperties.textureName) && element->surfaceProperties.textureName != ""){
+            file->textureNameList.push_back(element->surfaceProperties.textureName);
+        }
         nameLength = fileData->readInt();
         fileData->hexValue(&element->surfaceProperties.texture2Name, nameLength);
         //element->surfaceProperties.texture2Name = fileData->readHex(nameLength);
         //qDebug() << Q_FUNC_INFO << "texture for mesh" << name << "read as" << element->surfaceProperties.textureName;
 
         fileData->signature(&signature);
-        if (signature.type != "~Material") {
-            qDebug() << Q_FUNC_INFO << "Expected Material. Unexpected section found at " << fileData->currentPosition << ": " << signature.type;
+        if (signature.type != "Material") {
+            qDebug() << Q_FUNC_INFO << "Expected Material. Unexpected section found at " << fileData->currentPosition << ": " << signature.type <<". Exiting.";
             return 1;
         }
         element->surfaceProperties.material.sectionLength = signature.sectionLength;
@@ -244,8 +349,8 @@ int Mesh::readMesh(){
         element->surfaceProperties.material.debug();
 
         fileData->signature(&signature);
-        if (signature.type != "~RenderStateGroup") {
-            qDebug() << Q_FUNC_INFO << "Expected RenderStateGroup. Unexpected section found at " << fileData->currentPosition << ": " << signature.type;
+        if (signature.type != "RenderStateGroup") {
+            qDebug() << Q_FUNC_INFO << "Expected RenderStateGroup. Unexpected section found at " << fileData->currentPosition << ": " << signature.type <<". Exiting.";
             return 1;
         }
         element->surfaceProperties.renderStateGroup1.version = fileData->readInt();
@@ -260,8 +365,8 @@ int Mesh::readMesh(){
         if(element->surfaceProperties.version > 2){
             //materialRelated 3 is seen on TFA/PICKUPS models
             fileData->signature(&signature);
-            if (signature.type != "~RenderStateGroup") {
-                qDebug() << Q_FUNC_INFO << "Expected RenderStateGroup. Unexpected section found at " << fileData->currentPosition << ": " << signature.type;
+            if (signature.type != "RenderStateGroup") {
+                qDebug() << Q_FUNC_INFO << "Expected RenderStateGroup. Unexpected section found at " << fileData->currentPosition << ": " << signature.type <<". Exiting.";
                 return 1;
             }
             element->surfaceProperties.renderStateGroup2.version = fileData->readInt();
@@ -283,12 +388,12 @@ int Mesh::readMesh(){
     }
 
     bool hasLodInfo = false;
-    //qDebug() << Q_FUNC_INFO << "checking for lod info at" << fileData->currentPosition;
-    if(elementArray.elementArray[0].surfaceProperties.version > 2){
-        //the use of materialrelated here is absolutely horrible. Find another version number of property byte that can show whether there are LODs or not.
+    qDebug() << Q_FUNC_INFO << "checking for lod info at" << fileData->currentPosition;
+    qDebug() << Q_FUNC_INFO << "suface properties version:" << elementArray.elementArray[0].surfaceProperties.version << "attributes:" << elementArray.elementArray[0].attributes;
+    if(elementArray.elementArray[0].surfaceProperties.version > 2){// and elementArray.elementArray[0].attributes != 16){
         hasLodInfo = fileData->readBool();
     }
-    //qDebug() << Q_FUNC_INFO << "has lod info:" << hasLodInfo;
+    qDebug() << Q_FUNC_INFO << "has lod info:" << hasLodInfo;
     if (hasLodInfo) {
         fileData->signature(&signature);
         elementArray.lodInfo.levels = fileData->readInt();
@@ -319,12 +424,73 @@ void Mesh::modify(std::vector<Modifications> addedMods){
 //        qDebug() << name << "mod" << i << "is offset" << addedMods[i].offset;
 //    }
 
-    for (int j = 0; j < vertexSet.positionArray.positionList.size(); ++j) {
-        for(int k = addedMods.size()-1; k > -1; k--){
-            vertexSet.positionArray.positionList[j] = vertexSet.positionArray.positionList[j] * addedMods[k].scale;
-            vertexSet.positionArray.positionList[j] = addedMods[k].rotation.rotatedVector(vertexSet.positionArray.positionList[j]);
-            vertexSet.positionArray.positionList[j] = vertexSet.positionArray.positionList[j] + addedMods[k].offset;
-        }
+//    for (int j = 0; j < vertexSet.positionArray.positionList.size(); ++j) {
+//        for(int k = addedMods.size()-1; k > -1; k--){
+//            vertexSet.positionArray.positionList[j] = vertexSet.positionArray.positionList[j] * addedMods[k].scale;
+//            vertexSet.positionArray.positionList[j] = addedMods[k].rotation.rotatedVector(vertexSet.positionArray.positionList[j]);
+//            vertexSet.positionArray.positionList[j] = vertexSet.positionArray.positionList[j] + addedMods[k].offset;
+//        }
+//    }
+}
+
+//template<typename WriteType>
+void FileSection::writeNodes(QTextStream &fileOut) {
+    float x = 0;
+    float y = 0;
+    float z = 0;
+    float angle = 0;
+    QString scaleValue;
+    QVector3D tempOffset;
+    for (int i = 0; i < meshList.size(); i++) {
+        meshList[i]->mods.rotation.getAxisAndAngle(&x, &y, &z, &angle);
+        QString meshName = meshList[i]->headerData.name;
+        meshName = file->fileName + "_" + meshName.right(meshName.length() - (meshName.indexOf(".")+1));
+        qDebug() << Q_FUNC_INFO << "offset rotation for " << meshName << "as xyza:" << x << y << z << angle;
+
+        scaleValue = QString::number(meshList[i]->mods.scale, 'g', 3);
+        tempOffset = meshList[i]->mods.offset;
+
+
+        fileOut << "      <node id=\"" + meshName + "\" name=\"" + meshName + "\" type=\"NODE\">" << Qt::endl;
+
+        fileOut << "        <translate sid=\"translate\">" + QString::number(tempOffset.x(), 'g', 3) + " " + QString::number(tempOffset.y(), 'g', 3)
+                   + " " + QString::number(tempOffset.z(), 'g', 3) + "</translate>" << Qt::endl;
+
+        fileOut << "        <rotate sid=\"rotate\">" + QString::number(x, 'g', 3) + " " + QString::number(y, 'g', 3)
+                   + " " + QString::number(z, 'g', 3) + " " + QString::number(angle, 'g', 3) + "</rotate>" << Qt::endl;
+
+        fileOut << "        <scale sid=\"scale\">" + scaleValue + " " + scaleValue + " " + scaleValue + "</scale>" << Qt::endl;
+
+        fileOut << "        <instance_geometry url=\"#" + meshName + "-mesh\" name=\"" + meshName + "\">" << Qt::endl;
+
+        meshList[i]->file = file;
+        meshList[i]->writeNodesDAE(fileOut);
+        fileOut << "        </instance_geometry>" << Qt::endl;
+        //write(meshList[i], fileOut);
+        meshList[i]->writeNodes(fileOut);
+        fileOut << "      </node>" << Qt::endl;
+    }
+    for (int i = 0; i < sectionList.size(); i++) {
+        sectionList[i]->mods.rotation.getAxisAndAngle(&x, &y, &z, &angle);
+        QString nodeName = file->fileName + "_" + sectionList[i]->headerData.name;
+        qDebug() << Q_FUNC_INFO << "offset rotation for" << nodeName << "as xyza:" << x << y << z << angle;
+
+        scaleValue = QString::number(sectionList[i]->mods.scale, 'g', 3);
+        tempOffset = sectionList[i]->mods.offset;
+
+        fileOut << "      <node id=\"" + nodeName + "\" name=\"" + nodeName + "\" type=\"NODE\">" << Qt::endl;
+
+        fileOut << "        <translate sid=\"translate\">" + QString::number(tempOffset.x(), 'g', 3) + " " + QString::number(tempOffset.y(), 'g', 3)
+                   + " " + QString::number(tempOffset.z(), 'g', 3) + "</translate>" << Qt::endl;
+
+        fileOut << "        <rotate sid=\"rotate\">" + QString::number(x, 'g', 3) + " " + QString::number(y, 'g', 3)
+                   + " " + QString::number(z, 'g', 3) + " " + QString::number(angle, 'g', 3) + "</rotate>" << Qt::endl;
+
+        fileOut << "        <scale sid=\"scale\">" + scaleValue + " " + scaleValue + " " + scaleValue + "</scale>" << Qt::endl;
+        sectionList[i]->file = file;
+        sectionList[i]->writeNodesDAE(fileOut);
+        sectionList[i]->writeNodes(fileOut);
+        fileOut << "      </node>" << Qt::endl;
     }
 }
 
@@ -345,7 +511,7 @@ void FileSection::searchListsWriteDAE(QTextStream &fileOut, void (Mesh::*write)(
 void Mesh::writeMaterialsDAE(QTextStream &fileOut){
     std::vector<int> chosenLOD = getChosenElements();
     QString textureName;
-    for (int element = chosenLOD[0]; element <= chosenLOD[1]; element++) {
+    for (int element = chosenLOD[0]; element <= chosenLOD[chosenLOD.size()-1]; element++) {
         textureName = elementArray.elementArray[element].surfaceProperties.textureName;
         fileOut << "    <material id=\"" + textureName +"Texture-material\" name=\"" + textureName + "Texture\">" << Qt::endl;
         fileOut << "      <instance_effect url=\"#" + textureName + "Texture-effect\"/>" << Qt::endl;
@@ -356,21 +522,22 @@ void Mesh::writeMaterialsDAE(QTextStream &fileOut){
 void Mesh::writeEffectsDAE(QTextStream &fileOut){
     std::vector<int> chosenLOD = getChosenElements();
     QString textureName;
-    QString meshName = file->fileName + "-" + headerData.name;
-    meshName = meshName.right(meshName.length() - (meshName.indexOf(".")+1));
-    for (int element = chosenLOD[0]; element <= chosenLOD[1]; element++) {
+    QString meshName = headerData.name;
+    //QString meshName = file->fileName + "-" + headerData.name;
+    meshName = file->fileName + "_" + meshName.right(meshName.length() - (meshName.indexOf(".")+1));
+    for (int element = chosenLOD[0]; element <= chosenLOD[chosenLOD.size()-1]; element++) {
         //qDebug() << Q_FUNC_INFO << "element array";
         textureName = elementArray.elementArray[element].surfaceProperties.textureName;
         fileOut << "    <effect id=\"" + textureName +"Texture-effect\">" << Qt::endl;
         fileOut << "      <profile_COMMON>" << Qt::endl;
-        fileOut << "        <newparam sid=\"" + textureName +"_bmp-surface\">" << Qt::endl;
+        fileOut << "        <newparam sid=\"" + textureName +"_png-surface\">" << Qt::endl;
         fileOut << "          <surface type=\"2D\">" << Qt::endl;
-        fileOut << "            <init_from>" + textureName +"_bmp</init_from>" << Qt::endl;
+        fileOut << "            <init_from>" + textureName +"_png</init_from>" << Qt::endl;
         fileOut << "          </surface>" << Qt::endl;
         fileOut << "        </newparam>" << Qt::endl;
-        fileOut << "        <newparam sid=\"" + textureName +"_bmp-sampler\">" << Qt::endl;
+        fileOut << "        <newparam sid=\"" + textureName +"_png-sampler\">" << Qt::endl;
         fileOut << "          <sampler2D>" << Qt::endl;
-        fileOut << "            <source>" + textureName +"_bmp-surface</source>" << Qt::endl;
+        fileOut << "            <source>" + textureName +"_png-surface</source>" << Qt::endl;
         fileOut << "          </sampler2D>" << Qt::endl;
         fileOut << "        </newparam>" << Qt::endl;
         fileOut << "        <technique sid=\"common\">" << Qt::endl;
@@ -379,7 +546,7 @@ void Mesh::writeEffectsDAE(QTextStream &fileOut){
         fileOut << "              <color sid=\"emission\">0 0 0 1</color>" << Qt::endl;
         fileOut << "            </emission>" << Qt::endl;
         fileOut << "            <diffuse>" << Qt::endl;
-        fileOut << "              <texture texture=\"" + textureName +"_bmp-sampler\" texcoord=\""+meshName+"-mesh-texcoords\"/>" << Qt::endl;
+        fileOut << "              <texture texture=\"" + textureName +"_png-sampler\" texcoord=\""+meshName+"-mesh-texcoords\"/>" << Qt::endl;
         fileOut << "            </diffuse>" << Qt::endl;
         fileOut << "            <index_of_refraction>" << Qt::endl;
         fileOut << "              <float sid=\"ior\">1.45</float>" << Qt::endl;
@@ -394,21 +561,23 @@ void Mesh::writeEffectsDAE(QTextStream &fileOut){
 void Mesh::writeImagesDAE(QTextStream &fileOut){
     std::vector<int> chosenLOD = getChosenElements();
     QString textureName;
-    for (int element = chosenLOD[0]; element <= chosenLOD[1]; element++) {
+    for (int element = chosenLOD[0]; element <= chosenLOD[chosenLOD.size()-1]; element++) {
         textureName = elementArray.elementArray[element].surfaceProperties.textureName;
-        fileOut << "    <image id=\"" + textureName +"_bmp\" name=\"" + textureName +"_bmp\">" << Qt::endl;
-        fileOut << "      <init_from>" + textureName +".bmp</init_from>" << Qt::endl;
+        fileOut << "    <image id=\"" + textureName +"_png\" name=\"" + textureName +"_png\">" << Qt::endl;
+        fileOut << "      <init_from>" + textureName +".png</init_from>" << Qt::endl;
         fileOut << "    </image>" << Qt::endl;
     }
 }
 
 void Mesh::writeDataDAE(QTextStream &fileOut){
     std::vector<int> chosenLOD = getChosenElements();
-    QString meshName = file->fileName + "-" + headerData.name;
-    meshName = meshName.right(meshName.length() - (meshName.indexOf(".")+1));
+    QString meshName = headerData.name;
+    //QString meshName = file->fileName + "-" + headerData.name;
+    meshName = file->fileName + "_" + meshName.right(meshName.length() - (meshName.indexOf(".")+1));
     qDebug() << Q_FUNC_INFO << meshName;
     QString textureName;
     int triangle[3];
+    int normalFlip = 0;
     QVector3D tempVec;
 
     fileOut << "    <geometry id=\"" + meshName + "-mesh\" name=\"" + meshName + "\">" << Qt::endl;
@@ -431,22 +600,24 @@ void Mesh::writeDataDAE(QTextStream &fileOut){
     fileOut << "          </technique_common>" << Qt::endl;
     fileOut << "        </source>" << Qt::endl;
 
-    fileOut << "        <source id=\"" + meshName + "-mesh-normals\">" << Qt::endl;
-    fileOut << "          <float_array id=\"" + meshName + "-mesh-normals-array\" count = \"" + QString::number(vertexSet.normalArray.positionList.size()*3) + "\">";
-    for(int position = 0; position < vertexSet.normalArray.positionList.size(); position++){
-        fileOut << QString::number(vertexSet.normalArray.positionList[position].x()) << " ";
-        fileOut << QString::number(vertexSet.normalArray.positionList[position].y()) << " ";
-        fileOut << QString::number(vertexSet.normalArray.positionList[position].z()) << " ";
+    if(!file->isSplitFile){
+        fileOut << "        <source id=\"" + meshName + "-mesh-normals\">" << Qt::endl;
+        fileOut << "          <float_array id=\"" + meshName + "-mesh-normals-array\" count = \"" + QString::number(vertexSet.normalArray.positionList.size()*3) + "\">";
+        for(int position = 0; position < vertexSet.normalArray.positionList.size(); position++){
+            fileOut << QString::number(vertexSet.normalArray.positionList[position].x()) << " ";
+            fileOut << QString::number(vertexSet.normalArray.positionList[position].y()) << " ";
+            fileOut << QString::number(vertexSet.normalArray.positionList[position].z()) << " ";
+        }
+        fileOut << "</float_array>" << Qt::endl;
+        fileOut << "          <technique_common>" << Qt::endl;
+        fileOut << "            <accessor source=\"#"+ meshName +"-mesh-normals-array\" count=\"" + QString::number(vertexSet.normalArray.positionList.size()) + "\" stride=\"3\">" << Qt::endl;
+        fileOut << "              <param name=\"X\" type=\"float\"/>" << Qt::endl;
+        fileOut << "              <param name=\"Y\" type=\"float\"/>" << Qt::endl;
+        fileOut << "              <param name=\"Z\" type=\"float\"/>" << Qt::endl;
+        fileOut << "            </accessor>" << Qt::endl;
+        fileOut << "          </technique_common>" << Qt::endl;
+        fileOut << "        </source>" << Qt::endl;
     }
-    fileOut << "</float_array>" << Qt::endl;
-    fileOut << "          <technique_common>" << Qt::endl;
-    fileOut << "            <accessor source=\"#"+ meshName +"-mesh-normals-array\" count=\"" + QString::number(vertexSet.normalArray.positionList.size()) + "\" stride=\"3\">" << Qt::endl;
-    fileOut << "              <param name=\"X\" type=\"float\"/>" << Qt::endl;
-    fileOut << "              <param name=\"Y\" type=\"float\"/>" << Qt::endl;
-    fileOut << "              <param name=\"Z\" type=\"float\"/>" << Qt::endl;
-    fileOut << "            </accessor>" << Qt::endl;
-    fileOut << "          </technique_common>" << Qt::endl;
-    fileOut << "        </source>" << Qt::endl;
 
     fileOut << "        <source id=\"" + meshName + "-mesh-map-0\">" << Qt::endl;
     fileOut << "          <float_array id=\"" + meshName + "-mesh-map-0-array\" count = \"" + QString::number(vertexSet.textureCoords.positionList.size()*2) + "\">";
@@ -463,30 +634,40 @@ void Mesh::writeDataDAE(QTextStream &fileOut){
     fileOut << "          </technique_common>" << Qt::endl;
     fileOut << "        </source>" << Qt::endl;
 
-//    fileOut << "        <source id=\"" + meshName + "-mesh-colors\">" << Qt::endl;
-//    fileOut << "          <float_array id=\"" + meshName + "-mesh-colors-array\" count = \"" + QString::number(mesh->vertexSet.colorArray.positionList.size()*4) + "\">";
-//    for(int position = 0; position < mesh->vertexSet.colorArray.positionList.size(); position++){
-//        fileOut << QString::number(mesh->vertexSet.colorArray.positionList[position].x()) << " ";
-//        fileOut << QString::number(mesh->vertexSet.colorArray.positionList[position].y()) << " ";
-//        fileOut << QString::number(mesh->vertexSet.colorArray.positionList[position].z()) << " ";
-//        fileOut << QString::number(mesh->vertexSet.colorArray.positionList[position].w()) << " ";
-//    }
-//    fileOut << "</float_array>" << Qt::endl;
-//    fileOut << "          <technique_common>" << Qt::endl;
-//    fileOut << "            <accessor source=\"#"+ meshName +"-mesh-colors-array\" count=\"" + QString::number(mesh->vertexSet.colorArray.positionList.size()) + "\" stride=\"4\">" << Qt::endl;
-//    fileOut << "              <param name=\"R\" type=\"float\"/>" << Qt::endl;
-//    fileOut << "              <param name=\"G\" type=\"float\"/>" << Qt::endl;
-//    fileOut << "              <param name=\"B\" type=\"float\"/>" << Qt::endl;
-//    fileOut << "              <param name=\"A\" type=\"float\"/>" << Qt::endl;
-//    fileOut << "            </accessor>" << Qt::endl;
-//    fileOut << "          </technique_common>" << Qt::endl;
-//    fileOut << "        </source>" << Qt::endl;
+    fileOut << "        <source id=\"" + meshName + "-mesh-colors\">" << Qt::endl;
+    fileOut << "          <float_array id=\"" + meshName + "-mesh-colors-array\" count = \"" + QString::number(vertexSet.colorArray.positionList.size()*4) + "\">";
+    for(int position = 0; position < vertexSet.colorArray.positionList.size(); position++){
+        fileOut << QString::number(vertexSet.colorArray.positionList[position].redF()) << " ";
+        fileOut << QString::number(vertexSet.colorArray.positionList[position].greenF()) << " ";
+        fileOut << QString::number(vertexSet.colorArray.positionList[position].blueF()) << " ";
+        fileOut << QString::number(vertexSet.colorArray.positionList[position].alphaF()) << " ";
+    }
+    fileOut << "</float_array>" << Qt::endl;
+    fileOut << "          <technique_common>" << Qt::endl;
+    fileOut << "            <accessor source=\"#"+ meshName +"-mesh-colors-array\" count=\"" + QString::number(vertexSet.colorArray.positionList.size()) + "\" stride=\"4\">" << Qt::endl;
+    fileOut << "              <param name=\"R\" type=\"float\"/>" << Qt::endl;
+    fileOut << "              <param name=\"G\" type=\"float\"/>" << Qt::endl;
+    fileOut << "              <param name=\"B\" type=\"float\"/>" << Qt::endl;
+    fileOut << "              <param name=\"A\" type=\"float\"/>" << Qt::endl;
+    fileOut << "            </accessor>" << Qt::endl;
+    fileOut << "          </technique_common>" << Qt::endl;
+    fileOut << "        </source>" << Qt::endl;
 
     fileOut << "        <vertices id=\"" + meshName + "-mesh-vertices\">" << Qt::endl;
     fileOut << "          <input semantic=\"POSITION\" source=\"#"+ meshName +"-mesh-positions\"/>" << Qt::endl;
     fileOut << "        </vertices>" << Qt::endl;
 
-    for (int element = chosenLOD[0]; element <= chosenLOD[1]; element++) {
+    int pointIndecies[3];
+    QVector3D normal1;
+    QVector3D normal2;
+    QVector3D normal3;
+    QVector3D position1;
+    QVector3D position2;
+    QVector3D position3;
+    QVector3D averageNormal;
+    QVector3D faceNormal;
+    bool normalOrder = true;
+    for (int element = chosenLOD[0]; element <= chosenLOD[chosenLOD.size()-1]; element++) {
         int triangleCount = 0;
         Element *currentElement = &elementArray.elementArray[element];
         textureName = currentElement->surfaceProperties.textureName;
@@ -495,16 +676,52 @@ void Mesh::writeDataDAE(QTextStream &fileOut){
         }
         fileOut << "        <triangles material=\"" + textureName +"Texture-material\" count=\"" + QString::number(triangleCount) + "\">" << Qt::endl;
         fileOut << "          <input semantic=\"VERTEX\" source=\"#"+ meshName +"-mesh-vertices\" offset=\"0\"/>" << Qt::endl;
-        fileOut << "          <input semantic=\"NORMAL\" source=\"#"+ meshName +"-mesh-normals\" offset=\"0\"/>" << Qt::endl;
-        //fileOut << "          <input semantic=\"COLOR\" source=\"#"+ meshName +"-mesh-texcoords\" offset=\"0\"/>" << Qt::endl; //not sure if this is even an option in DAE
+        if(!file->isSplitFile){
+            fileOut << "          <input semantic=\"NORMAL\" source=\"#"+ meshName +"-mesh-normals\" offset=\"0\"/>" << Qt::endl;
+        }
+        fileOut << "          <input semantic=\"COLOR\" source=\"#"+ meshName +"-mesh-colors\" offset=\"0\"/>" << Qt::endl; //not sure if this is even an option in DAE
         fileOut << "          <input semantic=\"TEXCOORD\" source=\"#"+ meshName +"-mesh-map-0\" offset=\"0\" set=\"0\"/>" << Qt::endl;
 
         fileOut << "          <p>";
         for (int strip = 0; strip < currentElement->meshFaceSet.indexArray.triangleStrips.size(); strip++){
             for (int triangle = 0 ; triangle < currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies.size()-2; triangle++ ){
-                fileOut << QString::number(currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[triangle]) << " ";
-                fileOut << QString::number(currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[triangle+1]) << " ";
-                fileOut << QString::number(currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[triangle+2]) << " ";
+                pointIndecies[0] = currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[triangle];
+                pointIndecies[1] = currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[triangle+1];
+                pointIndecies[2] = currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[triangle+2];
+                if(pointIndecies[0] == pointIndecies[1] or pointIndecies[0] == pointIndecies[2] or pointIndecies[1] == pointIndecies[2]){
+                    qDebug() << Q_FUNC_INFO << "skipping triangle:" << pointIndecies[0] << pointIndecies[1] << pointIndecies[2] << "which is triangle"
+                             << triangle << "in strip length" << currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies.size()-2;
+                    continue;
+                }
+                if(vertexSet.normalArray.positionList.empty()){
+                    normalOrder = true;
+                } else {
+                    normal1 = vertexSet.normalArray.positionList[currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[triangle]];
+                    normal2 = vertexSet.normalArray.positionList[currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[triangle+1]];
+                    normal3 = vertexSet.normalArray.positionList[currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[triangle+2]];
+                    position1 = vertexSet.positionArray.positionList[currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[triangle]];
+                    position2 = vertexSet.positionArray.positionList[currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[triangle+1]];
+                    position3 = vertexSet.positionArray.positionList[currentElement->meshFaceSet.indexArray.triangleStrips[strip].stripIndecies[triangle+2]];
+                    averageNormal = normal1 + normal2 + normal3;
+                    faceNormal = QVector3D::crossProduct((position2 - position1), (position3 - position1));
+                    faceNormal.normalize();
+                    float dotResult = QVector3D::dotProduct(faceNormal, averageNormal);
+                    if(dotResult > 0){
+                        normalOrder = true;
+                    } else {
+                        normalOrder = false;
+                    }
+                }
+
+                if(normalOrder){
+                    fileOut << QString::number(pointIndecies[0]) << " ";
+                    fileOut << QString::number(pointIndecies[1]) << " ";
+                    fileOut << QString::number(pointIndecies[2]) << " ";
+                } else {
+                    fileOut << QString::number(pointIndecies[0]) << " ";
+                    fileOut << QString::number(pointIndecies[2]) << " ";
+                    fileOut << QString::number(pointIndecies[1]) << " ";
+                }
             }
         }
         fileOut << "</p>" << Qt::endl;
@@ -514,16 +731,37 @@ void Mesh::writeDataDAE(QTextStream &fileOut){
     fileOut << "    </geometry>" << Qt::endl;
 }
 
+void FileSection::writeNodesDAE(QTextStream &fileOut){
+    qDebug() << Q_FUNC_INFO << "no data to write for this node:" << headerData.name;
+}
+
+void Instance::writeNodesDAE(QTextStream &fileOut){
+    std::shared_ptr<TFFile> testLoaded;
+    for(int i = 0; i < file->instanceNameList.size(); i++){
+        testLoaded = file->parent->matchFile(file->instanceNameList[i] + ".VBIN");
+        while(testLoaded == nullptr){
+            file->parent->messageError("Please load a file " + file->instanceNameList[i]+".VBIN");
+            file->parent->openFile("VBIN");
+            testLoaded = file->parent->matchFile(file->instanceNameList[i] + ".VBIN");
+        }
+        testLoaded->outputPath = file->outputPath;
+    }
+    QString instanceName = file->fileName + "_instance_" + headerData.name;
+    fileOut << "      <node id=\"" + instanceName + "_node\" name=\"" + instanceName + "_node\" type=\"NODE\">" << Qt::endl;
+    fileOut << "      <node id=\"" + instanceName + "_another_node\" name=\"" + instanceName + "_another_node\" type=\"NODE\">" << Qt::endl;
+    fileOut << "        <instance_node url=\"" + modelReference + ".DAE\" name=\"" + instanceName + "\"/>" << Qt::endl;
+    fileOut << "      </node>" << Qt::endl;
+    fileOut << "      </node>" << Qt::endl;
+}
+
 void Mesh::writeNodesDAE(QTextStream &fileOut){
     std::vector<int> chosenLOD = getChosenElements();
     QString textureName;
-    QString meshName = file->fileName + "-" + headerData.name;
-    meshName = meshName.right(meshName.length() - (meshName.indexOf(".")+1));
-    fileOut << "      <node id=\"" + meshName + "\" name=\"" + meshName + "\" type=\"NODE\">" << Qt::endl;
-    fileOut << "        <matrix sid=\"transform\">1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1</matrix>" << Qt::endl;
-    fileOut << "        <instance_geometry url=\"#" + meshName + "-mesh\" name=\"" + meshName + "\">" << Qt::endl;
+    QString meshName = headerData.name;
+    //QString meshName = file->fileName + "-" + headerData.name;
+    meshName = file->fileName + "_" + meshName.right(meshName.length() - (meshName.indexOf(".")+1));
 
-    for (int element = chosenLOD[0]; element <= chosenLOD[1]; element++) {
+    for (int element = chosenLOD[0]; element <= chosenLOD[chosenLOD.size()-1]; element++) {
         textureName = elementArray.elementArray[element].surfaceProperties.textureName;
         fileOut << "          <bind_material>" << Qt::endl;
         fileOut << "            <technique_common>" << Qt::endl;
@@ -533,14 +771,16 @@ void Mesh::writeNodesDAE(QTextStream &fileOut){
         fileOut << "            </technique_common>" << Qt::endl;
         fileOut << "          </bind_material>" << Qt::endl;
     }
-    fileOut << "        </instance_geometry>" << Qt::endl;
-    fileOut << "      </node>" << Qt::endl;
+    //fileOut << "      </node>" << Qt::endl;
 }
 
 std::vector<int> Mesh::getChosenElements(){
     std::vector<int> chosenLOD;
     if (elementArray.lodInfo.targetIndecies.size() <= file->selectedLOD) {
-        chosenLOD = {0,static_cast<int>(elementArray.elementArray.size()-1)};
+        //chosenLOD = {0,static_cast<int>(elementArray.elementArray.size()-1)};
+        for(int i = 0; i < elementArray.elementArray.size(); i++){
+            chosenLOD.push_back(i);
+        }
     } else {
         chosenLOD = elementArray.lodInfo.targetIndecies[file->selectedLOD];
     }
@@ -563,7 +803,7 @@ void Mesh::writeDataSTL(QTextStream &fileOut){
     //qDebug() << Q_FUNC_INFO << "chosen LOD index targets: " << chosenLOD << " for mesh " << name;
     //qDebug() << Q_FUNC_INFO << "position list size" << vertexSet.positionArray.positionList.size();
 
-    for (int index = chosenLOD[0]; index <= chosenLOD[1]; index++){
+    for (int index = chosenLOD[0]; index <= chosenLOD[chosenLOD.size()-1]; index++){
         //qDebug() << Q_FUNC_INFO << "index target" << index << "has" << int(elementArray.elementArray[index].meshFaceSet.indexArray.triangleStrips.size()) << "triangle strips";
         for (int strip = 0; strip < int(elementArray.elementArray[index].meshFaceSet.indexArray.triangleStrips.size());strip++){
             //qDebug() << Q_FUNC_INFO << "index" << index << "strip" << strip << "has" << int(elementArray.elementArray[index].meshFaceSet.indexArray.triangleStrips[strip].stripIndecies.size()) << "triangles";

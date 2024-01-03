@@ -28,68 +28,287 @@ class ProgWindow;
 //class TMDFile;
 class DefinitionFile;
 class FileData;
+class taDataEnum;
 
-class dictItem{
+class taData{
 public:
-
     int index;
-    int length;
     QString type;
     bool active;
     bool isDefault;
     bool inherited;
     QString name;
     QString comment;
-    DefinitionFile *file;
+    TFFile *file;
 
-    QString value;
-    QStringList valueList;
-
-    void clear();
-    const void operator=(dictItem input);
-};
-
-
-class dictClass{
-public:
-    QString name;
-    long length;
-    QString inheritedClass;
-    std::vector<dictItem> itemList;
-};
-
-class dictInstance{
-public:
-    QString name;
-    long length;
-    QString inheritedClass;
-    int instanceIndex;
-    std::vector<dictItem> itemList;
-};
-
-class DefinitionFile : public TFFile {
-public:
-    const QStringList validOutputs(){
-        return QStringList{"TMD", "BMD"};
+    taData(){};
+    taData(taData *copyData){
+        type = copyData->type;
+        active = copyData->active;
+        name = copyData->name;
+        comment = copyData->comment;
+        file = copyData->file;
     };
+    int binarySize();
+    //looked into doing template functions for these to cut down on how many there are, but virtual templates are a no-no I guess
+    virtual void read(); //for reading binary data to the data's value types
+    virtual void write(QFile& file);
+    virtual QString display();
+    virtual QString options();
+    virtual QString definitionOutput();
+    virtual QString databaseOutput();
+    virtual std::shared_ptr<taData> clone();
+    virtual QString backupDisplay();
+    virtual void setValue(QString changedValue);
+
+    virtual taDataEnum* cloneEnum();
+
+    virtual QString stringValue();
+    virtual QVector3D vectorValue();
+    virtual QQuaternion quatValue();
+    virtual int intValue();
+
+    virtual int size(){
+        return 0;
+    };
+
+};
+
+template <class valueType>
+class taDataArray : public taData{
+public:
+    std::vector<valueType> values;
+    QString options();
+    QString definitionOutput();
+    QString databaseOutput();
+
+    int size(){
+        return 4 + (sizeof(valueType) * values.size());
+    };
+};
+
+template <class valueType>
+class taDataSingle : public taData{
+public:
+    valueType value;
+    //below are used for rare range definitions ex. "Range(0.000,0.000)"
+    //should only be present on single-value items
+    valueType maxValue;
+    valueType minValue;
+
+    QString display();
+    valueType giveValue();
+
+    int size(){
+        return sizeof(valueType);
+    };
+};
+
+template <class valueType>
+class taDataVectorArray : public taDataArray<valueType>{
+public:
+    void read();
+    std::shared_ptr<taData> clone();
+    void write(QFile& file);
+    QString backupDisplay();
+    //void write();
+};
+
+template <class valueType>
+class taDataIntArray : public taDataArray<valueType>{
+public:
+    void read();
+    std::shared_ptr<taData> clone();
+    void write(QFile& file);
+    //void write();
+};
+
+template <class valueType>
+class taDataStringArray : public taDataArray<valueType>{
+public:
+    void read();
+    std::shared_ptr<taData> clone();
+    void write(QFile& file);
+    //void write();
+    int size(){
+        return (sizeof(valueType)+4) * this->values.size();
+    };
+};
+
+template <class valueType>
+class taDataFloatArray : public taDataArray<valueType>{
+public:
+    void read();
+    std::shared_ptr<taData> clone();
+    void write(QFile& file);
+    //void write();
+};
+
+template <class valueType>
+class taDataLinkArray : public taDataArray<valueType>{
+public:
+    void read();
+    void write(QFile& file);
+    std::shared_ptr<taData> clone();
+    //void write();
+};
+
+template <class valueType>
+class taDataFloat : public taDataSingle<valueType>{
+public:
+    void read();
+    void write(QFile& file);
+    std::shared_ptr<taData> clone();
+    void setValue(QString changedValue);
+    QString display();
+    //void write();
+};
+
+template <class valueType>
+class taDataBool : public taDataSingle<valueType>{
+public:
+    void read();
+    void write(QFile& file);
+    std::shared_ptr<taData> clone();
+    void setValue(QString changedValue);
+    //void write();
+};
+
+template <class valueType>
+class taDataString : public taDataSingle<valueType>{
+public:
+    void read();
+    void write(QFile& file);
+    std::shared_ptr<taData> clone();
+    void setValue(QString changedValue);
+    QString stringValue();
+    //void write();
+    int size(){
+      return 4 + this->value.size();
+    };
+};
+
+template <class valueType>
+class taDataInteger : public taDataSingle<valueType>{
+public:
+    void read();
+    void write(QFile& file);
+    std::shared_ptr<taData> clone();
+    void setValue(QString changedValue);
+    //void write();
+};
+
+template <class valueType>
+class taDataLink : public taDataSingle<valueType>{
+public:
+    void read();
+    void write(QFile& file);
+    std::shared_ptr<taData> clone();
+    void setValue(QString changedValue);
+    //void write();
+};
+
+template <class valueType>
+class taDataFlag : public taDataSingle<valueType>{
+public:
+    void read();
+    void write(QFile& file);
+    std::shared_ptr<taData> clone();
+    void setValue(QString changedValue);
+    //void write();
+};
+
+template <class valueType>
+class taDataColor : public taDataSingle<valueType>{
+public:
+    void read();
+    void write(QFile& file);
+    std::shared_ptr<taData> clone();
+    void setValue(QString changedValue);
+    QString definitionOutput();
+    QString databaseOutput();
+    //void write();
+};
+
+template <class valueType>
+class taDataPoint : public taDataSingle<valueType>{
+public:
+    void read();
+    void write(QFile& file);
+    std::shared_ptr<taData> clone();
+    QString backupDisplay();
+    void setValue(QString changedValue);
+    QString definitionOutput();
+    QString databaseOutput();
+    QVector3D vectorValue();
+    //void write();
+};
+
+template <class valueType>
+class taDataQuaternion : public taDataSingle<valueType>{
+public:
+    void read();
+    void write(QFile& file);
+    std::shared_ptr<taData> clone();
+    void setValue(QString changedValue);
+    QString backupDisplay();
+    QQuaternion quatValue();
+    //void write();
+};
+
+class taDataEnum : public taData{
+public:
+    int defaultValue;
+    QStringList valueOptions;
+    void read();
+    void write(QFile& file);
+    QString options();
+    QString display();
+    QString definitionOutput();
+    QString databaseOutput();
+    std::shared_ptr<taData> clone();
+    taDataEnum* cloneEnum(){
+        return this;
+    };
+
+    int intValue(){
+        return defaultValue;
+    };
+
+    int size(){
+        return 4;
+    };
+};
+
+
+class dictItem{
+public:
+    QString name;
+    long length;
+    QString copiedClass;
+    int instanceIndex;
+    int inheritedDictionaryIndex;
+    //std::vector<dictItem> itemList;
+    std::vector<std::shared_ptr<taData>> attributes;
+
+    QString prototype;
+    QVector3D position;
+    QQuaternion orientation;
+};
+
+class DictionaryFile : public TFFile {
+public:
     virtual const QString fileCategory(){
         return "Database";
     };
+
+    const QStringList knownSections = {"IncludedFiles", "Dictionary", "FileDictionary", "Instances"};
+
     std::shared_ptr<DefinitionFile> inheritedFile;
     QTreeView *dataTree;
     QStandardItemModel *dataModel;
-    bool database; //0 for definition file, 1 for database file
-    const QStringList sectionList{"IncludedFiles","Dictionary","FileDictionary","Instances"};
-    const QStringList singleTypes{"Enum","Float","Bool","String","Integer", "Link", "Flag"};
-    const QStringList multiTypes{"Enum","Point","Quaternion","IntegerArray","StringArray","Color", "FloatArray", "LinkArray","VectorArray"};
-    const QStringList arrayTypes{"IntegerArray","StringArray", "FloatArray", "LinkArray","VectorArray"}; //need for bmd and bdb
-    const QStringList stringTypes{"String","StringArray"};
-    static QMap<int, QStringList> bdbTypeLength;
-    //QString includedFile;
     int versionNumber;
-    std::vector<dictClass> classList;
-    std::vector<dictInstance> instanceList;
-    QStringList majorSections;
+    std::vector<dictItem> dictionary;
 
     void save(QString toType);
     void load(QString fromType);
@@ -97,70 +316,148 @@ public:
     int readData();
     int readText();
     int readBinary();
+    virtual void writeText();
+    virtual void writeBinary();
+    virtual void writeDAE();
+    int readIncludedFiles(QString fullRead);
+    QString includedFileRelativePath();
+
+    virtual int readDictionary(); //text version
+    virtual int readDictionary(SectionHeader signature); //binary version
+
+    virtual int readFileDictionary(); //text version
+    virtual int readInstances(); //text version
+    virtual int readFileDictionary(SectionHeader signature); //binary
+    virtual int readInstances(SectionHeader signature); //binary
+};
+
+class DefinitionFile : public DictionaryFile {
+public:
+    const QStringList validOutputs(){
+        return QStringList{"TMD", "BMD"};
+    };
+    /*virtual const QString fileCategory(){
+        return "Database";
+    };
+    std::shared_ptr<DefinitionFile> inheritedFile;
+    QTreeView *dataTree;
+    QStandardItemModel *dataModel;
+    //QString includedFile;
+    int versionNumber;
+    std::vector<dictItem> dictionary;*/
+    QStringList majorSections;
+    void updateValue(QModelIndex topLeft, QModelIndex bottomRight);
+    void updateEnum();
+
+    /*void save(QString toType);
+    void load(QString fromType);*/
+
+    /*int readData();
+    int readText();
+    int readBinary();
     void writeText();
     void writeBinary();
+    int readIncludedFiles(QString fullRead); //note that includedfiles only needs fullread, not partsplit*/
     int indexIn(QString searchName);
-    QString getName();
-    void getFileLengths(); //for getting a binary file's file, section, and item lengths
-    int itemLength(dictItem itemDetails);
-    int instanceLength(dictItem itemDetails);
+    void writeText();
+    void writeBinary();
+    //QString getName();
+    //void getFileLengths(); //for getting a binary file's file, section, and item lengths
+    //int itemLength(taData itemDetails);
     int dictItemIndex(int dictIndex, QString searchName);
-    virtual dictItem addItem(dictItem itemDetails, QString tempRead); //text
-    virtual dictItem addItem(dictItem itemDetails, FileData *tempRead); //binary
+    //virtual dictItem addItem(taData itemDetails, QString tempRead); //text
+    //virtual dictItem addItem(taData itemDetails, FileData *tempRead); //binary
     void newInstance();
     void newItem();
-    void removeItem(QString className, int itemIndex);
-    void removeClass(int classIndex);
+    std::shared_ptr<taData> createItem(QString itemType);
     void updateCenter();
-    QString outputValue(dictItem itemDetails);
-    void binaryOutput(QFile& file, dictItem itemDetails);
-    QString displayValue(dictItem itemDetails);
-    int readIncludedFiles(QString fullRead); //note that includedfiles only needs fullread, not partsplit
-    void readDictionary(QStringList partSplit, int sectionIndex); //text version
-    void readFileDictionary(QStringList partSplit, int sectionIndex); //text
-    void readInstances(QStringList partSplit, int sectionIndex, QString instanceName); //text
-    void readDictionary(QByteArray splitLine, int sectionIndex, QString instanceName); //binary version
-    void readFileDictionary(QByteArray splitLine, int sectionIndex, QString instanceName); //binary
-    void readInstances(QByteArray splitLine, int sectionIndex, QString instanceName); //binary
+    int readDictionary(); //text version
+    int readDictionary(SectionHeader signature); //binary version
+    //int readFileDictionary(); //text version
+    //int readInstances(); //text version
+    //void readFileDictionary(int sectionIndex, SectionHeader signature); //binary
+    //void readInstances(int sectionIndex, SectionHeader signature); //binary
     void createDBTree();
-    void sortDBTree(int column);
     //void editItem(int dictIndex, int itemIndex, QString valueType, QString newValue);
     void editTreeItem(QModelIndex item, int itemIndex);
-    QStringList editItem(QString className, int itemIndex);
-    void removeTreeClass(QModelIndex item);
-    void removeTreeItem(QModelIndex item, int itemIndex);
+    //QStringList editItem(QString className, int itemIndex);
     /*These functions should exist in definitionfile, not in ProgWindow.*/
 //    void editDatabaseItem(QModelIndex item, int itemIndex);
 //    void removeDatabaseItem(QModelIndex item, int itemIndex);
 //    void removeDatabaseClass(QModelIndex item);
-    void clear();
+    //void clear();
 };
 
-class DatabaseFile : public DefinitionFile{
+class DatabaseFile : public DictionaryFile{
 public:
     const QStringList validOutputs(){
-        return QStringList{"TDB", "BDB"};
+        return QStringList{"TDB", "BDB", "DAE"};
     };
-    virtual const QString fileCategory(){
+    /*virtual const QString fileCategory(){
         return "Database";
     };
-
-    dictItem addItem(dictItem itemDetails, QString tempRead); //text
-    //dictItem addItem(dictItem itemDetails, FileData *tempRead); //binary
-    void writeData();
+    std::shared_ptr<DefinitionFile> inheritedFile;
+    QTreeView *dataTree;
+    QStandardItemModel *dataModel;
+    //QString includedFile;
+    int versionNumber;
+    std::vector<dictItem> fileDictionary;*/
+    std::vector<dictItem> instances;
+    QStringList majorSections;
     void writeText();
     void writeBinary();
-    QString outputValue(dictItem itemDetails);
-    int instanceIndexIn(int searchIndex);
-    void createDBTree();
-    void createItem();
-    QStringList editItem(int instanceIndex, int itemIndex);
-    void removeTreeInstance(QModelIndex item);
-    void removeTreeItem(QModelIndex item, int itemIndex);
-    void removeItem(int instanceIndex, int itemIndex);
-    void removeInstance(int instanceIndex);
+    void writeDAE();
+    void updateValue(QModelIndex topLeft, QModelIndex bottomRight);
+
+    /*void save(QString toType);
+    void load(QString fromType);*/
+
+    /*int readData();
+    int readText();
+    int readBinary();
+    void writeText();
+    void writeBinary();*/
+    //int indexIn(QString searchName);
+    //QString getName();
+    //void getFileLengths(); //for getting a binary file's file, section, and item lengths
+    //int itemLength(taData itemDetails);
+    int dictItemIndex(int dictIndex, QString searchName);
+    //virtual dictItem addItem(taData itemDetails, QString tempRead); //text
+    //virtual dictItem addItem(taData itemDetails, FileData *tempRead); //binary
+    void newInstance();
+    void newItem();
+
+    std::shared_ptr<taData> createItem(QString itemType);
     void updateCenter();
+    int readIncludedFiles(QString fullRead); //note that includedfiles only needs fullread, not partsplit
+    //int readDictionary(); //text version
+    //int readDictionary(int sectionIndex, SectionHeader signature); //binary version
+    int readFileDictionary(); //text version
+    int readInstances(); //text version
+    int readFileDictionary(SectionHeader signature); //binary
+    int readInstances(SectionHeader signature); //binary
+    void createDBTree();
+    void filterInstances();
+    //void editItem(int dictIndex, int itemIndex, QString valueType, QString newValue);
     void editTreeItem(QModelIndex item, int itemIndex);
+    //QStringList editItem(QString className, int itemIndex);
+    //void removeTreeClass(QModelIndex item);
+    /*These functions should exist in definitionfile, not in ProgWindow.*/
+//    void editDatabaseItem(QModelIndex item, int itemIndex);
+//    void removeDatabaseItem(QModelIndex item, int itemIndex);
+//    void removeDatabaseClass(QModelIndex item);
+    //void clear();
+
+    //taData addItem(taData itemDetails, QString tempRead); //text
+    //dictItem addItem(dictItem itemDetails, FileData *tempRead); //binary
+    dictItem* getLink(int linkID);
+    void writeData();
+    int instanceIndexIn(int searchIndex);
+    void createItem();
+    //QStringList editItem(int instanceIndex, int itemIndex);
+    void removeTreeInstance(QModelIndex item);
+    void removeAttribute(int instanceIndex, int itemIndex);
+    void removeInstance(int instanceIndex);
 };
 
 #endif // DATABASE_H

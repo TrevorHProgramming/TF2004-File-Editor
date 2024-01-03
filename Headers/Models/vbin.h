@@ -5,15 +5,22 @@
 #include <QQuaternion>
 #include <QByteArrayMatcher>
 #include <QTransform>
+#include <QBuffer>
 
 #include "Antioch2.h"
 #include "Headers/Main/BinChanger.h"
+
+//just change over to this.
+//https://doc.qt.io/qt-5/qt3drender-qattribute.html
+
+//https://forum.qt.io/topic/56386/load-3d-model-with-qt3d-qt5-5/11
 
 class ProgWindow;
 
 class VBIN;
 class Mesh;
 class SceneNode;
+class MeshVBIN;
 
 class Triangle{
   public:
@@ -65,7 +72,7 @@ public:
   long arrayLength;
   QString meshName;
   FileData *fileData;
-  std::vector<QVector4D> positionList;
+  std::vector<QColor> positionList;
 };
 
 class TextureCoords{
@@ -85,6 +92,16 @@ public:
     float scale;
 
     void clear();
+};
+
+class Portal{
+  public:
+    int dataLength; //appears to always be 92
+    int possibleVersion; //appears to alway be 0
+    std::vector<int> references;
+    QVector3D unknownPoint;
+    std::vector<QVector3D> pointList;
+    float unknownValue;
 };
 
 class FileSection{
@@ -108,33 +125,57 @@ public:
     void sendKeyframe(QQuaternion keyRotation, QString channelName);
     void readModifications();
     //void getModifications();
-    void modifyPosArrays(std::vector<Modifications> addedMods);
+    //void modifyPosArrays(std::vector<Modifications> addedMods);
     void printInfo(int depth); // for debugging
     const void operator=(FileSection input);
     void writeSectionListSTL(QTextStream &file);
     void writeSectionListSTL(QString path);
     bool meshListContains(QString checkName);
-//    void writeSectionListDAE(QTextStream &file);
-//    void writeSectionListDAE(QString path);
-//    void writeSceneListDAE(QTextStream &file);
-//    void writeSceneListDAE(QString path);
-//    void writeEffectListDAE(QTextStream &file);
-//    void writeEffectListDAE(QString path);
-//    void writeImageListDAE(QTextStream &file);
-//    void writeImageListDAE(QString path);
-//    void writeMaterialListDAE(QTextStream &file);
-//    void writeMaterialListDAE(QString path);
     void modify(std::vector<Modifications> addedMods);
     // void modifyPosArrays(); //this might go somewhere else, just
     // commenting out for now
 
-    //template<typename WriteType>
     void searchListsWriteDAE(QTextStream &fileOut, void (Mesh::*)(QTextStream&));
+    void writeNodes(QTextStream &fileOut);
+    virtual void writeNodesDAE(QTextStream &fileOut);
 
-    template<typename WriteType>
-    void searchListsWriteDAE(QString path, WriteType *write);
+    //template<typename WriteType>
+    //void searchListsWriteDAE(QString path, WriteType *write);
 
     void clear();
+};
+
+class vlLodSwitcher : public FileSection{
+
+};
+
+class Instance : public FileSection{
+  public:
+    int unknownValue;
+    QString modelReference;
+    void writeNodesDAE(QTextStream &fileOut);
+};
+
+class Cell {
+  public:
+    int dataLength;
+    int possibleVersion;
+    int unknownShort;
+    std::vector<int> portals;
+    std::vector<int> excludedCells;
+    std::vector<QVector3D> axisBounds; //AABB, appears to always be 2 values
+    std::vector<QVector3D> orientationBounds; //OBB, appears to always be 5 values
+};
+
+class CellManager : public FileSection{
+  public:
+    int unknownValue1;
+    int portalCount; //might be portal count
+    std::vector<Portal*> portalList;
+    std::vector<Cell*> cellList;
+
+    void readPortals();
+    void readCell();
 };
 
 class SceneNode : public FileSection{
@@ -174,7 +215,8 @@ public:
 
 class VBIN : public TFFile {
 public:
-    const QStringList knownSections = {"~SceneNode", "~Mesh", "~anAnimationPrototype", "~BoundingVolume"};
+    const QStringList knownSections = {"SceneNode", "Mesh", "anAnimationPrototype", "BoundingVolume", "vlLODSwitcher", "anAnimationSourceSet", "LevelMasks", "Instance","vlCellManager"
+                                      "CellManager", "Portals", "vlCell", "Cell"};
     const QStringList validOutputs(){
         return QStringList{"STL", "DAE"};
     };
@@ -187,6 +229,12 @@ public:
     FileSection base;
     int selectedLOD;
     bool singleOutput;
+    bool isSplitFile;
+    std::shared_ptr<MeshVBIN> meshFile;
+
+    QStringList textureNameList;
+    QStringList instanceNameList;
+    int meshCount;
 
     VBIN();
     std::vector<int> getIndexArrays(int posCount, int chosenLOD, int location);
@@ -194,7 +242,16 @@ public:
     void applyKeyframe();
     void outputDataSTL();
     void outputDataDAE();
+
+    void writeEffectListDAE(QTextStream &stream);
+    void writeImageListDAE(QTextStream &stream);
+    void writeMaterialListDAE(QTextStream &stream);
+    void writeGeometryListDAE(QTextStream &stream);
+    void writeAnimationListDAE(QTextStream &stream);
+    void writeNodeListDAE(QTextStream &stream);
+
     void save(QString toType);
+    void save(QString toType, QTextStream &stream);
     void load(QString fromType);
     void updateCenter();
     void setOutput(bool single);

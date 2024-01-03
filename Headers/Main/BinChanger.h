@@ -16,6 +16,7 @@ public:
     QString name;
     int sectionLocation;
     int sectionLength;
+    int id;
 
     SectionHeader();
     const void operator=(SectionHeader input);
@@ -37,6 +38,7 @@ class BinChanger{
     int nib_to_byte(std::tuple<int8_t, int8_t> input);
     float hex_to_float(QByteArray array);
     QByteArray float_to_hex(float input);
+    qint64 hexWrite(QFile& file, QByteArray var);
     qint64 byteWrite(QFile& file, int8_t var);
     qint64 shortWrite(QFile& file, int16_t var);
     qint64 intWrite(QFile& file, int32_t var);
@@ -50,6 +52,7 @@ class FileData{
     ProgWindow *parent;
     long currentPosition = 0;
     bool input;
+    int line = 0;
 
 
     void readFile(QString filePath);
@@ -59,11 +62,14 @@ class FileData{
     bool readBool(int length = 1, long location = 0);
     float readFloat(int length = 4, long location = 0);
     float readMiniFloat(int length = 2, long location = 0);
+    uint32_t readSpecial(int length = 4, long location = 0);
     QVector3D read3DVector();
+    QVector3D readMini3DVector();
     QVector4D read4DVector();
+    QColor readColor(bool isFloat);
     QQuaternion readQuaternion();
     QQuaternion readMiniQuaternion();
-//    QByteArray readHex(int length, long location = 0);
+    QByteArray readHex(int length, long location = 0);
 //    void vector3DValue(QVector3D* value, long location = 0);
 //    void vector4DValue(QVector4D* value, long location = 0);
 //    void quaternionValue(QQuaternion* value, long location = 0);
@@ -72,6 +78,10 @@ class FileData{
     void hexValue(QString* value, int length, long location = 0);
     QByteArray mid(long location, int length);
     void signature(SectionHeader *signature);
+    void textSignature(SectionHeader *signature);
+    QString textWord();
+    void nextLine();
+    int skipLine(bool checkEmpty = false);
 };
 
 class TFFile{
@@ -106,6 +116,7 @@ class TFFile{
     }
 
     virtual void save(QString toType);
+    virtual void save(QString toType, QTextStream &stream);
     virtual void load(QString fromType);
     virtual void updateCenter();
 };

@@ -1,5 +1,8 @@
 #include "Headers/Main/mainwindow.h"
 
+//http://soundfile.sapp.org/doc/WaveFormat/
+
+
 void VACFile::save(QString toType){
     if(toType == "VAC"){
         tempWrite();

@@ -14,10 +14,12 @@ public:
 class AnimationBase{
 public:
     VBIN *file;
-    QString name;
+    QString name; //mesh name
     long sectionLength;
     long sectionEnd;
-    QString animationType; //Linear, cubic, scalar, etc
+    QString animationType;
+    QString motionType; //Linear, cubic, scalar, etc
+    //DAE supported interpolation types: Constant, Linear, Bezier
 
     int version1;
     int minimumLOD;
@@ -44,9 +46,11 @@ public:
     virtual void readLinear();
     virtual void readCubic();
     virtual void readCubicC2();
+    virtual void writeAnimationChannelDAE(QTextStream &fileOut, QString animationName);
 
 
     void readScalar();
+
 };
 
 class AnimationTranslation : public AnimationBase {
@@ -54,12 +58,14 @@ public:
     void readLinear();
     void readCubic();
     void readCubicC2();
+    void writeAnimationChannelDAE(QTextStream &fileOut, QString animationName);
 };
 
 class AnimationOrientation : public AnimationBase {
     void readLinear();
     void readCubic();
     void readCubicC2();
+    void writeAnimationChannelDAE(QTextStream &fileOut, QString animationName);
 };
 
 class AnimationScale : public AnimationBase {
@@ -69,7 +75,7 @@ class AnimationStream{
 public:
     VBIN* file;
     long fileLocation;
-    QString name;
+    QString name; //animation name
     long sectionLength;
     long sectionEnd;
 
@@ -83,6 +89,7 @@ public:
     std::vector<AnimationBase*> channelArray;
 
     void readAnimationStream();
+    void writeAnimationStreamDAE(QTextStream &fileOut);
 };
 
 class AnimationSourceSet{
@@ -99,6 +106,7 @@ class AnimationSourceSet{
     std::vector<AnimationStream*> streamArray;
 
     void readAnimationSet();
+    void writeAnimationsDAE(QTextStream &fileOut);
 };
 
 #endif // ANTIOCH2_H
