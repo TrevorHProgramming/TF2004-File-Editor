@@ -176,6 +176,7 @@ class CellManager : public FileSection{
 
     void readPortals();
     void readCell();
+    void outputPortals();
 };
 
 class SceneNode : public FileSection{

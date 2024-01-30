@@ -25,6 +25,35 @@ DistanceCalculator::DistanceCalculator(ProgWindow *parentPass){
     inputZValue->show();
 }
 
+void DistanceCalculator::loadWarpgates(){
+    QStringList levelNameList;
+    std::shared_ptr<TFFile> testLoaded;
+    std::vector<std::shared_ptr<TFFile>> loadedInstances;
+    //need to prompt the user for the game directory, then use that
+    QString filePath = QFileDialog::getExistingDirectory(parent, parent->tr(QString("Select TF2004 game folder.").toStdString().c_str()), QDir::currentPath());
+    //then load TMD from TFA2, then load each file from TFA.
+    for(int i = 0; i < levelNameList.size(); i++){
+        testLoaded = parent->matchFile(levelNameList[i] + ".VBIN");
+        if(testLoaded == nullptr){
+            //putting this separate from the while - don't want to run this check multiple times if it won't do anything
+            QString instancePath = filePath + "/" + levelNameList[i] + ".VBIN";
+            bool isFileInDirectory = QFileInfo::exists(instancePath);
+            qDebug() << Q_FUNC_INFO << "file directory is" <<filePath << "and file exists?" << isFileInDirectory;
+            if(isFileInDirectory){
+                parent->openFile("VBIN", instancePath);
+            }
+            testLoaded = parent->matchFile(levelNameList[i] + ".VBIN");
+        }
+        while(testLoaded == nullptr){
+            parent->messageError("Please load a file " + levelNameList[i]+".VBIN");
+            parent->openFile("VBIN");
+            testLoaded = parent->matchFile(levelNameList[i] + ".VBIN");
+        }
+        //testLoaded->outputPath = outputPath;
+        loadedInstances.push_back(testLoaded);
+    }
+}
+
 void DistanceCalculator::calculateWarpgateDistance(){
     Warpgate *closestGate = new Warpgate;
     std::vector<Warpgate*> warpgates = closestGate->createAmazonWarpgates();
