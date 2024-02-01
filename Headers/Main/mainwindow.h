@@ -32,7 +32,7 @@
 #include "Headers/Models/LevelGeo.h"
 #include "Headers/Databases/Database.h"
 #include "Headers/Audio/ToneLibraries.h"
-#include "DistanceCalculator.h"
+#include "Headers/Databases/DistanceCalculator.h"
 
 
 QT_BEGIN_NAMESPACE

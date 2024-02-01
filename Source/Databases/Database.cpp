@@ -687,6 +687,7 @@ int DatabaseFile::readInstances(SectionHeader signature){
             }
             if(instances[sectionIndex].name == "CreatureWarpGate"){
                 instances[sectionIndex].prototype = "WARP_ANIM";
+                warpgates.push_back(instances[sectionIndex]);
             }
         }
         sectionIndex++;

@@ -10,11 +10,12 @@ CONFIG += c++11
 
 SOURCES += \
     Source/Databases/DatabaseModel.cpp \
+    Source/Databases/DistanceCalculator.cpp \
     Source/Models/Antioch2.cpp \
     Source/Main/BinChanger.cpp \
     Source/Databases/Database.cpp \
     Source/Databases/DatabaseItems.cpp \
-    DistanceCalculator.cpp \
+    Source/Databases/DistanceCalculator.cpp \
     Source/Textures/ITF.cpp \
     Source/Models/LevelGeo.cpp \
     Source/Models/Mesh.cpp \
@@ -25,11 +26,12 @@ SOURCES += \
     Source/Main/openfile.cpp \
 
 HEADERS += \
+    Headers/Databases/DistanceCalculator.h \
     Headers/Main/CustomQT.h \
     Headers/Models/Antioch2.h \
     Headers/Main/BinChanger.h \
     Headers/Databases/Database.h \
-    DistanceCalculator.h \
+    Headers/Databases/DistanceCalculator.h \
     Headers/Models/LevelGeo.h \
     Headers/Models/Mesh.h \
     Headers/Audio/ToneLibraries.h \
