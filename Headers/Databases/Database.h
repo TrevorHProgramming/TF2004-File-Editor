@@ -404,6 +404,7 @@ public:
     void removeTreeInstance(QModelIndex item);
     void removeAttribute(int instanceIndex, int itemIndex);
     void removeInstance(int instanceIndex);
+    void acceptVisitor(DistanceCalculator& visitor);
 };
 
 #endif // DATABASE_H

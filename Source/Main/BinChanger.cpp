@@ -1,4 +1,5 @@
 #include "Headers/Main/mainwindow.h"
+#include "Headers/Databases/DistanceCalculator.h"
 
 TFFile::TFFile(){
     parent = nullptr;
@@ -6,6 +7,10 @@ TFFile::TFFile(){
     fileName = "";
     fileExtension = "";
     this->fileData = nullptr;
+}
+
+void TFFile::acceptVisitor(DistanceCalculator& visitor){
+    visitor.visit(*this);
 }
 
 uint32_t FileData::readSpecial(int length, long location){

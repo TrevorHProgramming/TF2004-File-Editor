@@ -1596,3 +1596,7 @@ void DatabaseFile::writeBinary(){
         }
     }
 }
+
+void DatabaseFile::acceptVisitor(DistanceCalculator& visitor){
+    visitor.visit(*this);
+}

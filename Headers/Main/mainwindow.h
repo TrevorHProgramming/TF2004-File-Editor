@@ -116,6 +116,7 @@ public:
     void clearWindow();
     void clearFiles();
     void clearLog();
+
     std::shared_ptr<TFFile> matchFile(QString fileNameFull);
 
     //unprivated for cross-file loading
