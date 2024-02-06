@@ -4,6 +4,8 @@
 #include <QLineEdit>
 #include <QString>
 
+#include "Headers/Databases/Database.h"
+
 class ProgWindow;
 
 class Warpgate{
@@ -14,6 +16,12 @@ public:
     QString name;
 
     static std::vector<Warpgate*> createAmazonWarpgates();
+};
+
+class WarpgateFile : public DatabaseFile{
+    std::vector<Warpgate> warpgateList;
+
+    void isolateWarpgates();
 };
 
 class DistanceCalculator{
@@ -27,6 +35,7 @@ public:
     QLineEdit *inputZValue;
 
     void calculateWarpgateDistance();
+    void loadWarpgates();
 };
 
 #endif // DISTANCECALCULATOR_H

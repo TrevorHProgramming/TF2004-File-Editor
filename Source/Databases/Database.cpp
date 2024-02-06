@@ -74,6 +74,12 @@ void DictionaryFile::load(QString fromType){
         parent->messageError("There was an error reading " + fileName);
         return;
     }
+    if(fromType == "BDB" || fromType == "TDB"){
+        //this will probably cause issues elsewhere, but is needed for automatically loading warpgates.
+        QStringList fileDirectories = QFileInfo(this->inputPath).absolutePath().split("/");
+        fileName = fileDirectories[fileDirectories.size()-1] + '-' + fileName;
+        qDebug() << Q_FUNC_INFO << "file name changed to" << fileName;
+    }
 }
 
 void DefinitionFile::updateCenter(){
@@ -687,6 +693,7 @@ int DatabaseFile::readInstances(SectionHeader signature){
             }
             if(instances[sectionIndex].name == "CreatureWarpGate"){
                 instances[sectionIndex].prototype = "WARP_ANIM";
+                warpgates.push_back(instances[sectionIndex]);
             }
         }
         sectionIndex++;
@@ -1588,4 +1595,8 @@ void DatabaseFile::writeBinary(){
             }
         }
     }
+}
+
+void DatabaseFile::acceptVisitor(DistanceCalculator& visitor){
+    visitor.visit(*this);
 }

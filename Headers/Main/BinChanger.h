@@ -8,6 +8,7 @@
 #include <QMatrix3x3>
 #include <QVector3D>
 class ProgWindow;
+class DistanceCalculator; //this will need to be changed to a generic visitor, somehow
 
 class SectionHeader{
 public:
@@ -118,6 +119,7 @@ class TFFile{
     virtual void save(QString toType);
     virtual void save(QString toType, QTextStream &stream);
     virtual void load(QString fromType);
+    virtual void acceptVisitor(DistanceCalculator& visitor);
     virtual void updateCenter();
 };
 
