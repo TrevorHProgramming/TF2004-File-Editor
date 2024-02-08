@@ -387,6 +387,7 @@ public:
     void newItem();
 
     std::shared_ptr<taData> createItem(QString itemType);
+    std::vector<Warpgate> sendWarpgates();
     void updateCenter();
     int readIncludedFiles(QString fullRead); //note that includedfiles only needs fullread, not partsplit
     int readFileDictionary(); //text version

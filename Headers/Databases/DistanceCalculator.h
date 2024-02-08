@@ -8,16 +8,6 @@
 
 class ProgWindow;
 
-class Warpgate{
-public:
-    double x_value;
-    double y_value;
-    double z_value;
-    QString name;
-
-    static std::vector<Warpgate*> createAmazonWarpgates();
-};
-
 class WarpgateFile : public DatabaseFile{
     std::vector<Warpgate> warpgateList;
 
@@ -27,15 +17,23 @@ class WarpgateFile : public DatabaseFile{
 class DistanceCalculator{
 public:
     DistanceCalculator(ProgWindow *parentPass);
-    std::vector<Warpgate*> warpgateList;
+    std::vector<std::shared_ptr<DatabaseFile>> databaseList;
+    std::vector<Warpgate> warpgateList;
     ProgWindow *parent;
 
     QLineEdit *inputXValue;
     QLineEdit *inputYValue;
     QLineEdit *inputZValue;
 
+    int currentLevel;
+
     void calculateWarpgateDistance();
     void loadWarpgates();
+    void userSelectLevel(int selectedLevel);
+
+
+    void visit(TFFile dataFile);
+    void visit(DatabaseFile dataFile);
 };
 
 #endif // DISTANCECALCULATOR_H
