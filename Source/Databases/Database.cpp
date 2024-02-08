@@ -1600,3 +1600,7 @@ void DatabaseFile::writeBinary(){
 void DatabaseFile::acceptVisitor(DistanceCalculator& visitor){
     visitor.visit(*this);
 }
+
+std::vector<Warpgate> DatabaseFile::sendWarpgates(){
+    return warpgates;
+}
