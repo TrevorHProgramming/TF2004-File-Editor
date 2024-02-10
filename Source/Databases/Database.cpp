@@ -658,7 +658,7 @@ int DatabaseFile::readInstances(SectionHeader signature){
                     if(dictionaryCopy == nullptr){
                         dictionaryCopy = dictionary[i].attributes[j];
                     }
-                    qDebug() << Q_FUNC_INFO << "dictionary" << i << "instance" << j << "adding item" << dictionaryCopy->name;
+                    //qDebug() << Q_FUNC_INFO << "dictionary" << i << "instance" << j << "adding item" << dictionaryCopy->name;
                     instances[sectionIndex].attributes.push_back(dictionaryCopy);
                 }
                 //instances[sectionIndex] = dictionary[i];
@@ -670,8 +670,8 @@ int DatabaseFile::readInstances(SectionHeader signature){
 
         for(int i = 0; i < instances[sectionIndex].attributes.size(); i++){
             instances[sectionIndex].attributes[i]->isDefault = fileData->readBool();
-            qDebug() << Q_FUNC_INFO << fileData->currentPosition << "Item" << instances[sectionIndex].attributes[i]->name << "is type" << instances[sectionIndex].attributes[i]->type
-                     << "is default?" << instances[sectionIndex].attributes[i]->isDefault << "is binary file?" << instances[sectionIndex].attributes[i]->file->binary;
+            //qDebug() << Q_FUNC_INFO << fileData->currentPosition << "Item" << instances[sectionIndex].attributes[i]->name << "is type" << instances[sectionIndex].attributes[i]->type
+            //         << "is default?" << instances[sectionIndex].attributes[i]->isDefault << "is binary file?" << instances[sectionIndex].attributes[i]->file->binary;
             if(!instances[sectionIndex].attributes[i]->isDefault){
                 instances[sectionIndex].attributes[i]->read();
                 if(instances[sectionIndex].attributes[i]->name == "PrototypeName"){
@@ -691,12 +691,15 @@ int DatabaseFile::readInstances(SectionHeader signature){
                     }
                 }
             }
-            if(instances[sectionIndex].name == "CreatureWarpGate"){
-                instances[sectionIndex].prototype = "WARP_ANIM";
-                warpgates.push_back(instances[sectionIndex]);
-            }
+        }
+        if(instances[sectionIndex].name == "CreatureWarpGate"){
+            instances[sectionIndex].prototype = "WARP_ANIM";
+            warpgates.push_back(instances[sectionIndex]);
         }
         sectionIndex++;
+    }
+    for(int i = 0; i < warpgates.size(); i++){
+        qDebug() << Q_FUNC_INFO << "Warpgate" << i << "is instance index" << warpgates[i].instanceIndex << "with name" << warpgates[i].name << "and position" << warpgates[i].position;
     }
     return 0;
 }
@@ -1597,7 +1600,7 @@ void DatabaseFile::writeBinary(){
     }
 }
 
-void DatabaseFile::acceptVisitor(DistanceCalculator& visitor){
+void DatabaseFile::acceptVisitor(ProgWindow& visitor){
     visitor.visit(*this);
 }
 

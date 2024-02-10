@@ -3,7 +3,7 @@
 void DistanceCalculator::userSelectLevel(int selectedLevel){
     //called when user makes a selection on the level list dropdown
     currentLevel = selectedLevel;
-    warpgateList = databaseList[currentLevel]->sendWarpgates();
+    warpgateList = parent->databaseList[currentLevel]->sendWarpgates();
     //then currentlevel is used below to calculate the closest warpgate
 }
 
@@ -34,10 +34,10 @@ DistanceCalculator::DistanceCalculator(ProgWindow *parentPass){
     inputZValue->show();
 
     QComboBox* ListLevels = new QComboBox(parent->centralContainer);
-    ListLevels -> setGeometry(QRect(QPoint(250,150), QSize(150,30)));
+    ListLevels -> setGeometry(QRect(QPoint(250,150), QSize(200,30)));
 
-    for(int i=0; i<databaseList.size(); ++i){
-        ListLevels->insertItem(i, QString::number(i+1));
+    for(int i=0; i<parent->databaseList.size(); ++i){
+        ListLevels->insertItem(i, parent->databaseList[i]->fileName);
     }
 
     QComboBox::connect(ListLevels, &QComboBox::currentIndexChanged, parent, [ListLevels, this] {userSelectLevel(ListLevels->currentIndex());});
@@ -47,25 +47,23 @@ DistanceCalculator::DistanceCalculator(ProgWindow *parentPass){
 }
 
 Warpgate::Warpgate(dictItem copyItem){
+    this->instanceIndex = copyItem.instanceIndex;
+    this->position = copyItem.position;
     this->x_position = copyItem.position.x();
     this->y_position = copyItem.position.y();
     this->z_position = copyItem.position.z();
     this->attributes = copyItem.attributes;
+    for(int i = 0; i < copyItem.attributes.size(); i++){
+        if(copyItem.attributes[i]->name == "WarpGateNumber"){
+            this->name = copyItem.attributes[i]->display();
+        }
+    }
 }
 
 Warpgate::Warpgate(){
     this->x_position = 0;
     this->y_position = 0;
     this->z_position = 0;
-}
-
-void DistanceCalculator::visit(TFFile dataFile){
-    qDebug() << Q_FUNC_INFO << "invalid file visited:" << dataFile.fullFileName();
-}
-
-void DistanceCalculator::visit(DatabaseFile dataFile){
-    qDebug() << Q_FUNC_INFO << "Correct data file visited:" << dataFile.fullFileName();
-    databaseList.push_back(std::make_shared<DatabaseFile> (dataFile));
 }
 
 void DistanceCalculator::loadWarpgates(){
@@ -110,7 +108,7 @@ void DistanceCalculator::loadWarpgates(){
             parent->openFile("BDB");
             testLoaded = parent->matchFile(levelList[level] + ".BDB");
         }
-        testLoaded->acceptVisitor(*this);
+        testLoaded->acceptVisitor(*parent);
 
     }
 
@@ -136,16 +134,13 @@ void DistanceCalculator::calculateWarpgateDistance(){
         }
         qDebug() << Q_FUNC_INFO << "Distance to warpgate" << warpgateList[i].name << ":" << totalDifference;
     }
+    closestGate.name += " x" + QString::number(closestGate.x_position) + " y" + QString::number(closestGate.y_position) + " z" + QString::number(closestGate.z_position);
 
     qDebug() << Q_FUNC_INFO << "Closest warpgate: " << closestGate.name;
 
-    if(closestGate.name == ""){
-        closestGate.name = QString::number(closestGate.x_position) + " " + QString::number(closestGate.y_position) + " " + QString::number(closestGate.z_position);
-    }
-
     if(parent->ClosestWarpgate == nullptr){
         parent->ClosestWarpgate = new QLabel(closestGate.name, parent->centralContainer);
-        parent->ClosestWarpgate->setGeometry(QRect(QPoint(650,320), QSize(150,30)));
+        parent->ClosestWarpgate->setGeometry(QRect(QPoint(650,320), QSize(450,30)));
         parent->ClosestWarpgate->setStyleSheet("QLabel { background-color: rgb(105,140,187) }");
         parent->ClosestWarpgate->show();
     } else {

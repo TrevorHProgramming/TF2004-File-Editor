@@ -309,6 +309,7 @@ void ProgWindow::updateCenter(){
 
 void ProgWindow::openWarpgateCalculator(){
     clearWindow();
+    databaseList.clear();
     warpgateCalculator = new DistanceCalculator(this);
 }
 
@@ -436,5 +437,14 @@ void SettingsWindow::changeSetting(int row, int column){
 SettingsWindow::~SettingsWindow()
 {
     delete sendUpdate;
+}
+
+void ProgWindow::visit(TFFile dataFile){
+    qDebug() << Q_FUNC_INFO << "invalid file visited:" << dataFile.fullFileName();
+}
+
+void ProgWindow::visit(DatabaseFile dataFile){
+    qDebug() << Q_FUNC_INFO << "Correct data file visited:" << dataFile.fullFileName();
+    databaseList.push_back(std::make_shared<DatabaseFile> (dataFile));
 }
 

@@ -29,6 +29,7 @@ class ProgWindow;
 class DefinitionFile;
 class FileData;
 class taDataEnum;
+class FileVisitor;
 
 class taData{
 public:
@@ -405,7 +406,7 @@ public:
     void removeTreeInstance(QModelIndex item);
     void removeAttribute(int instanceIndex, int itemIndex);
     void removeInstance(int instanceIndex);
-    void acceptVisitor(DistanceCalculator& visitor);
+    void acceptVisitor(ProgWindow& visitor);
 };
 
 #endif // DATABASE_H

@@ -74,6 +74,7 @@ public:
     DistanceCalculator* warpgateCalculator;
     SettingsWindow *setW;
     std::vector<std::shared_ptr<TFFile>> loadedFiles;
+    std::vector<std::shared_ptr<DatabaseFile>> databaseList;
     QStringList loadedFileNames;
     QListWidget* fileBrowser;
     int hSize = 1200;
@@ -119,8 +120,11 @@ public:
 
     std::shared_ptr<TFFile> matchFile(QString fileNameFull);
 
-    //unprivated for cross-file loading
-//private:
+    //visitor functions - used for getting pointers to database files for DatabaseCalculator
+    //I would really _really_ like to find a better way to handle this, but I'm at my limit here
+    void visit(TFFile dataFile);
+    void visit(DatabaseFile dataFile);
+
     void resizeEvent(QResizeEvent* event);
     void openWarpgateCalculator();
     void updateBackground();

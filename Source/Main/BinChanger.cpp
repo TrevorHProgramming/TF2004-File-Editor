@@ -9,7 +9,7 @@ TFFile::TFFile(){
     this->fileData = nullptr;
 }
 
-void TFFile::acceptVisitor(DistanceCalculator& visitor){
+void TFFile::acceptVisitor(ProgWindow& visitor){
     visitor.visit(*this);
 }
 
