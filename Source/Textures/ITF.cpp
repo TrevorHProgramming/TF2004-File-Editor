@@ -351,6 +351,7 @@ void ITF::convertColorToIndex(bool cancelled){
         mipMaps[0] = mipMaps[0].convertToFormat(QImage::Format_Indexed8);
         hasPalette = true;
         paletteCount = 1;
+        propertyByte |= 11;
     }
     updateCenter();
 }
@@ -963,8 +964,8 @@ void ITF::writeITF(){
         itfOut.write("PS2");
         parent->binChanger.byteWrite(itfOut, propertyByte);
         parent->binChanger.intWrite(itfOut, alphaType);
-        parent->binChanger.intWrite(itfOut, mipMaps[0].height());
         parent->binChanger.intWrite(itfOut, mipMaps[0].width());
+        parent->binChanger.intWrite(itfOut, mipMaps[0].height());
         parent->binChanger.intWrite(itfOut, mipmapCount);
         parent->binChanger.intWrite(itfOut, paletteCount);
         parent->binChanger.intWrite(itfOut, unknown4Byte3);

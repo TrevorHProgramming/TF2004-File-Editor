@@ -3,14 +3,17 @@
 void DistanceCalculator::userSelectLevel(int selectedLevel){
     //called when user makes a selection on the level list dropdown
     currentLevel = selectedLevel;
-    warpgateList = databaseList[currentLevel]->sendWarpgates();
+    warpgateList = parent->databaseList[currentLevel]->sendWarpgates();
     //then currentlevel is used below to calculate the closest warpgate
 }
 
 DistanceCalculator::DistanceCalculator(ProgWindow *parentPass){
     parent = parentPass;
     qDebug() << Q_FUNC_INFO << "parent value properly passed, window width is" << parent->hSize;
-    loadWarpgates();
+    if(parent->loadDatabases() != 0){
+        parent->log("Could not load databases. Warpgate calculator was not loaded.");
+        return;
+    }
     parent->clearWindow();
     QPushButton *ButtonCalculate = new QPushButton("Calculate", parent->centralContainer);
     ButtonCalculate->setGeometry(QRect(QPoint(50,320), QSize(150,30)));
@@ -34,10 +37,10 @@ DistanceCalculator::DistanceCalculator(ProgWindow *parentPass){
     inputZValue->show();
 
     QComboBox* ListLevels = new QComboBox(parent->centralContainer);
-    ListLevels -> setGeometry(QRect(QPoint(250,150), QSize(150,30)));
+    ListLevels -> setGeometry(QRect(QPoint(250,150), QSize(200,30)));
 
-    for(int i=0; i<databaseList.size(); ++i){
-        ListLevels->insertItem(i, QString::number(i+1));
+    for(int i=0; i<parent->databaseList.size(); ++i){
+        ListLevels->insertItem(i, parent->databaseList[i]->fileName);
     }
 
     QComboBox::connect(ListLevels, &QComboBox::currentIndexChanged, parent, [ListLevels, this] {userSelectLevel(ListLevels->currentIndex());});
@@ -47,73 +50,23 @@ DistanceCalculator::DistanceCalculator(ProgWindow *parentPass){
 }
 
 Warpgate::Warpgate(dictItem copyItem){
+    this->instanceIndex = copyItem.instanceIndex;
+    this->position = copyItem.position;
     this->x_position = copyItem.position.x();
     this->y_position = copyItem.position.y();
     this->z_position = copyItem.position.z();
     this->attributes = copyItem.attributes;
+    for(int i = 0; i < copyItem.attributes.size(); i++){
+        if(copyItem.attributes[i]->name == "WarpGateNumber"){
+            this->name = copyItem.attributes[i]->display();
+        }
+    }
 }
 
 Warpgate::Warpgate(){
     this->x_position = 0;
     this->y_position = 0;
     this->z_position = 0;
-}
-
-void DistanceCalculator::visit(TFFile dataFile){
-    qDebug() << Q_FUNC_INFO << "invalid file visited:" << dataFile.fullFileName();
-}
-
-void DistanceCalculator::visit(DatabaseFile dataFile){
-    qDebug() << Q_FUNC_INFO << "Correct data file visited:" << dataFile.fullFileName();
-    databaseList.push_back(std::make_shared<DatabaseFile> (dataFile));
-}
-
-void DistanceCalculator::loadWarpgates(){
-    qDebug() << Q_FUNC_INFO << "Attempting to load all level database files";
-    std::shared_ptr<TFFile> testLoaded;
-    //need to prompt the user for the game directory, then use that
-    QString gamePath = QFileDialog::getExistingDirectory(parent, parent->tr(QString("Select TF2004 game folder.").toStdString().c_str()), QDir::currentPath());
-    //then load TMD from TFA2, then load each file from TFA.
-    testLoaded = parent->matchFile("CREATURE.TMD");
-    if(testLoaded == nullptr){
-        QString definitionPath = gamePath + "/TFA2/CREATURE.TMD";
-        bool isFileInDirectory = QFileInfo::exists(definitionPath);
-        qDebug() << Q_FUNC_INFO << "file directory is" << definitionPath << "and file exists?" << isFileInDirectory;
-        if(isFileInDirectory){
-            parent->openFile("TMD", definitionPath);
-        }
-        testLoaded = parent->matchFile("CREATURE.TMD");
-
-        while(testLoaded == nullptr){
-            parent->messageError("Please load a file CREATURE.TMD");
-            parent->openFile("TMD");
-            testLoaded = parent->matchFile("CREATURE.TMD");
-        }
-    }
-
-    QString levelPath = gamePath + "/TFA/LEVELS/EPISODES";
-    QStringList levelList = QDir(levelPath).entryList(QDir::AllDirs | QDir::NoDotAndDotDot);
-    int levelCount = levelList.count();
-    for(int level = 0; level < levelCount; level++){
-        testLoaded = parent->matchFile(levelList[level] + "-CREATURE.BDB");
-        if(testLoaded == nullptr){
-            QString creaturePath = levelPath + "/" + levelList[level] + "/CREATURE.BDB";
-            bool isFileInDirectory = QFileInfo::exists(creaturePath);
-            qDebug() << Q_FUNC_INFO << "file directory is" << creaturePath << "and file exists?" << isFileInDirectory;
-            if(isFileInDirectory){
-                parent->openFile("BDB", creaturePath);
-            }
-            testLoaded = parent->matchFile(levelList[level] + "-CREATURE.BDB");
-        }
-        while(testLoaded == nullptr){
-            parent->messageError("Please load a file " + levelList[level]+".BDB");
-            parent->openFile("BDB");
-            testLoaded = parent->matchFile(levelList[level] + ".BDB");
-        }
-        testLoaded->acceptVisitor(*this);
-
-    }
-
 }
 
 void DistanceCalculator::calculateWarpgateDistance(){
@@ -136,16 +89,13 @@ void DistanceCalculator::calculateWarpgateDistance(){
         }
         qDebug() << Q_FUNC_INFO << "Distance to warpgate" << warpgateList[i].name << ":" << totalDifference;
     }
+    closestGate.name += " x" + QString::number(closestGate.x_position) + " y" + QString::number(closestGate.y_position) + " z" + QString::number(closestGate.z_position);
 
     qDebug() << Q_FUNC_INFO << "Closest warpgate: " << closestGate.name;
 
-    if(closestGate.name == ""){
-        closestGate.name = QString::number(closestGate.x_position) + " " + QString::number(closestGate.y_position) + " " + QString::number(closestGate.z_position);
-    }
-
     if(parent->ClosestWarpgate == nullptr){
         parent->ClosestWarpgate = new QLabel(closestGate.name, parent->centralContainer);
-        parent->ClosestWarpgate->setGeometry(QRect(QPoint(650,320), QSize(150,30)));
+        parent->ClosestWarpgate->setGeometry(QRect(QPoint(650,320), QSize(450,30)));
         parent->ClosestWarpgate->setStyleSheet("QLabel { background-color: rgb(105,140,187) }");
         parent->ClosestWarpgate->show();
     } else {

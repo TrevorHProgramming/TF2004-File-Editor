@@ -29,6 +29,7 @@ class ProgWindow;
 class DefinitionFile;
 class FileData;
 class taDataEnum;
+class FileVisitor;
 
 class taData{
 public:
@@ -252,6 +253,7 @@ public:
     std::shared_ptr<taData> clone();
     void setValue(QString changedValue);
     QString backupDisplay();
+    QString databaseOutput();
     QQuaternion quatValue();
     //void write();
 };
@@ -267,6 +269,7 @@ public:
     QString definitionOutput();
     QString databaseOutput();
     std::shared_ptr<taData> clone();
+    void setValue(QString changedValue);
     taDataEnum* cloneEnum(){
         return this;
     };
@@ -294,6 +297,11 @@ public:
     QString prototype;
     QVector3D position;
     QQuaternion orientation;
+
+    bool operator < (const dictItem& compItem) const
+    {
+        return (instanceIndex < compItem.instanceIndex);
+    }
 };
 
 class Warpgate : public dictItem{
@@ -309,6 +317,47 @@ public:
     static std::vector<Warpgate*> createAmazonWarpgates();
 };
 
+class Pickup : public dictItem{
+public:
+    int isMinicon;
+    bool isWeapon;
+    int spawnDifficulty;
+    int level;
+    int enumID;
+    int dataID;
+    bool placed;
+
+    Pickup(dictItem copyItem);
+    Pickup();
+    QVector3D position();
+    void setPosition(QVector3D changedPosition);
+
+
+    bool operator < (const Pickup& compPickup) const
+    {
+        return (enumID < compPickup.enumID);
+    }
+
+    bool operator == (const Pickup& compPickup) const
+    {
+        if(dataID != 99){
+            return (dataID == compPickup.dataID);
+        } else {
+            return (enumID == compPickup.enumID);
+        }
+    }
+};
+
+class Minicon : public Pickup{
+public:
+    bool isExplosive;
+    bool isSlipstream;
+    bool isHighjump;
+
+    Minicon(Pickup copyItem);
+    Minicon();
+};
+
 class DictionaryFile : public TFFile {
 public:
     virtual const QString fileCategory(){
@@ -318,6 +367,7 @@ public:
     const QStringList knownSections = {"IncludedFiles", "Dictionary", "FileDictionary", "Instances"};
 
     std::shared_ptr<DefinitionFile> inheritedFile;
+    QString inheritedFileName;
     QTreeView *dataTree;
     QStandardItemModel *dataModel;
     int versionNumber;
@@ -374,8 +424,10 @@ public:
     };
 
     std::vector<dictItem> instances;
+    int maxInstances;
     QStringList majorSections;
     std::vector<Warpgate> warpgates;
+    std::vector<Pickup> pickups;
     void writeText();
     void writeBinary();
     void writeDAE();
@@ -388,6 +440,7 @@ public:
 
     std::shared_ptr<taData> createItem(QString itemType);
     std::vector<Warpgate> sendWarpgates();
+    std::vector<Pickup> sendPickups();
     void updateCenter();
     int readIncludedFiles(QString fullRead); //note that includedfiles only needs fullread, not partsplit
     int readFileDictionary(); //text version
@@ -397,6 +450,10 @@ public:
     void createDBTree();
     void filterInstances();
     void editTreeItem(QModelIndex item, int itemIndex);
+    int addInstance(Pickup itemToAdd);
+    void removeAll(QString itemType);
+
+    std::vector<std::shared_ptr<taData>> generateAttributes(QString className);
 
     dictItem* getLink(int linkID);
     void writeData();
@@ -405,7 +462,7 @@ public:
     void removeTreeInstance(QModelIndex item);
     void removeAttribute(int instanceIndex, int itemIndex);
     void removeInstance(int instanceIndex);
-    void acceptVisitor(DistanceCalculator& visitor);
+    void acceptVisitor(ProgWindow& visitor);
 };
 
 #endif // DATABASE_H

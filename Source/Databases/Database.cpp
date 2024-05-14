@@ -214,6 +214,59 @@ void DefinitionFile::updateValue(QModelIndex topLeft, QModelIndex bottomRight){
     }
 }
 
+int DatabaseFile::addInstance(Pickup itemToAdd){
+    //modify itemToAdd to put enumID and location where they belong in the attributes
+    dictItem tempItem = dictItem();
+    int dictIndex = 0;
+    int attributeIndex = 0;
+    tempItem.name = "PickupPlaced";
+
+
+    //this needs to limit itself to the attributes present in the target file
+    //that means some minicons will need to pull the default value from the definition file
+    //qDebug() << Q_FUNC_INFO << "adding item" << itemToAdd.name << "to file" << fileName << "with" << itemToAdd.attributes.size() << "attributes";
+    for(int i = 0; i < dictionary.size(); i++){
+        if(dictionary[i].name == tempItem.name){
+            dictIndex = i;
+        }
+    }
+
+    //need to find the first available instance ID and apply it to the item being added instead of this
+    tempItem.instanceIndex = instances[instances.size()-1].instanceIndex + 1;
+//    int previousIndex = 0;
+//    for(int i = 0; i < instances.size(); i++){
+//        if(instances[i].instanceIndex - previousIndex > 1){
+//            tempItem.instanceIndex = previousIndex + 1;
+//            break;
+//        }
+//        previousIndex = instances[i].instanceIndex;
+//    }
+
+    //qDebug() << Q_FUNC_INFO << "original dictionary item has" << dictionary[dictIndex].attributes.size() << "attributes";
+    //dictionary does not have all attributes for some reason.
+    for(int i = 0; i < dictionary[dictIndex].attributes.size(); i++){
+        attributeIndex = 9999;
+        //qDebug() << Q_FUNC_INFO << "checking attribute" << i << dictionary[dictIndex].attributes[i]->name;
+        for(int j = 0; j < itemToAdd.attributes.size(); j++){
+            if(itemToAdd.attributes[j]->name == dictionary[dictIndex].attributes[i]->name){
+                //qDebug() << Q_FUNC_INFO << "found a match";
+                attributeIndex = j;
+            }
+        }
+        if(attributeIndex == 9999){
+            //add attribute with default value
+            //qDebug() << Q_FUNC_INFO << "creating default value";
+            tempItem.attributes.push_back(dictionary[dictIndex].attributes[i]->clone());
+        } else {
+            tempItem.attributes.push_back(itemToAdd.attributes[attributeIndex]->clone());
+        }
+    }
+    //qDebug() << Q_FUNC_INFO << "adding modified item" << tempItem.name << "to file" << fileName << "with" << tempItem.attributes.size() << "attributes";
+    instances.push_back(tempItem);
+    //std::sort(instances.begin(), instances.end());
+    return tempItem.instanceIndex;
+}
+
 void DatabaseFile::filterInstances(){
     QStringList filterOptions;
 
@@ -235,7 +288,7 @@ void DatabaseFile::filterInstances(){
 
     for (int i = 0; i < instances.size();i++) {
         if(instances[i].name == filterChoice){
-            instanceRow = {new QStandardItem(instances[i].name), new QStandardItem(QString::number(instances[i].instanceIndex))};   
+            instanceRow = {new QStandardItem(instances[i].name), new QStandardItem(QString::number(instances[i].instanceIndex))};
             instanceHeader.first()->appendRow(instanceRow);
             for(int j = 0; j<instances[i].attributes.size();j++){
                 details = {new QStandardItem(instances[i].attributes[j]->name),new QStandardItem(instances[i].attributes[j]->type),
@@ -442,6 +495,7 @@ void DatabaseFile::createDBTree(){
         instanceRow = {new QStandardItem(instances[i].name), new QStandardItem(QString::number(instances[i].instanceIndex))};
         instanceHeader.first()->appendRow(instanceRow);
         for(int j = 0; j<instances[i].attributes.size();j++){
+            //qDebug() << Q_FUNC_INFO << "generating detail line for instance:" <<instances[i].instanceIndex << "attribute" << j << instances[i].attributes[j]->name;
             details = {new QStandardItem(instances[i].attributes[j]->name),new QStandardItem(instances[i].attributes[j]->type),
                        new QStandardItem(instances[i].attributes[j]->display()), new QStandardItem(instances[i].attributes[j]->options())
                        , new QStandardItem(instances[i].attributes[j]->comment)};
@@ -467,6 +521,17 @@ void DatabaseFile::removeTreeInstance(QModelIndex item){
 
 void DatabaseFile::removeInstance(int instanceIndex){
     instances.erase(instances.begin() + instanceIndex);
+}
+
+void DatabaseFile::removeAll(QString itemType){
+    std::vector<dictItem>::iterator currentItem;
+    for(currentItem = instances.begin(); currentItem != instances.end();){
+        if(currentItem->name == itemType){
+            currentItem = instances.erase(currentItem);
+        } else {
+            currentItem++;
+        }
+    }
 }
 
 dictItem* DatabaseFile::getLink(int linkID){
@@ -577,6 +642,7 @@ int DefinitionFile::readDictionary(SectionHeader signature){
 }
 
 int DatabaseFile::readFileDictionary(SectionHeader signature){
+    //for bdb files
     QString itemName;
     int sectionIndex = 0;
     int classIndexTMD = 0;
@@ -590,7 +656,7 @@ int DatabaseFile::readFileDictionary(SectionHeader signature){
         dictionary[sectionIndex].name = signature.type;
         endSection = signature.sectionLocation + signature.sectionLength;
         for(int i = 0; i < inheritedFile->dictionary.size(); i++){
-            qDebug() << Q_FUNC_INFO << fileData->currentPosition << "comparing class" << i << inheritedFile->dictionary[i].name << "to inherited class" << signature.type;
+            //qDebug() << Q_FUNC_INFO << fileData->currentPosition << "comparing class" << i << inheritedFile->dictionary[i].name << "to inherited class" << signature.type;
             if(inheritedFile->dictionary[i].name == signature.type){
                 //qDebug() << Q_FUNC_INFO << "They match.";
                 classIndexTMD = i;
@@ -598,13 +664,10 @@ int DatabaseFile::readFileDictionary(SectionHeader signature){
             }
         }
         while(fileData->currentPosition < endSection){
-
             int nameLength = fileData->readUInt();
             itemName = fileData->readHex(nameLength);
             for(int i =0; i < inheritedFile->dictionary[classIndexTMD].attributes.size(); i++){
-                //qDebug() << Q_FUNC_INFO << "comparing class" << i << inheritedFile->dictionary[classIndexTMD].attributes[i]->name << "to inherited class" << itemName;
                 if(inheritedFile->dictionary[classIndexTMD].attributes[i]->name == itemName){
-                    //qDebug() << Q_FUNC_INFO << "They match.";
                     dictionary[sectionIndex].attributes.push_back(inheritedFile->dictionary[classIndexTMD].attributes[i]->clone());
                 }
                 if(inheritedFile->dictionary[classIndexTMD].attributes[i]->name == "PrototypeName"){
@@ -616,7 +679,7 @@ int DatabaseFile::readFileDictionary(SectionHeader signature){
                 if(inheritedFile->dictionary[classIndexTMD].attributes[i]->name == "Orientation"){
                     dictionary[sectionIndex].orientation = inheritedFile->dictionary[classIndexTMD].attributes[i]->quatValue();
                 }
-                if(inheritedFile->dictionary[classIndexTMD].name == "PickupPlaced" && inheritedFile->dictionary[classIndexTMD].attributes[i]->name == "PickupToSpawn"){
+                if(itemName == "PickupPlaced" && inheritedFile->dictionary[classIndexTMD].attributes[i]->name == "PickupToSpawn"){
                     if(inheritedFile->dictionary[classIndexTMD].attributes[i]->intValue() == 3){
                         dictionary[sectionIndex].prototype = "DATADISK_DISK";
                     } else if (inheritedFile->dictionary[classIndexTMD].attributes[i]->intValue() > 3){
@@ -624,19 +687,23 @@ int DatabaseFile::readFileDictionary(SectionHeader signature){
                     }
                 }
             }
-            if(inheritedFile->dictionary[classIndexTMD].name == "CreatureWarpGate"){
+            if(itemName == "CreatureWarpGate"){
                 dictionary[sectionIndex].prototype = "WARP_ANIM";
             }
         }
         sectionIndex++;
     }
     //qDebug() << Q_FUNC_INFO << "Finished FileDictionary at" << fileData->currentPosition << "based on expected end of section" << endSection;
+    for(int i = 0; i < dictionary.size(); i++){
+        qDebug() << Q_FUNC_INFO << "dictionary item" << i << "has" << dictionary[i].attributes.size() << "attributes";
+    }
     return 0;
 }
 
 int DatabaseFile::readInstances(SectionHeader signature){
     int sectionIndex = 0;
     long endInstances = signature.sectionLength + signature.sectionLocation;
+    bool isPickup = false;
     //qDebug() << Q_FUNC_INFO << "just double checking. binary?" << binary;
     while(fileData->currentPosition < endInstances){
         fileData->signature(&signature);
@@ -658,7 +725,7 @@ int DatabaseFile::readInstances(SectionHeader signature){
                     if(dictionaryCopy == nullptr){
                         dictionaryCopy = dictionary[i].attributes[j];
                     }
-                    qDebug() << Q_FUNC_INFO << "dictionary" << i << "instance" << j << "adding item" << dictionaryCopy->name;
+                    //qDebug() << Q_FUNC_INFO << "dictionary" << i << "instance" << j << "adding item" << dictionaryCopy->name;
                     instances[sectionIndex].attributes.push_back(dictionaryCopy);
                 }
                 //instances[sectionIndex] = dictionary[i];
@@ -670,8 +737,8 @@ int DatabaseFile::readInstances(SectionHeader signature){
 
         for(int i = 0; i < instances[sectionIndex].attributes.size(); i++){
             instances[sectionIndex].attributes[i]->isDefault = fileData->readBool();
-            qDebug() << Q_FUNC_INFO << fileData->currentPosition << "Item" << instances[sectionIndex].attributes[i]->name << "is type" << instances[sectionIndex].attributes[i]->type
-                     << "is default?" << instances[sectionIndex].attributes[i]->isDefault << "is binary file?" << instances[sectionIndex].attributes[i]->file->binary;
+            //qDebug() << Q_FUNC_INFO << fileData->currentPosition << "Item" << instances[sectionIndex].attributes[i]->name << "is type" << instances[sectionIndex].attributes[i]->type
+            //         << "is default?" << instances[sectionIndex].attributes[i]->isDefault << "is binary file?" << instances[sectionIndex].attributes[i]->file->binary;
             if(!instances[sectionIndex].attributes[i]->isDefault){
                 instances[sectionIndex].attributes[i]->read();
                 if(instances[sectionIndex].attributes[i]->name == "PrototypeName"){
@@ -684,6 +751,7 @@ int DatabaseFile::readInstances(SectionHeader signature){
                     instances[sectionIndex].orientation = instances[sectionIndex].attributes[i]->quatValue();
                 }
                 if(signature.type == "PickupPlaced" && instances[sectionIndex].attributes[i]->name == "PickupToSpawn"){
+                    isPickup = true;
                     if(instances[sectionIndex].attributes[i]->intValue() == 3){
                         instances[sectionIndex].prototype = "DATADISK_DISK";
                     } else if (instances[sectionIndex].attributes[i]->intValue() > 3){
@@ -691,13 +759,22 @@ int DatabaseFile::readInstances(SectionHeader signature){
                     }
                 }
             }
-            if(instances[sectionIndex].name == "CreatureWarpGate"){
-                instances[sectionIndex].prototype = "WARP_ANIM";
-                warpgates.push_back(instances[sectionIndex]);
-            }
+        }
+        if(instances[sectionIndex].name == "CreatureWarpGate"){
+            instances[sectionIndex].prototype = "WARP_ANIM";
+            warpgates.push_back(instances[sectionIndex]);
+        }
+        if(isPickup){
+            pickups.push_back(instances[sectionIndex]);
+            isPickup = false;
         }
         sectionIndex++;
     }
+    for(int i = 0; i < warpgates.size(); i++){
+        qDebug() << Q_FUNC_INFO << "Warpgate" << i << "is instance index" << warpgates[i].instanceIndex << "with name" << warpgates[i].name << "and position" << warpgates[i].position;
+    }
+    maxInstances = instances.size();
+    qDebug() << Q_FUNC_INFO << "file" << fileName << "has instance count" << instances.size();
     return 0;
 }
 
@@ -733,6 +810,9 @@ int DictionaryFile::readBinary(){
 
         if (majorSignature.type == "FileDictionary"){
             failed = readFileDictionary(majorSignature);
+            for(int i = 0; i < dictionary.size(); i++){
+                qDebug() << Q_FUNC_INFO << "dictionary item" << i << "has" << dictionary[i].attributes.size() << "attributes";
+            }
         }
 
         if (majorSignature.type == "Instances") {
@@ -772,7 +852,7 @@ int DictionaryFile::readIncludedFiles(QString fullRead){
     int failed = 1;
     QString nameList; //for the error message
 
-    QString inheritedFileName = fullRead.remove(quoteRemover);
+    inheritedFileName = fullRead.remove(quoteRemover);
 
     fullRead = fullRead.remove(quoteRemover).remove(pathRemover);
     //qDebug() << Q_FUNC_INFO << fullRead << "included file" << inheritedFileName;
@@ -933,7 +1013,7 @@ int DefinitionFile::readDictionary(){
 }
 
 int DatabaseFile::readFileDictionary(){
-    //for TMD files
+    //for TDB files
     QString itemName;
     int classIndexTMD = 0;
     int typeIndexTDB = 0;
@@ -951,7 +1031,7 @@ int DatabaseFile::readFileDictionary(){
     while(!dictionaryEnd){
         //qDebug() << Q_FUNC_INFO << "reading a dictionary line at" << fileData->currentPosition;
         if(!fileData->skipLine(true)){
-            qDebug() << Q_FUNC_INFO << "End of dictionary reached.";
+            //qDebug() << Q_FUNC_INFO << "End of dictionary reached.";
             dictionaryEnd = true;
             continue;
         }
@@ -970,32 +1050,6 @@ int DatabaseFile::readFileDictionary(){
                 classIndexTMD = i;
                 break;
             }
-            for(int i =0; i < inheritedFile->dictionary[classIndexTMD].attributes.size(); i++){
-                //qDebug() << Q_FUNC_INFO << "comparing class" << i << inheritedFile->dictionary[classIndexTMD].attributes[i]->name << "to inherited class" << itemName;
-                if(inheritedFile->dictionary[classIndexTMD].attributes[i]->name == itemName){
-                    //qDebug() << Q_FUNC_INFO << "They match.";
-                    dictionary[sectionIndex].attributes.push_back(inheritedFile->dictionary[classIndexTMD].attributes[i]->clone());
-                }
-                if(inheritedFile->dictionary[classIndexTMD].attributes[i]->name == "PrototypeName"){
-                    dictionary[sectionIndex].prototype = inheritedFile->dictionary[classIndexTMD].attributes[i]->stringValue();
-                }
-                if(inheritedFile->dictionary[classIndexTMD].attributes[i]->name == "Position"){
-                    dictionary[sectionIndex].position = inheritedFile->dictionary[classIndexTMD].attributes[i]->vectorValue();
-                }
-                if(inheritedFile->dictionary[classIndexTMD].attributes[i]->name == "Orientation"){
-                    dictionary[sectionIndex].orientation = inheritedFile->dictionary[classIndexTMD].attributes[i]->quatValue();
-                }
-                if(inheritedFile->dictionary[classIndexTMD].name == "PickupPlaced" && inheritedFile->dictionary[classIndexTMD].attributes[i]->name == "PickupToSpawn"){
-                    if(inheritedFile->dictionary[classIndexTMD].attributes[i]->intValue() == 3){
-                        dictionary[sectionIndex].prototype = "DATADISK_DISK";
-                    } else if (inheritedFile->dictionary[classIndexTMD].attributes[i]->intValue() > 3){
-                        dictionary[sectionIndex].prototype = "PANEL";
-                    }
-                }
-            }
-            if(inheritedFile->dictionary[classIndexTMD].name == "CreatureWarpGate"){
-                dictionary[sectionIndex].prototype = "WARP_ANIM";
-            }
             if(i+1 == inheritedFile->dictionary.size()){
                 parent->log("Section of type " + signature.type + " was not found in " + inheritedFile->fullFileName() + "| " + QString(Q_FUNC_INFO));
                 return 1;
@@ -1003,6 +1057,7 @@ int DatabaseFile::readFileDictionary(){
         }
         dictionary[sectionIndex].inheritedDictionaryIndex = classIndexTMD;
 
+        //qDebug() << Q_FUNC_INFO << "Getting attributes from inherited file for class" << dictionary[sectionIndex].name;
         while(!sectionEnd){
             //check if the current line is empty - if it is, we end the section and continue to the next.
             //qDebug() << Q_FUNC_INFO << "reading a section line at" << fileData->currentPosition;
@@ -1014,13 +1069,13 @@ int DatabaseFile::readFileDictionary(){
 
             itemName = fileData->textWord().remove(quoteRemover);
             if(itemName.contains(":")){
-                //qDebug() << Q_FUNC_INFO << "inheriting data internally from:" << itemName;
                 itemName = itemName.right(itemName.length()-1);
+                //qDebug() << Q_FUNC_INFO << "inheriting data internally from:" << itemName;
                 dictionary[sectionIndex].copiedClass = itemName;
                 for(int i = 0; i < dictionary.size(); i++){
-                    //qDebug() << Q_FUNC_INFO << "comparing class" << i << fileDictionary[i].name << "to inherited class" << itemName;
+                    //qDebug() << Q_FUNC_INFO << "comparing class" << i << dictionary[i].name << "to inherited class" << itemName;
                     if(dictionary[i].name == itemName){
-                        //qDebug() << Q_FUNC_INFO << "They match.";
+                        //qDebug() << Q_FUNC_INFO << "They match. inherited name" << dictionary[i].name << "search name:" << itemName << "inherited attribute count:" << dictionary[i].attributes.size();
                         for(int j = 0; j < dictionary[i].attributes.size(); j++){
 //                            std::shared_ptr<taData> dictionaryCopy = dictionary[i].attributes[j]->clone();
 //                            if(dictionaryCopy == nullptr){
@@ -1039,14 +1094,36 @@ int DatabaseFile::readFileDictionary(){
             for(int i =0; i < inheritedFile->dictionary[classIndexTMD].attributes.size(); i++){
                 //qDebug() << Q_FUNC_INFO << "comparing class" << i << inheritedFile->dictionary[classIndexTMD].attributes[i]->name << "to inherited class" << itemName;
                 if(inheritedFile->dictionary[classIndexTMD].attributes[i]->name == itemName){
-                    //qDebug() << Q_FUNC_INFO << "They match.";
+                    //qDebug() << Q_FUNC_INFO << "They match. adding item name:" << itemName << "attribute" << i;
                     std::shared_ptr<taData> dictionaryCopy = inheritedFile->dictionary[classIndexTMD].attributes[i]->clone();
                     if(dictionaryCopy == nullptr){
+                        //qDebug() << Q_FUNC_INFO << "failed to clone";
                         dictionaryCopy = inheritedFile->dictionary[classIndexTMD].attributes[i];
                     }
                     dictionary[sectionIndex].attributes.push_back(dictionaryCopy);
                     break;
                 }
+            }
+            for(int i =0; i < inheritedFile->dictionary[classIndexTMD].attributes.size(); i++){
+                if(inheritedFile->dictionary[classIndexTMD].attributes[i]->name == "PrototypeName"){
+                    dictionary[sectionIndex].prototype = inheritedFile->dictionary[classIndexTMD].attributes[i]->stringValue();
+                }
+                if(inheritedFile->dictionary[classIndexTMD].attributes[i]->name == "Position"){
+                    dictionary[sectionIndex].position = inheritedFile->dictionary[classIndexTMD].attributes[i]->vectorValue();
+                }
+                if(inheritedFile->dictionary[classIndexTMD].attributes[i]->name == "Orientation"){
+                    dictionary[sectionIndex].orientation = inheritedFile->dictionary[classIndexTMD].attributes[i]->quatValue();
+                }
+                if(itemName == "PickupPlaced" && inheritedFile->dictionary[classIndexTMD].attributes[i]->name == "PickupToSpawn"){
+                    if(inheritedFile->dictionary[classIndexTMD].attributes[i]->intValue() == 3){
+                        dictionary[sectionIndex].prototype = "DATADISK_DISK";
+                    } else if (inheritedFile->dictionary[classIndexTMD].attributes[i]->intValue() > 3){
+                        dictionary[sectionIndex].prototype = "PANEL";
+                    }
+                }
+            }
+            if(itemName == "CreatureWarpGate"){
+                dictionary[sectionIndex].prototype = "WARP_ANIM";
             }
 
             fileData->nextLine();
@@ -1072,6 +1149,7 @@ int DatabaseFile::readInstances(){
     //dictItem itemDetails;
     bool instancesEnd = false;
     bool sectionEnd = false;
+    bool isPickup = false;
     SectionHeader signature;
     //itemDetails.file = this;
 
@@ -1093,12 +1171,14 @@ int DatabaseFile::readInstances(){
         for(int i = 0; i < dictionary.size(); i++){
             //qDebug() << Q_FUNC_INFO << "comparing class" << i << dictionary[i].name << "to inherited class" << signature.type;
             if(dictionary[i].name == signature.type){
-                //qDebug() << Q_FUNC_INFO << "They match.";
                 instances[sectionIndex].name = dictionary[i].name;
                 instances[sectionIndex].copiedClass = dictionary[i].copiedClass;
+                //qDebug() << Q_FUNC_INFO << "Adding attributes for class" << instances[sectionIndex].name << instances[sectionIndex].instanceIndex;
                 for(int j = 0; j < dictionary[i].attributes.size(); j++){
+                    //qDebug() << Q_FUNC_INFO << "adding attribute" << j << "name" << dictionary[i].attributes[j]->name;
                     std::shared_ptr<taData> dictionaryCopy = dictionary[i].attributes[j]->clone();
                     if(dictionaryCopy == nullptr){
+                        //qDebug() << Q_FUNC_INFO << "failed to clone";
                         dictionaryCopy = dictionary[i].attributes[j];
                     }
                     instances[sectionIndex].attributes.push_back(dictionaryCopy);
@@ -1149,6 +1229,7 @@ int DatabaseFile::readInstances(){
                     instances[sectionIndex].orientation = instances[sectionIndex].attributes[itemIndex]->quatValue();
                 }
                 if(signature.type == "PickupPlaced" && instances[sectionIndex].attributes[itemIndex]->name == "PickupToSpawn"){
+                    isPickup = true;
                     if(instances[sectionIndex].attributes[itemIndex]->intValue() == 3){
                         instances[sectionIndex].prototype = "DATADISK_DISK";
                     } else if (instances[sectionIndex].attributes[itemIndex]->intValue() > 3){
@@ -1158,6 +1239,11 @@ int DatabaseFile::readInstances(){
             }
             if(instances[sectionIndex].name == "CreatureWarpGate"){
                 instances[sectionIndex].prototype = "WARP_ANIM";
+                warpgates.push_back(instances[sectionIndex]);
+            }
+            if(isPickup){
+                pickups.push_back(instances[sectionIndex]);
+                isPickup = false;
             }
             fileData->nextLine();
             //qDebug() << Q_FUNC_INFO << "Data read as:" << instances[sectionIndex].attributes[itemIndex]->type << instances[sectionIndex].attributes[itemIndex]->name
@@ -1307,8 +1393,9 @@ void DatabaseFile::writeText(){
         tdbOut.write("~IncludedFiles \r\n{\r\n");
         tdbOut.write("	");
         if(inheritedFile->fileName.trimmed().size() != 0){
-            //qDebug() << Q_FUNC_INFO << "includedFile value" << includedFile.trimmed().toUtf8();
-            tdbOut.write("\"" + inheritedFile->fullFileName().trimmed().toUtf8() + "\" \r\n");
+            //need the relative path here. the ../../ stuff.
+            qDebug() << Q_FUNC_INFO << "includedFile value" << inheritedFileName.toUtf8();
+            tdbOut.write("\"" + inheritedFileName.toUtf8() + "\" \r\n");
         }
         tdbOut.write("	\r\n} // IncludedFiles\r\n");
         tdbOut.write("\r\n~FileDictionary \r\n{");
@@ -1318,19 +1405,13 @@ void DatabaseFile::writeText(){
             tdbOut.write(dictionary[i].name.toUtf8());
 
             tdbOut.write(" \r\n	{");
-            //qDebug() << Q_FUNC_INFO << "class" << fileDictionary[i].name << "inherits" << fileDictionary[i].inheritedClass;
-            if (dictionary[i].copiedClass != "") {
-                tdbOut.write("\r\n		");
-                tdbOut.write("\":" + dictionary[i].copiedClass.toUtf8() + "\" ");
-                //typeIndexTMD = indexIn(fileDictionary[i].inheritedClass);
-                //startPoint = fileDictionary[typeIndexTMD].attributes.size();
-                //qDebug() << Q_FUNC_INFO << "class name" << fileDictionary[i].inheritedClass << "/" << fileDictionary[typeIndexTMD].name << "type index" << typeIndexTMD << "start point" << startPoint;
-            }
+            //qDebug() << Q_FUNC_INFO << "writing attributes for class" << dictionary[i].name << "with inherited class" << dictionary[i].copiedClass <<". Attributes to write:" << dictionary[i].attributes.size();
             for(int j = startPoint; j < dictionary[i].attributes.size(); j++){
-                if(!dictionary[i].attributes[j]->inherited){
-                    tdbOut.write("\r\n		");
-                    tdbOut.write("\"" + dictionary[i].attributes[j]->name.toUtf8() + "\" ");
-                }
+                //qDebug() << Q_FUNC_INFO << "checking attribute" << dictionary[i].attributes[j]->name << ". is inherited?" << dictionary[i].attributes[j]->inherited;
+                //check the dictionary copier - both the inherited and inheritor classes are not
+                //being written properly in the file dicitonary
+                tdbOut.write("\r\n		");
+                tdbOut.write("\"" + dictionary[i].attributes[j]->name.toUtf8() + "\" ");
             }
             tdbOut.write("\r\n		\r\n	} // " + dictionary[i].name.toUtf8());
         }
@@ -1597,10 +1678,107 @@ void DatabaseFile::writeBinary(){
     }
 }
 
-void DatabaseFile::acceptVisitor(DistanceCalculator& visitor){
+void DatabaseFile::acceptVisitor(ProgWindow& visitor){
     visitor.visit(*this);
 }
 
 std::vector<Warpgate> DatabaseFile::sendWarpgates(){
     return warpgates;
+}
+
+std::vector<Pickup> DatabaseFile::sendPickups(){
+    return pickups;
+}
+
+std::vector<std::shared_ptr<taData>> DatabaseFile::generateAttributes(QString className){
+    int classIndexTMD = 0;
+    std::vector<std::shared_ptr<taData>> generatedAttributes;
+    for(int i = 0; i < inheritedFile->dictionary.size(); i++){
+        qDebug() << "comparing class" << i << inheritedFile->dictionary[i].name << "to inherited class" << className;
+        if(inheritedFile->dictionary[i].name == className){
+            qDebug() << Q_FUNC_INFO << "They match.";
+            classIndexTMD = i;
+            break;
+        }
+    }
+    for(int j =0; j < inheritedFile->dictionary[classIndexTMD].attributes.size(); j++){
+        qDebug() << "adding attribute from class" << inheritedFile->dictionary[classIndexTMD].name << ":" << inheritedFile->dictionary[classIndexTMD].attributes[j]->name;
+        std::shared_ptr<taData> dictionaryCopy = inheritedFile->dictionary[classIndexTMD].attributes[j]->clone();
+        if(dictionaryCopy == nullptr){
+            dictionaryCopy = inheritedFile->dictionary[classIndexTMD].attributes[j];
+        }
+        generatedAttributes.push_back(dictionaryCopy);
+    }
+    qDebug() << Q_FUNC_INFO << "generated attributes:" << generatedAttributes.size();
+    return generatedAttributes;
+}
+
+Pickup::Pickup(dictItem copyItem){
+    dataID = 99;
+    this->instanceIndex = copyItem.instanceIndex;
+    this->attributes = copyItem.attributes;
+    for(int i = 0; i < attributes.size(); i++){
+        if(attributes[i]->name == "PickupToSpawn"){
+            this->name = attributes[i]->display();
+            this->enumID = attributes[i]->intValue();
+            if(enumID > 3){
+                this->isMinicon = true;
+            } else {
+                this->isMinicon = false;
+            }
+        }
+        if(attributes[i]->name == "ProductionArt"){
+            this->name = attributes[i]->display();
+            this->dataID = attributes[i]->intValue();
+        }
+    }
+    qDebug() << Q_FUNC_INFO << "adding pickup" << copyItem.instanceIndex << "name" << copyItem.name << "|" << name << "has enumID" << enumID << "is minicon?" << isMinicon;
+    placed = false;
+}
+
+Pickup::Pickup(){
+    dataID = 99;
+    isMinicon = false;
+    isWeapon = false;
+    setPosition(QVector3D());
+}
+
+QVector3D Pickup::position(){
+    for(int i = 0; i < attributes.size(); i++){
+        if(attributes[i]->name == "Position"){
+            return attributes[i]->vectorValue();
+        }
+    }
+    qDebug() << Q_FUNC_INFO << "Pickup" << name << "does not have a position attribute.";
+    return QVector3D();
+}
+
+void Pickup::setPosition(QVector3D changedPosition){
+    for(int att = 0; att < attributes.size(); att++){
+        //qDebug() << Q_FUNC_INFO << "Checking attribute" << attributes[att]->name;
+        if(attributes[att]->name == "Position"){
+           qDebug() << Q_FUNC_INFO << "Setting position value to" << changedPosition;
+           attributes[att]->setValue(QString::number(changedPosition.x()) + "," + QString::number(changedPosition.y()) + "," +QString::number(changedPosition.z()));
+           attributes[att]->isDefault = false;
+           qDebug() << Q_FUNC_INFO << "new value:" << attributes[att]->display();
+        }
+    }
+}
+
+Minicon::Minicon(Pickup copyItem){
+    this->instanceIndex = copyItem.instanceIndex;
+    this->isWeapon = copyItem.isWeapon;
+    this->setPosition(copyItem.position());
+    this->attributes = copyItem.attributes;
+    for(int i = 0; i < attributes.size(); i++){
+        if(attributes[i]->name == "PickupToSpawn"){
+            this->name = attributes[i]->display();
+            this->enumID = attributes[i]->intValue();
+        }
+    }
+    placed = false;
+}
+
+Minicon::Minicon(){
+    this->setPosition(QVector3D());
 }

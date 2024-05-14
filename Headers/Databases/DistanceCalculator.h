@@ -17,7 +17,6 @@ class WarpgateFile : public DatabaseFile{
 class DistanceCalculator{
 public:
     DistanceCalculator(ProgWindow *parentPass);
-    std::vector<std::shared_ptr<DatabaseFile>> databaseList;
     std::vector<Warpgate> warpgateList;
     ProgWindow *parent;
 
@@ -28,12 +27,8 @@ public:
     int currentLevel;
 
     void calculateWarpgateDistance();
-    void loadWarpgates();
     void userSelectLevel(int selectedLevel);
 
-
-    void visit(TFFile dataFile);
-    void visit(DatabaseFile dataFile);
 };
 
 #endif // DISTANCECALCULATOR_H

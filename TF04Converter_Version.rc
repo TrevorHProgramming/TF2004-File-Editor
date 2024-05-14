@@ -1,0 +1,41 @@
+//https://github.com/vslavik/winsparkle/blob/master/examples/psdk/app_psdk.rc
+
+#include <winver.h>
+
+// Get updates from this appcast feed:
+FeedURL     APPCAST     {""} //url here, once it exists
+
+// Verify signature using DSA public key:
+//DSAPub      DSAPEM      "dsa_pub.pem" //don't know how these work yet, we'll see if the process works without one.
+
+// Version information; this, too, is used by WinSparkle
+1 VERSIONINFO
+ FILEVERSION     0,7,0,3
+ PRODUCTVERSION  0,7,0,3
+ FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+ FILEFLAGS       0
+ //FILEOS          VOS_NT_WINDOWS64
+ FILETYPE        VFT_APP
+ FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0" // US English, Unicode
+        BEGIN
+            VALUE "Comments", "Example app."
+            VALUE "CompanyName", "PT Programming\0"
+            VALUE "FileDescription", "TF 2004 File Converter\0"
+            VALUE "FileVersion", "0.7.0.3\0"
+            VALUE "InternalName", "Converter_Test\0"
+            VALUE "OriginalFilename", "TF2004FileConverter.exe\0"
+            VALUE "LegalCopyright", "Public Domain\0"
+            VALUE "ProductName", "TF 2004 File Converter\0"
+            VALUE "ProductVersion", "0.7.0.3\0"
+        END
+    END
+
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 0x04B0
+    END
+END

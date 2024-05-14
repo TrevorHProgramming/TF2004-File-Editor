@@ -401,7 +401,9 @@ std::shared_ptr<taData> taDataPoint<QVector3D>::clone(){
 template <>
 void taDataPoint<QVector3D>::setValue(QString changedValue){
     QStringList splitValue = changedValue.split(",");
+    qDebug() << Q_FUNC_INFO << "Value received:" << changedValue << "split into" << splitValue;
     value = QVector3D(splitValue[0].toFloat(),splitValue[1].toFloat(),splitValue[2].toFloat());
+    qDebug() << Q_FUNC_INFO << "new value:" << value;
 }
 
 template <class valueType>
@@ -567,6 +569,13 @@ QString taDataQuaternion<valueType>::backupDisplay(){
     displayValue = QString::number(this->value.x(), 'g', 5) + ", " + QString::number(this->value.y(), 'g', 5) + ", "
             +QString::number(this->value.z(), 'g', 5) + ", "+QString::number(this->value.scalar(), 'g', 5);
     return displayValue;
+}
+
+template <class valueType>
+QString taDataQuaternion<valueType>::databaseOutput(){
+    QString outputValue;
+    outputValue = QString::number(this->value.x()) + " " + QString::number(this->value.y()) + " "+QString::number(this->value.z()) + " "+QString::number(this->value.scalar()) + " ";
+    return outputValue;
 }
 
 template <class valueType>
@@ -818,6 +827,11 @@ QString taDataEnum::display(){
     return valueOptions[defaultValue];
 }
 
+void taDataEnum::setValue(QString changedValue){
+    this->isDefault = false;
+    this->defaultValue = changedValue.toInt();
+}
+
 std::shared_ptr<taData> taDataEnum::clone(){
     //qDebug() << Q_FUNC_INFO << "Cloning item of type" << type << "with default value" << defaultValue;
     std::shared_ptr<taDataEnum> stringItem(new taDataEnum(*this));
@@ -846,9 +860,9 @@ void taDataEnum::read(){
     if(file->binary){
         //enums are only present in binary database files, not definition files
         //this means that we only need to get the index of the value
-        qDebug() << Q_FUNC_INFO << "reading binary default at" << file->fileData->currentPosition;
+        //qDebug() << Q_FUNC_INFO << "reading binary default at" << file->fileData->currentPosition;
         defaultValue = file->fileData->readInt();
-        qDebug() << Q_FUNC_INFO << "binary default value read as" << defaultValue << "at" << file->fileData->currentPosition;
+        //qDebug() << Q_FUNC_INFO << "binary default value read as" << defaultValue << "at" << file->fileData->currentPosition;
     } else {
         value = file->fileData->textWord().remove(quoteRemover);
         tempList = file->fileData->textWord();
