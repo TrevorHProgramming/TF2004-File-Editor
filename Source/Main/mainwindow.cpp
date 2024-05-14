@@ -26,6 +26,8 @@ ProgWindow::ProgWindow(QWidget *parent)
     QMenu *menuSFX = menuBar()->addMenu("Sound");
     QMenu *menuDatabase = menuBar() -> addMenu("Database");
     QMenu *menuCalculator = menuBar()->addMenu("Calculator");
+    QMenu *menuRandomizer = menuBar()->addMenu("Randomizer");
+    QMenu *menuBuild = menuBar()->addMenu("Build");
     QMenu *menuClear = menuBar()->addMenu("Clear");
     QMenu *menuSettings = menuBar()->addMenu("Settings");
 
@@ -56,6 +58,13 @@ ProgWindow::ProgWindow(QWidget *parent)
 //    QAction *actionSaveBDB = menuDatabase ->addAction("Save BDB");
 
     QAction *actionOpenCalculator = menuCalculator -> addAction("Warpgate Distance Calculator");
+    QAction *actionRandomizer = menuRandomizer -> addAction("Load Randomizer");
+
+    QAction *actionUnpackISO = menuBuild->addAction("Unpack ISO");
+    QAction *actionUnzipZips = menuBuild->addAction("Unpack special ZIPs");
+    QAction *actionZipBuildISO = menuBuild->addAction("Zip and Build ISO");
+    QAction *actionBuildISO = menuBuild->addAction("Build ISO");
+    QAction *actionPackRandom = menuBuild->addAction("Build Randomizer ISO");
 
     QAction *actionClearFiles = menuClear->addAction("Clear Loaded Files");
     QAction *actionClearLog = menuClear->addAction("Clear Log");
@@ -72,13 +81,18 @@ ProgWindow::ProgWindow(QWidget *parent)
     connect(fileBrowser, &QListWidget::itemSelectionChanged, this, &ProgWindow::updateCenter);
     //have to connect fileBrowser to a centralwidget updater
 
-    rightSidebar = new QDockWidget(this);
-    addDockWidget(Qt::RightDockWidgetArea, rightSidebar);
-    rightSidebar->setFloating(false);
-    rightSidebar->show();
+    //rightSidebar = new QDockWidget(this);
+    //addDockWidget(Qt::RightDockWidgetArea, rightSidebar);
+    //rightSidebar->setFloating(false);
+    //rightSidebar->show();
+
+    QDockWidget *bottomLogbar = new QDockWidget(this);
+    addDockWidget(Qt::BottomDockWidgetArea, bottomLogbar);
     logPrintout = new QListWidget;
-    rightSidebar->setWidget(logPrintout);
-    logPrintout->setGeometry(QRect(QPoint(0,0), QSize(hSize*0.15,vSize)));
+    bottomLogbar->setFloating(false);
+    bottomLogbar->setWidget(logPrintout);
+    bottomLogbar->setGeometry(0,0,hSize, vSize*0.1);
+    //logPrintout->setGeometry(QRect(QPoint(0,0), QSize(hSize,vSize*0.2)));
 
 
     /*hiding SFX menu for this patch since this system is far from ready*/
@@ -95,8 +109,10 @@ ProgWindow::ProgWindow(QWidget *parent)
     CalculateZValue = nullptr;
     ClosestWarpgate = nullptr;
     warpgateCalculator = nullptr;
+    loadingBar = nullptr;
 
-
+    isoBuilder = new IsoBuilder();
+    isoBuilder->parent = this;
 
     connect(actionSaveModel, &QAction::triggered, this, [this] {saveFile("Model");});
     connect(actionBulkSaveModel, &QAction::triggered, this, [this] {bulkSave("Model");});
@@ -132,6 +148,14 @@ ProgWindow::ProgWindow(QWidget *parent)
 
     connect(actionOpenCalculator, &QAction::triggered, this, &ProgWindow::openWarpgateCalculator);
 
+    connect(actionRandomizer, &QAction::triggered, this, &ProgWindow::openRandomizer);
+
+    connect(actionUnpackISO, &QAction::triggered, this, [this] {isoBuilder->unpackISO();});
+    connect(actionUnzipZips, &QAction::triggered, this, [this] {isoBuilder->unzipSpecial();});
+    connect(actionZipBuildISO, &QAction::triggered, this, [this] {isoBuilder->rezipTFA_sevenZip(false);});
+    connect(actionBuildISO, &QAction::triggered, this, [this] {isoBuilder->repackISO(false);});
+    connect(actionPackRandom, &QAction::triggered, this, [this] {isoBuilder->packRandomizer();});
+
     connect(actionClearFiles, &QAction::triggered, this, &ProgWindow::clearFiles);
     connect(actionClearLog, &QAction::triggered, this, &ProgWindow::clearLog);
 
@@ -151,10 +175,51 @@ ProgWindow::~ProgWindow()
 void ProgWindow::log(QString message){
     qDebug() << Q_FUNC_INFO << message;
     logPrintout->addItem(message);
+    qApp->processEvents();
 }
 
 void ProgWindow::clearLog(){
     logPrintout->clear();
+}
+
+void ProgWindow::updateLoadingBar(int currentValue, int maxValue){
+    if(loadingBar == nullptr){
+        loadingBar = new QProgressBar(centralContainer);
+        loadingBar->setOrientation(Qt::Horizontal);
+        loadingBar->setGeometry(QRect(centralContainer->width()-200,centralContainer->height()-30,200, 30));
+        loadingBar->setRange(0,maxValue);
+        loadingBar->show();
+    }
+    loadingBar->setValue(currentValue);
+    if(currentValue >= maxValue){
+        loadingBar->deleteLater();
+        loadingBar->hide();
+        loadingBar = nullptr;
+    }
+}
+
+void ProgWindow::updateLoadingBar(){
+    if(loadingBar == nullptr){
+        return;
+    }
+    loadingBar->setValue(loadingBar->value() + 1);
+    if(loadingBar->value() >= loadingBar->maximum()){
+        loadingBar->deleteLater();
+        loadingBar->hide();
+        loadingBar = nullptr;
+    }
+}
+
+void ProgWindow::updateLoadingBar(int currentValue){
+    if(loadingBar == nullptr){
+        return;
+    }
+    loadingBar->setValue(currentValue);
+    if(loadingBar->value() >= loadingBar->maximum()){
+        loadingBar->deleteLater();
+        loadingBar->hide();
+        loadingBar = nullptr;
+    }
 }
 
 void ProgWindow::saveFile(QString fromType, QString givenPath){
@@ -313,6 +378,15 @@ void ProgWindow::openWarpgateCalculator(){
     warpgateCalculator = new DistanceCalculator(this);
 }
 
+void ProgWindow::openRandomizer(){
+    if(loadingBar != nullptr){
+        log("Randomizer was not opened. Please wait until data is done processing to load the Randomizer.");
+    }
+    clearWindow();
+    databaseList.clear();
+    randomizer = new Randomizer(this);
+}
+
 void ProgWindow::clearWindow(){
 
     for (int i = 0; i < currentModeWidgets.size(); i++) {
@@ -376,7 +450,7 @@ SettingsWindow::SettingsWindow(ProgWindow *sentParent){
 
 void SettingsWindow::updateSettings(){
     qDebug() << Q_FUNC_INFO << QCoreApplication::applicationDirPath();
-    QString fileOut = QCoreApplication::applicationDirPath() + "/settings.txt";
+    QString fileOut = QCoreApplication::applicationDirPath() + "/VBINsettings.txt";
     QFile outputFile(fileOut);
 
     if (!savedChanges){
@@ -401,13 +475,74 @@ void SettingsWindow::writeSettings(QFile *outputFile){
         if(i!= 0){
             outputFile->write("\n");
         }
-        outputFile->write(settingsNames[i].toUtf8()+": " + settingsValues[i].toUtf8());
+        outputFile->write(settingsNames[i].toUtf8()+": " + defaultSettingsValues[i].toUtf8());
+    }
+}
+
+QString SettingsWindow::getValue(QString settingName){
+    QString foundSetting = "";
+    loadSettings();
+    //qDebug() << Q_FUNC_INFO << "Searching for" << settingName;
+    //qDebug() << Q_FUNC_INFO << "names list contains:" << settingsNames.size() << settingsNames;
+    //qDebug() << Q_FUNC_INFO << "values list contains:" << settingsValues.size() << settingsValues;
+    for(int i = 0; i < settingsNames.size(); i++){
+        if(settingsNames[i] == settingName){
+            foundSetting = settingsValues[i];
+        }
+    }
+    return foundSetting;
+}
+
+void SettingsWindow::setValue(QString settingName, QString settingValue){
+    loadSettings();
+    //qDebug() << Q_FUNC_INFO << "Searching for" << settingName;
+    //qDebug() << Q_FUNC_INFO << "names list contains:" << settingsNames.size() << settingsNames;
+    //qDebug() << Q_FUNC_INFO << "values list contains:" << settingsValues.size() << settingsValues;
+    for(int i = 0; i < settingsNames.size(); i++){
+        if(settingsNames[i] == settingName){
+            parent->log("Setting changed: " + settingName + " is now set to " + settingValue);
+            settingsValues[i] = settingValue;
+            savedChanges = false;
+            updateSettings();
+        }
+    }
+}
+
+void SettingsWindow::loadSettings(){
+    qDebug() << Q_FUNC_INFO << QCoreApplication::applicationDirPath();
+    QString fileIn = QCoreApplication::applicationDirPath() + "/VBINsettings.txt";
+    QString settingsRead;
+    QStringList settingsSplit;
+    QFile inputFile(fileIn);
+    if (inputFile.exists()){
+        inputFile.open(QIODevice::ReadOnly);
+        settingsRead = inputFile.readAll();
+        settingsSplit = settingsRead.split("\n");
+        settingsValues.clear();
+        if(settingsSplit.size() != settingsNames.size()){
+            settingsValues = defaultSettingsValues;
+            writeSettings(&inputFile);
+        } else {
+            for (int i = settingsSplit.length()-1; i >= 0; i--){
+                //qDebug() << Q_FUNC_INFO << settingsSplit[i];
+                if (settingsSplit[i] != ""){
+                    settingsSplit[i] = settingsSplit[i].right(settingsSplit[i].length() - (settingsSplit[i].indexOf(":")+1));
+                    //setW->settingsValues.push_front(settingsSplit[i].split(":")[1].trimmed());
+                    settingsValues.push_front(settingsSplit[i].trimmed());
+                }
+            }
+        }
+    } else {
+        //settings file doesn't exist, write a file with the default settings
+        settingsValues = defaultSettingsValues;
+        writeSettings(&inputFile);
     }
 }
 
 void SettingsWindow::open(){
     settingsEdit = new QTableWidget(settingsNames.size(), 2, this);
     settingsEdit->setGeometry(QRect(QPoint(50,50), QSize(300,300)));
+    loadSettings();
     for (int i =0; i < settingsNames.size();i++) {
         QTableWidgetItem *nextSetName = settingsEdit->item(i ,0);
         QTableWidgetItem *nextSetValue = settingsEdit->item(i ,1);
@@ -431,7 +566,7 @@ void SettingsWindow::open(){
 
 void SettingsWindow::changeSetting(int row, int column){
     savedChanges = false;
-    settingsValues[row] = settingsEdit->item(row,1)->text();;
+    settingsValues[row] = settingsEdit->item(row,1)->text();
 }
 
 SettingsWindow::~SettingsWindow()
@@ -448,3 +583,56 @@ void ProgWindow::visit(DatabaseFile dataFile){
     databaseList.push_back(std::make_shared<DatabaseFile> (dataFile));
 }
 
+int ProgWindow::loadDatabases(){
+    qDebug() << Q_FUNC_INFO << "Attempting to load all level database files";
+    std::shared_ptr<TFFile> testLoaded;
+    //need to prompt the user for the game directory, then use that
+    if(setW->getValue("Game extract path") == ""){
+        //can re-empty gamePath if there's an error reading the files
+        gamePath = QFileDialog::getExistingDirectory(this, tr(QString("Select TF2004 game folder.").toStdString().c_str()), QDir::currentPath());
+        setW->setValue("Game extract path", gamePath);
+    } else {
+        gamePath = setW->getValue("Game extract path");
+    }
+    //then load TMD from TFA2, then load each file from TFA.
+    testLoaded = matchFile("CREATURE.TMD");
+    if(testLoaded == nullptr){
+        QString definitionPath = gamePath + "/TFA2/CREATURE.TMD";
+        bool isFileInDirectory = QFileInfo::exists(definitionPath);
+        qDebug() << Q_FUNC_INFO << "file directory is" << definitionPath << "and file exists?" << isFileInDirectory;
+        if(isFileInDirectory){
+            openFile("TMD", definitionPath);
+        }
+        testLoaded = matchFile("CREATURE.TMD");
+
+        if(testLoaded == nullptr){
+            messageError("CREATURE.TMD was not found. Database files were not loaded.");
+            gamePath = "";
+            return 1;
+        }
+    }
+
+    QString levelPath = gamePath + "/TFA/LEVELS/EPISODES";
+    QStringList levelList = QDir(levelPath).entryList(QDir::AllDirs | QDir::NoDotAndDotDot);
+    int levelCount = levelList.count();
+    for(int level = 0; level < levelCount; level++){
+        testLoaded = matchFile(levelList[level] + "-CREATURE.BDB");
+        if(testLoaded == nullptr){
+            QString creaturePath = levelPath + "/" + levelList[level] + "/CREATURE.BDB";
+            bool isFileInDirectory = QFileInfo::exists(creaturePath);
+            qDebug() << Q_FUNC_INFO << "file directory is" << creaturePath << "and file exists?" << isFileInDirectory;
+            if(isFileInDirectory){
+                openFile("BDB", creaturePath);
+            }
+            testLoaded = matchFile(levelList[level] + "-CREATURE.BDB");
+        }
+        if(testLoaded == nullptr){
+            messageError("CREATURE.BDB was not found. Database files were not loaded.");
+            gamePath = "";
+            return 1;
+        }
+        testLoaded->acceptVisitor(*this);
+
+    }
+    return 0;
+}

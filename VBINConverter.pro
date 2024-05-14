@@ -11,11 +11,13 @@ CONFIG += c++11
 SOURCES += \
     Source/Databases/DatabaseModel.cpp \
     Source/Databases/DistanceCalculator.cpp \
+    Source/Main/IsoBuilder.cpp \
     Source/Models/Antioch2.cpp \
     Source/Main/BinChanger.cpp \
     Source/Databases/Database.cpp \
     Source/Databases/DatabaseItems.cpp \
-    Source/Databases/DistanceCalculator.cpp \
+    Source/Randomizer/PositionLocations.cpp \
+    Source/Randomizer/Randomizer.cpp \
     Source/Textures/ITF.cpp \
     Source/Models/LevelGeo.cpp \
     Source/Models/Mesh.cpp \
@@ -28,13 +30,14 @@ SOURCES += \
 HEADERS += \
     Headers/Databases/DistanceCalculator.h \
     Headers/Main/CustomQT.h \
+    Headers/Main/IsoBuilder.h \
     Headers/Models/Antioch2.h \
     Headers/Main/BinChanger.h \
     Headers/Databases/Database.h \
-    Headers/Databases/DistanceCalculator.h \
     Headers/Models/LevelGeo.h \
     Headers/Models/Mesh.h \
     Headers/Audio/ToneLibraries.h \
+    Headers/Randomizer/Randomizer.h \
     Headers/Textures/itf.h \
     Headers/Main/mainwindow.h \
     Headers/Models/vbin.h \

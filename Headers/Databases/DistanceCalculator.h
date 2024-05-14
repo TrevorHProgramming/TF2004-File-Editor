@@ -27,7 +27,6 @@ public:
     int currentLevel;
 
     void calculateWarpgateDistance();
-    void loadWarpgates();
     void userSelectLevel(int selectedLevel);
 
 };

@@ -10,7 +10,10 @@ void DistanceCalculator::userSelectLevel(int selectedLevel){
 DistanceCalculator::DistanceCalculator(ProgWindow *parentPass){
     parent = parentPass;
     qDebug() << Q_FUNC_INFO << "parent value properly passed, window width is" << parent->hSize;
-    loadWarpgates();
+    if(parent->loadDatabases() != 0){
+        parent->log("Could not load databases. Warpgate calculator was not loaded.");
+        return;
+    }
     parent->clearWindow();
     QPushButton *ButtonCalculate = new QPushButton("Calculate", parent->centralContainer);
     ButtonCalculate->setGeometry(QRect(QPoint(50,320), QSize(150,30)));
@@ -64,54 +67,6 @@ Warpgate::Warpgate(){
     this->x_position = 0;
     this->y_position = 0;
     this->z_position = 0;
-}
-
-void DistanceCalculator::loadWarpgates(){
-    qDebug() << Q_FUNC_INFO << "Attempting to load all level database files";
-    std::shared_ptr<TFFile> testLoaded;
-    //need to prompt the user for the game directory, then use that
-    QString gamePath = QFileDialog::getExistingDirectory(parent, parent->tr(QString("Select TF2004 game folder.").toStdString().c_str()), QDir::currentPath());
-    //then load TMD from TFA2, then load each file from TFA.
-    testLoaded = parent->matchFile("CREATURE.TMD");
-    if(testLoaded == nullptr){
-        QString definitionPath = gamePath + "/TFA2/CREATURE.TMD";
-        bool isFileInDirectory = QFileInfo::exists(definitionPath);
-        qDebug() << Q_FUNC_INFO << "file directory is" << definitionPath << "and file exists?" << isFileInDirectory;
-        if(isFileInDirectory){
-            parent->openFile("TMD", definitionPath);
-        }
-        testLoaded = parent->matchFile("CREATURE.TMD");
-
-        while(testLoaded == nullptr){
-            parent->messageError("Please load a file CREATURE.TMD");
-            parent->openFile("TMD");
-            testLoaded = parent->matchFile("CREATURE.TMD");
-        }
-    }
-
-    QString levelPath = gamePath + "/TFA/LEVELS/EPISODES";
-    QStringList levelList = QDir(levelPath).entryList(QDir::AllDirs | QDir::NoDotAndDotDot);
-    int levelCount = levelList.count();
-    for(int level = 0; level < levelCount; level++){
-        testLoaded = parent->matchFile(levelList[level] + "-CREATURE.BDB");
-        if(testLoaded == nullptr){
-            QString creaturePath = levelPath + "/" + levelList[level] + "/CREATURE.BDB";
-            bool isFileInDirectory = QFileInfo::exists(creaturePath);
-            qDebug() << Q_FUNC_INFO << "file directory is" << creaturePath << "and file exists?" << isFileInDirectory;
-            if(isFileInDirectory){
-                parent->openFile("BDB", creaturePath);
-            }
-            testLoaded = parent->matchFile(levelList[level] + "-CREATURE.BDB");
-        }
-        while(testLoaded == nullptr){
-            parent->messageError("Please load a file " + levelList[level]+".BDB");
-            parent->openFile("BDB");
-            testLoaded = parent->matchFile(levelList[level] + ".BDB");
-        }
-        testLoaded->acceptVisitor(*parent);
-
-    }
-
 }
 
 void DistanceCalculator::calculateWarpgateDistance(){

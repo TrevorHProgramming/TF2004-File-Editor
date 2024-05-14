@@ -6,7 +6,7 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     ProgWindow w;
-    w.setWindowTitle("TF2004 File Converter 0.6.6.6");
+    w.setWindowTitle("TF2004 File Converter 0.7.0.3");
     w.setGeometry(QRect(QPoint(0,0), QSize(w.hSize,w.vSize)));
     //w.resize(1200, 600);
     w.show();
