@@ -157,7 +157,7 @@ Randomizer::Randomizer(ProgWindow *parentPass){
     checkAlwaysHighjump->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
     QAbstractButton::connect(checkAlwaysHighjump, &QCheckBox::stateChanged, parent, [checkAlwaysHighjump, this] {modSettings.alwaysHighjump = checkAlwaysHighjump->isChecked();});
     checkAlwaysHighjump->show();
-    //parent->currentModeWidgets.push_back(checkAlwaysHighjump);
+    parent->currentModeWidgets.push_back(checkAlwaysHighjump);
 
     QCheckBox *checkAlwaysGlider = new QCheckBox("Permanent Glider", groupModOptions);
     checkAlwaysGlider->setGeometry(QRect(QPoint(20,60), QSize(200,30)));
@@ -173,7 +173,9 @@ Randomizer::Randomizer(ProgWindow *parentPass){
     //checkBalancePatch->show();
     //parent->currentModeWidgets.push_back(checkBalancePatch);
 
-    //groupModOptions->show();
+    groupModOptions->show();
+    checkBalancePatch->hide();
+    checkAlwaysGlider->hide();
 
     qDebug() << Q_FUNC_INFO << "testing randomization";
 
@@ -433,7 +435,7 @@ void Randomizer::applyModifications(){
 
     QString modFiles = "";
     if(modSettings.alwaysHighjump){
-        modFiles += QCoreApplication::applicationDirPath() + "/Mods/HighjumpAlways.bin";
+        modFiles += QCoreApplication::applicationDirPath() + "/Mods/HighjumpAlways.txt";
     }
     args.append(modFiles);
 
@@ -484,9 +486,10 @@ void Randomizer::placeSlipstream(){
     int locationNumber = placemaster.bounded(slipstreamLocations.size());
     qDebug() << Q_FUNC_INFO << "Placing slipstream at" << slipstreamLocations[locationNumber].uniqueID;
     place(28, slipstreamLocations[locationNumber].uniqueID);
-    if(randSettings.slipstreamDifficulty > 4){ //actual difficulty tbd
+    if(randSettings.slipstreamDifficulty > 3){
         placeSlipstreamRequirement(44, slipstreamLocations[locationNumber].uniqueID);
         placeSlipstreamRequirement(14, slipstreamLocations[locationNumber].uniqueID);
+        placeSlipstreamRequirement(49, slipstreamLocations[locationNumber].uniqueID);
     }
 }
 
@@ -557,16 +560,19 @@ void Randomizer::placeSlipstreamRequirement(int miniconID, int placementID){
     for(int i = 0; i < placedLocations.size(); i++){
         if(placedLocations[i].uniqueID == placementID){
             placementLevel  = placedLocations[i].level;
+            //qDebug() << Q_FUNC_INFO << "prereq slipstream level found as" << placementLevel;
         }
     }
+    //qDebug() << Q_FUNC_INFO << "determining prerequisite locations for" << miniconID << "and placement ID" << placementID;
     for(int i = 0; i < availableLocations.size(); i++){
-        //actual difficulty tbd
-        if((availableLocations[i].slipstreamDifficulty <= 4)
+        if((availableLocations[i].slipstreamDifficulty <= 3)
                 && (availableLocations[i].level <= placementLevel)
                 && (availableLocations[i].uniqueID != 42069)){ //we don't want one of the requirements spawning right at the start - the player asked for pain.
+            //qDebug() << Q_FUNC_INFO << "prereq location" << availableLocations[i].uniqueID << "name" << availableLocations[i].name << "added to possible list.";
             prereqLocations.push_back(availableLocations[i]);
         }
     }
+    //qDebug() << Q_FUNC_INFO << "prereq locations:" << prereqLocations.size();
     int locationNumber = placemaster.bounded(prereqLocations.size());
     place(miniconID, prereqLocations[locationNumber].uniqueID);
 }

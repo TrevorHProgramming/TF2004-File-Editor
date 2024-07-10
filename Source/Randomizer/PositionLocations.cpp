@@ -340,12 +340,12 @@ void Randomizer::loadMinicons(){
             }
             break;
         case 5: //Alaska
-            addedLocation.slipstreamDifficulty = 3;
+            addedLocation.slipstreamDifficulty = 4;
             addedLocation.highjumpDifficulty = 3; //can be lower for early placements
             switch(addedLocation.uniqueID){
                 case 83:
                     addedLocation.name = "Mountaintop";
-                    addedLocation.slipstreamDifficulty = 4;
+                    addedLocation.slipstreamDifficulty = 5;
                     addedLocation.highjumpDifficulty = 4;
                     break;
                 case 84:
@@ -356,22 +356,22 @@ void Randomizer::loadMinicons(){
                     break;
                 case 86:
                     addedLocation.name = "Cave's Far Ledge";
-                    addedLocation.slipstreamDifficulty = 4;
+                    addedLocation.slipstreamDifficulty = 5;
                     addedLocation.highjumpDifficulty = 4;
                     break;
                 case 87:
                     addedLocation.name = "Cave's Right Fork";
-                    addedLocation.slipstreamDifficulty = 4;
+                    addedLocation.slipstreamDifficulty = 5;
                     addedLocation.highjumpDifficulty = 4;
                     break;
                 case 88:
                     addedLocation.name = "Cave's Left Fork";
-                    addedLocation.slipstreamDifficulty = 4;
+                    addedLocation.slipstreamDifficulty = 5;
                     addedLocation.highjumpDifficulty = 4;
                     break;
                 case 89:
                     addedLocation.name = "Cave's Pool";
-                    addedLocation.slipstreamDifficulty = 4;
+                    addedLocation.slipstreamDifficulty = 5;
                     addedLocation.highjumpDifficulty = 4;
                     break;
                 case 90:
@@ -397,7 +397,7 @@ void Randomizer::loadMinicons(){
                     break;
                 case 99:
                     addedLocation.name = "Escape";
-                    addedLocation.slipstreamDifficulty = 4;
+                    addedLocation.slipstreamDifficulty = 5;
                     break;
                 case 100:
                     addedLocation.name = "Hillside";

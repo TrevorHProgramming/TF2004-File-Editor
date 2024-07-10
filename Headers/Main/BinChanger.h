@@ -24,6 +24,12 @@ public:
     void clear();
 };
 
+class TextProperty{
+public:
+    QString name;
+    QString readValue;
+};
+
 class BinChanger{
   public:
     ProgWindow *parent;
