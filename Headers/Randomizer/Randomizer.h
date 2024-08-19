@@ -21,7 +21,6 @@ public:
     int instanceIndex;
     int linkedLocationID;
 
-
     PickupLocation* linkedLocation(); //if a minicon is placed at one of these, it's placed at both of them
     //only used for starship (vanilla Aftershock) and mid-atlantic, since it has separate database files
 
@@ -49,6 +48,33 @@ public:
     int removedInstances;
 };
 
+class RandomizerOption{
+public:
+    QString name;
+    QString author;
+    QString description;
+    bool enabled;
+};
+
+class RandomizerMod : public RandomizerOption{
+public:
+    bool type; //0 for binary, 1 for text
+    QString fileName;
+};
+
+class FileReplacement : public RandomizerOption{
+public:
+    int rarity;
+    QStringList fileNames;
+    QStringList fileDestinations;
+};
+
+class CustomLocations : public RandomizerOption{
+public:
+    int locationCount;
+    std::vector<PickupLocation> locationList;
+};
+
 class Randomizer{
 public:
     Randomizer(ProgWindow *parentPass);
@@ -57,12 +83,14 @@ public:
 
     ProgWindow* parent;
     std::vector<Level> levelList;
+    std::vector<RandomizerMod> modList;
     QString outputPath;
     QRandomGenerator placemaster;
     QLineEdit* editSeed;
     QLineEdit* editSettings;
     QString settingsValue;
     quint32 seed;
+    bool enableCustomLocations;
     struct randomizerSettings {
         bool generateDatacons = false;
         bool autoBuild = false;
@@ -91,6 +119,7 @@ public:
     std::vector<PickupLocation> loadedLocations;
     std::vector<PickupLocation> availableLocations;
     std::vector<PickupLocation> placedLocations;
+    std::vector<CustomLocations> customLocationList;
 
     void reset();
 
@@ -98,12 +127,14 @@ public:
     void loadLevels();
     bool miniconLoaded(int checkID);
     bool dataconLoaded(int checkID);
+    void loadCustomLocations();
     void addCustomLocation(int locationID, int level, QVector3D location);
     Minicon* getMinicon(int searchID);
 
     void testAllPlacements();
 
     void randomize();
+    void loadFileReplacements();
     void fileReplacements();
     void placeAll();
     void place(int miniconToPlace, int placementID);
@@ -123,6 +154,7 @@ public:
     bool duplicateLocation(PickupLocation testLocation);
     void replaceFile(QString fileName, QString destinationPath);
     void applyModifications();
+    void loadMods();
 
     int writeSpoilers();
     void spoilMinicon(PickupLocation placement, QTextStream& stream);

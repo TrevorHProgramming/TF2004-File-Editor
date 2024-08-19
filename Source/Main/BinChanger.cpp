@@ -279,12 +279,47 @@ QString FileData::textWord(){
     return word.trimmed();
 }
 
-void FileData::nextLine(){
+TextProperty FileData::readProperty(){
+    TextProperty readProperty;
+    QString word;
+    long wordStart = 0;
+    long wordEnd = 0;
+
+    wordStart = currentPosition;
+    qDebug() << Q_FUNC_INFO << "reading text word at" << wordStart;
+
+    QByteArrayMatcher findWordEnd;
+    findWordEnd.setPattern(QByteArray::fromHex(QString("3A").toUtf8()));
+    wordEnd = findWordEnd.indexIn(dataBytes, wordStart);
+
+    if(wordEnd < wordStart){
+        qDebug() << Q_FUNC_INFO << ("Word end was found earier than word start. Search started at " + QString::number(wordStart) + " | " + QString(Q_FUNC_INFO));
+        wordEnd = wordStart;
+    }
+    readProperty.name = mid(wordStart, wordEnd-wordStart);
+    currentPosition = wordEnd+2; //+2 to skip the colon and space, otherwise the next word find will fail.
+    readProperty.readValue = nextLine();
+
+    return readProperty;
+}
+
+QString FileData::nextLine(){
     //qDebug() << Q_FUNC_INFO << "going to next line, starting at" << currentPosition;
     QByteArrayMatcher findEndLine;
+    long lineEnd = 0;
+    QString lineContents;
     findEndLine.setPattern(QByteArray::fromHex(QString("0D0A").toUtf8()));
-    currentPosition = findEndLine.indexIn(dataBytes, currentPosition)+2;
+    lineEnd = findEndLine.indexIn(dataBytes, currentPosition);
+    if(lineEnd < currentPosition){
+        lineEnd = dataBytes.size(); //there are no more line breaks, so the end of the line must be the end of the file.
+        lineContents = mid(currentPosition, lineEnd-currentPosition);
+        currentPosition = lineEnd;
+    } else {
+        lineContents = mid(currentPosition, lineEnd-currentPosition-1); //-1 for space at the end of the line
+        currentPosition = lineEnd+2; //+2 for 0D0A /r/n
+    }
     line++;
+    return lineContents;
     //qDebug() << Q_FUNC_INFO << "Starting next line at" << currentPosition;
 }
 

@@ -42,6 +42,8 @@ Randomizer::Randomizer(ProgWindow *parentPass){
 
     loadLevels();
     loadMinicons();
+    loadMods();
+    loadCustomLocations();
 
     seed = 0;
     randSettings.slipstreamDifficulty = 0;
@@ -147,35 +149,51 @@ Randomizer::Randomizer(ProgWindow *parentPass){
 
     groupRandomizerOptions->show();
 
+    parent->centralContainer->setStyleSheet("QGroupBox{color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0);} "
+                                            "QCheckBox{color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0);} "
+                                            "QToolTip{color: rgb(0,0,0);}");
+
     QGroupBox *groupModOptions = new QGroupBox("Mod Options", parent->centralContainer);
     groupModOptions->setGeometry(QRect(QPoint(600,100), QSize(200,300)));
-    groupModOptions->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
+    /*groupModOptions->setStyleSheet("QGroupBox{color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0);} "
+                                   "QCheckBox{color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0);} "
+                                   "QToolTip{color: rgb(0,0,0);}");*/
     parent->currentModeWidgets.push_back(groupModOptions);
 
-    QCheckBox *checkAlwaysHighjump = new QCheckBox("Permanent Highjump", groupModOptions);
-    checkAlwaysHighjump->setGeometry(QRect(QPoint(20,20), QSize(200,30)));
-    checkAlwaysHighjump->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
-    QAbstractButton::connect(checkAlwaysHighjump, &QCheckBox::stateChanged, parent, [checkAlwaysHighjump, this] {modSettings.alwaysHighjump = checkAlwaysHighjump->isChecked();});
-    checkAlwaysHighjump->show();
-    parent->currentModeWidgets.push_back(checkAlwaysHighjump);
+    for(int i = 0; i < modList.size(); i++){
+        //this will need to be edited later for when we have more mods than will fit in the box to move to the next column. or scroll?
 
-    QCheckBox *checkAlwaysGlider = new QCheckBox("Permanent Glider", groupModOptions);
-    checkAlwaysGlider->setGeometry(QRect(QPoint(20,60), QSize(200,30)));
-    checkAlwaysGlider->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
-    QAbstractButton::connect(checkAlwaysGlider, &QCheckBox::stateChanged, parent, [checkAlwaysGlider, this] {modSettings.alwaysGlider = checkAlwaysGlider->isChecked();});
-    //checkAlwaysGlider->show();
-    //parent->currentModeWidgets.push_back(checkAlwaysGlider);
+        QCheckBox *modCheck = new QCheckBox(modList[i].name, groupModOptions);
+        modCheck->setGeometry(QRect(QPoint(20,20 + (40*i)), QSize(200,30)));
+        //modCheck->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0);}");
+        QAbstractButton::connect(modCheck, &QCheckBox::stateChanged, parent, [i, modCheck, this] {modList[i].enabled = modCheck->isChecked();});
+        modCheck->setToolTip(modList[i].description);
+        modCheck->show();
+        parent->currentModeWidgets.push_back(modCheck);
+    }
 
-    QCheckBox *checkBalancePatch = new QCheckBox("Balance Patch", groupModOptions);
-    checkBalancePatch->setGeometry(QRect(QPoint(20,100), QSize(200,30)));
-    checkBalancePatch->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
-    QAbstractButton::connect(checkBalancePatch, &QCheckBox::stateChanged, parent, [checkBalancePatch, this] {modSettings.ptBalancePatch = checkBalancePatch->isChecked();});
-    //checkBalancePatch->show();
-    //parent->currentModeWidgets.push_back(checkBalancePatch);
+    QGroupBox *groupLocations = new QGroupBox("Custom Locations", parent->centralContainer);
+    groupLocations->setGeometry(QRect(QPoint(800,100), QSize(200,300)));
+    /*groupLocations->setStyleSheet("QGroupBox{color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0);} "
+                                  "QCheckBox{color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0);} "
+                                  "QToolTip{color: rgb(0,0,0);}");*/
+    parent->currentModeWidgets.push_back(groupLocations);
+
+    for(int i = 0; i < customLocationList.size(); i++){
+        qDebug() << Q_FUNC_INFO << "location name for" << i << ":" << customLocationList[i].name;
+        QCheckBox *locationCheck = new QCheckBox(customLocationList[i].name, groupLocations);
+        locationCheck->setGeometry(QRect(QPoint(20,20 + (40*i)), QSize(200,30)));
+        QAbstractButton::connect(locationCheck, &QCheckBox::stateChanged, parent, [i, locationCheck, this] {customLocationList[i].enabled = locationCheck->isChecked();});
+        locationCheck->setToolTip(customLocationList[i].description);
+        locationCheck->show();
+        parent->currentModeWidgets.push_back(locationCheck);
+    }
+
 
     groupModOptions->show();
-    checkBalancePatch->hide();
-    checkAlwaysGlider->hide();
+    groupLocations->show();
+    //checkBalancePatch->hide();
+    //checkAlwaysGlider->hide();
 
     qDebug() << Q_FUNC_INFO << "testing randomization";
 
@@ -347,6 +365,68 @@ void Randomizer::randomize(){
     availableLocations.clear();
 }
 
+void Randomizer::loadFileReplacements(){
+    QString modPath = QCoreApplication::applicationDirPath() + "/Replacements/";
+    QDir modFolder(modPath);
+    QDirIterator modIterator(modFolder.absolutePath());
+    qDebug() << Q_FUNC_INFO << "next file info:" << modIterator.nextFileInfo().fileName() << "from path" << modFolder.absolutePath();
+    bool headerFinished = false;
+    TextProperty modProperty;
+    QStringList propertyOptions = {"File Version", "Name", "Description", "Rarity", "File Name", "Destination Path"};
+    int modVersion = 0;
+
+    while (modIterator.hasNext()){
+        QFile currentModFile = modIterator.next();
+        qDebug() << Q_FUNC_INFO << "Current file" << currentModFile.fileName();
+        if (currentModFile.open(QIODevice::ReadOnly)){
+            qDebug() << Q_FUNC_INFO << "Reading file";
+            FileReplacement moddedFiles;
+            FileData modBuffer;
+            modBuffer.dataBytes = currentModFile.readAll();
+            modBuffer.input = true;
+            headerFinished = false;
+            QString targetLevel;
+            while(!headerFinished){
+                modProperty = modBuffer.readProperty();
+                qDebug() << Q_FUNC_INFO << "test property type:" << modProperty.name << "with value:" << modProperty.readValue;
+                switch(propertyOptions.indexOf(modProperty.name)){
+                case 0: //File Version
+                    modVersion = modProperty.readValue.toInt();
+                    break;
+                case 1: //Name
+                    moddedFiles.name = modProperty.readValue;
+                    break;
+                case 2: //Description
+                    //for human use only, for now. tooltips later.
+                    moddedFiles.description = modProperty.readValue;
+                    break;
+                case 3: //Rarity
+                    //Only used for Randomizer
+                    //the value x from 1/x that generates the chance of this file swap
+                    //ex. a rarity of 4 has a 1/4 or 25% chance of swapping
+                    moddedFiles.rarity = modProperty.readValue.toInt();
+                    headerFinished = true;
+                    break;
+                default:
+                    qDebug() << Q_FUNC_INFO << "Unknown property" << modProperty.name << "with value" << modProperty.readValue << "found at" << modBuffer.currentPosition;
+                }
+            }
+            while(modBuffer.currentPosition < modBuffer.dataBytes.size()){ //verify this line with the SELF version
+                switch(propertyOptions.indexOf(modProperty.name)){
+                case 4: //File Name
+                    moddedFiles.fileNames.push_back(modProperty.readValue);
+                    break;
+                case 5: //Destination path
+                    moddedFiles.fileDestinations.push_back(modProperty.readValue);
+                    break;
+                default:
+                    qDebug() << Q_FUNC_INFO << "Unknown property" << modProperty.name << "with value" << modProperty.readValue << "found at" << modBuffer.currentPosition;
+                }
+            }
+        }
+    }
+}
+
 void Randomizer::fileReplacements(){
     int replaceCyclonus = placemaster.generate();
     if(replaceCyclonus % 4 == 0){
@@ -419,6 +499,61 @@ void Randomizer::fileReplacements(){
     replaceFile("ARMADALOGO.ITF", "/TFA/USERINTERFACE/TEXTURES");
 }
 
+void Randomizer::loadMods(){
+    QString modPath = QCoreApplication::applicationDirPath() + "/Mods/";
+    QDir modFolder(modPath);
+    QDirIterator modIterator(modFolder.absolutePath());
+    qDebug() << Q_FUNC_INFO << "next file info:" << modIterator.nextFileInfo().fileName() << "from path" << modFolder.absolutePath();
+    bool headerFinished = false;
+    TextProperty modProperty;
+    QStringList propertyOptions = {"Version", "Mod Name", "Mod Description", "Mod type", "Mod sections", "Starting address", "Section lines"};
+    int modVersion = 0;
+
+    while (modIterator.hasNext()){
+        QFile currentModFile = modIterator.next();
+        RandomizerMod currentModData;
+        qDebug() << Q_FUNC_INFO << "Current file" << QFileInfo(currentModFile).fileName();
+        currentModData.fileName = QFileInfo(currentModFile).fileName();
+        if(QFileInfo(currentModFile).suffix() == "txt"){
+            currentModData.type = 1;
+        } else {
+            currentModData.type = 0;
+            qDebug() << Q_FUNC_INFO << "Skipping binary mod for now - not currently supported by SELF.";
+            continue;
+        }
+        if (currentModFile.open(QIODevice::ReadOnly)){
+            qDebug() << Q_FUNC_INFO << "Reading file";
+            FileData modBuffer;
+            modBuffer.dataBytes = currentModFile.readAll();
+            modBuffer.input = true;
+            headerFinished = false;
+            while(!headerFinished){
+                modProperty = modBuffer.readProperty();
+                qDebug() << Q_FUNC_INFO << "test property type:" << modProperty.name << "with value:" << modProperty.readValue;
+                switch(propertyOptions.indexOf(modProperty.name)){
+                case 0: //Version
+                    modVersion = modProperty.readValue.toInt();
+                    if(modVersion < 2){
+                        headerFinished = true;
+                    }
+                    break;
+                case 1: //Mod Name
+                    currentModData.name = modProperty.readValue;
+                    break;
+                case 2: //Mod Description
+                    currentModData.description = modProperty.readValue;
+                    headerFinished = true;
+                    break;
+                default:
+                    qDebug() << Q_FUNC_INFO << "Unknown property" << modProperty.name << "with value" << modProperty.readValue << "found at" << modBuffer.currentPosition;
+                }
+            }
+            qDebug() << Q_FUNC_INFO << "mod name:" << currentModData.name << "mod description:" << currentModData.description;
+            modList.push_back(currentModData);
+        }
+    }
+}
+
 void Randomizer::applyModifications(){
     qDebug() << Q_FUNC_INFO << QCoreApplication::applicationDirPath();
     QString mipsEditorPath = QCoreApplication::applicationDirPath() + "/SELF.exe";
@@ -426,17 +561,28 @@ void Randomizer::applyModifications(){
 
     QStringList args;
     QString gamePath = parent->setW->getValue("Game extract path") + "/SLUS_206.68";
+    QString modPath = QCoreApplication::applicationDirPath() + "/Mods/";
     if(gamePath == ""){
         qDebug() << Q_FUNC_INFO << "Process cancelled.";
         return;
     }
     parent->log("Modifying ELF from: " + gamePath);
     args.append(gamePath);
+    args.append(modPath);
 
     QString modFiles = "";
-    if(modSettings.alwaysHighjump){
-        modFiles += QCoreApplication::applicationDirPath() + "/Mods/HighjumpAlways.txt";
+    for(int i = 0; i < modList.size(); i++){
+        if(modList[i].enabled){
+            if(modFiles != ""){
+                modFiles += "|";
+            }
+            modFiles += modList[i].fileName;
+        }
     }
+    /*if(modSettings.alwaysHighjump){
+        modFiles += QCoreApplication::applicationDirPath() + "/Mods/HighjumpAlways.txt";
+    }*/
+    qDebug() << Q_FUNC_INFO << "mod file list:" << modFiles;
     args.append(modFiles);
 
     QString randomizerPath = outputPath + "/SLUS_206.68";

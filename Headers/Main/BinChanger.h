@@ -87,7 +87,8 @@ class FileData{
     void signature(SectionHeader *signature);
     void textSignature(SectionHeader *signature);
     QString textWord();
-    void nextLine();
+    QString nextLine(); //skips to next line and returns all text between cursor and next line
+    TextProperty readProperty();
     int skipLine(bool checkEmpty = false);
 };
 

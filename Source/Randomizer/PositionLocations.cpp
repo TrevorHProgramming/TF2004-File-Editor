@@ -624,6 +624,125 @@ void Randomizer::loadMinicons(){
     }
 }
 
+void Randomizer::loadCustomLocations(){
+    //this is really making me want to handle these as database files
+    //actually, doing them this way with the header is nice for adding the
+    //description as a tooltip later for location packs
+    QString modPath = QCoreApplication::applicationDirPath() + "/Locations/";
+    QDir modFolder(modPath);
+    QDirIterator modIterator(modFolder.absolutePath());
+    qDebug() << Q_FUNC_INFO << "next file info:" << modIterator.nextFileInfo().fileName() << "from path" << modFolder.absolutePath();
+    bool headerFinished = false;
+    TextProperty modProperty;
+    QStringList propertyOptions = {"File Version", "Name", "Author", "Description", "Location Count", "Level", "Location Name", "Coordinates", "Location ID", "Linked Locations", "Highjump Difficulty", "Slipstream Difficulty"};
+    int modVersion = 0;
+
+    while (modIterator.hasNext()){
+        QFile currentModFile = modIterator.next();
+        qDebug() << Q_FUNC_INFO << "Current file" << currentModFile.fileName();
+        if (currentModFile.open(QIODevice::ReadOnly)){
+            qDebug() << Q_FUNC_INFO << "Reading file";
+            FileData modBuffer;
+            modBuffer.dataBytes = currentModFile.readAll();
+            modBuffer.input = true;
+            CustomLocations currentLocations;
+            headerFinished = false;
+            int targetLevel = -1;
+            int locationValue = 0;
+            while(!headerFinished){
+                modProperty = modBuffer.readProperty();
+                qDebug() << Q_FUNC_INFO << "test property type:" << modProperty.name << "with value:" << modProperty.readValue;
+                switch(propertyOptions.indexOf(modProperty.name)){
+                case 0: //File Version
+                    modVersion = modProperty.readValue.toInt();
+                    break;
+                case 1: //Name
+                    currentLocations.name = modProperty.readValue;
+                    break;
+                case 2: //Author
+                    currentLocations.author = modProperty.readValue;
+                    break;
+                case 3: //Description
+                    currentLocations.description = modProperty.readValue;
+                    //for human use only, for now. tooltips later.
+                    break;
+                case 4: //Location count
+                    currentLocations.locationCount = modProperty.readValue.toInt();
+                    headerFinished = true;
+                    break;
+                default:
+                    qDebug() << Q_FUNC_INFO << "Unknown header property" << modProperty.name << "with value" << modProperty.readValue << "found at" << modBuffer.currentPosition;
+                }
+            }
+            for(int i = 0; i <currentLocations.locationCount; i++){
+                PickupLocation customLocation = PickupLocation();
+                customLocation.level = targetLevel;
+                //double-check that the below doesn't need to find the specific database for the target level
+                customLocation.attributes = parent->databaseList[0]->generateAttributes("PickupPlaced");
+                bool readingLocation = true;
+                while(readingLocation){
+                    modProperty = modBuffer.readProperty();
+                    switch(propertyOptions.indexOf(modProperty.name)){
+                        case 5: //Level
+                            for(int i = 0; i < levelList.size(); i++){
+                                if(levelList[i].levelName == modProperty.readValue){
+                                    targetLevel = i;
+                                }
+                            }
+                            if(targetLevel == -1){
+                                qDebug() << Q_FUNC_INFO << "Invalid level:" << modProperty.readValue;
+                            }
+                            break;
+                        case 6: //Location Name
+                            customLocation.name = modProperty.readValue;
+                            qDebug() << Q_FUNC_INFO << "name read as" << modProperty.readValue;
+                            break;
+                        case 7: //Coordinates
+                            {//combine the x y and z into a QVector3D.
+                            QStringList locationSplit = modProperty.readValue.split(", ");
+                            if(locationSplit.size() < 3){
+                                qDebug() << Q_FUNC_INFO << "Invalid location:" << modProperty.readValue;
+                                customLocation.setPosition(QVector3D(0,0,0));
+                            } else {
+                                QString tempx = locationSplit[0];
+                                float x = tempx.toFloat();
+                                QString tempy = locationSplit[1];
+                                float y = tempy.toFloat();
+                                QString tempz = locationSplit[2];
+                                float z = tempz.toFloat();
+                                customLocation.setPosition(QVector3D(x,y,z));
+                            }
+                            break;
+                        }
+                        case 8: //LocationID
+                            customLocation.uniqueID = modProperty.readValue.toInt();
+                            break;
+                        case 9: //Linked Location
+                            locationValue = modProperty.readValue.toInt();
+                            if(locationValue != 0){
+                                customLocation.linkedLocationID = locationValue;
+                            }
+                            break;
+                        case 10: //Highjump difficulty
+                            customLocation.highjumpDifficulty = modProperty.readValue.toInt();
+                            break;
+                        case 11: //Slipstream difficulty
+                            customLocation.slipstreamDifficulty = modProperty.readValue.toInt();
+                            readingLocation = false;
+                            break;
+                        default:
+                            qDebug() << Q_FUNC_INFO << "Unknown property" << modProperty.name << "with value" << modProperty.readValue << "found at" << modBuffer.currentPosition;
+                    }
+                }
+                qDebug() << Q_FUNC_INFO << "Adding location" << customLocation.name << "for level" << customLocation.level << "at coordinages" << customLocation.position();
+                currentLocations.locationList.push_back(customLocation);
+            }
+            customLocationList.push_back(currentLocations);
+        }
+        qDebug() << Q_FUNC_INFO << "file" << currentModFile.fileName();
+    }
+}
+
 void Randomizer::addCustomLocation(int locationID, int level, QVector3D location){
     PickupLocation customLocation = PickupLocation();
     customLocation.uniqueID = locationID;
