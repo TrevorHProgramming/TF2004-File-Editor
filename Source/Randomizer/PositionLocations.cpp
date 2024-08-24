@@ -874,37 +874,44 @@ bool Randomizer::dataconLoaded(int checkID){
 
 void PickupLocation::assignMinicon(int miniconID){
     qDebug() << Q_FUNC_INFO << "Assigning minicon" << miniconID << "to position" << uniqueID;
-    for(int i = 0; i < attributes.size(); i++){
+    setAttribute("PickupToSpawn", QString::number(miniconID));
+    /*for(int i = 0; i < attributes.size(); i++){
         if(attributes[i]->name == "PickupToSpawn"){
             attributes[i]->setValue(QString::number(miniconID));
+            //qDebug() << Q_FUNC_INFO << "pickuptospawn current minicon:" << attributes[i]->display();
         }
-    }
+    }*/
     qDebug() << Q_FUNC_INFO << "done assigning minicon";
 }
 
 void PickupLocation::assignDatacon(int dataID){
     qDebug() << Q_FUNC_INFO << "Assigning datacon" << dataID << "to position" << uniqueID;
     isData = true;
-    for(int i = 0; i < attributes.size(); i++){
+    setAttribute("PickupToSpawn", QString::number(3));
+    setAttribute("ProductionArt", QString::number(dataID));
+    /*for(int i = 0; i < attributes.size(); i++){
         if(attributes[i]->name == "PickupToSpawn"){
             attributes[i]->setValue(QString::number(3));
         }
         if(attributes[i]->name == "ProductionArt"){
             attributes[i]->setValue(QString::number(dataID));
         }
-    }
+    }*/
     qDebug() << Q_FUNC_INFO << "done assigning datacon";
 }
 
 int PickupLocation::assignedMinicon(){
     int miniconID = 0;
-    for(int i = 0; i < attributes.size(); i++){
+    miniconID = searchAttributes<int>("PickupToSpawn");
+    qDebug() << Q_FUNC_INFO << "Position" << uniqueID << "currently has pickup ID" << miniconID;
+    return miniconID;
+    /*for(int i = 0; i < attributes.size(); i++){
         if(attributes[i]->name == "PickupToSpawn"){
             miniconID = attributes[i]->intValue();
             return miniconID;
         }
     }
-    return miniconID;
+    return miniconID;*/
 }
 
 
@@ -918,19 +925,22 @@ PickupLocation::PickupLocation(Pickup fromItem){
     instanceIndex = 0;
     linkedLocationID = 999;
     attributes = fromItem.attributes;
-    for(int i = 0; i < fromItem.attributes.size(); i++){
+    this->spawnEvent = fromItem.searchAttributes<QString>("SpawnEvent");
+    setAttributeDefault("GenerationDifficulty");
+    setAttributeDefault("ProductionArt");
+    /*for(int i = 0; i < attributes.size(); i++){
         if(fromItem.attributes[i]->name == "SpawnEvent"){
             this->spawnEvent = fromItem.attributes[i]->stringValue();
         }
-        if(fromItem.attributes[i]->name == "GenerationDifficulty"){
+        if(attributes[i]->name == "GenerationDifficulty"){
             //this should work without issues?
-            this->attributes[i]->isDefault = true;
+            attributes[i]->isDefault = true;
         }
-        if(fromItem.attributes[i]->name == "ProductionArt"){
+        if(attributes[i]->name == "ProductionArt"){
             //this should work without issues?
-            this->attributes[i]->isDefault = true;
+            attributes[i]->isDefault = true;
         }
-    }
+    }*/
 }
 
 PickupLocation::PickupLocation(){

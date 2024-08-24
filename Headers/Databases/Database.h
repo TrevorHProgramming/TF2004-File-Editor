@@ -51,7 +51,7 @@ public:
         file = copyData->file;
     };
     int binarySize();
-    //looked into doing template functions for these to cut down on how many there are, but virtual templates are a no-no I guess
+    //looked into doing template functions for these to cut down on how many there are, but virtual templates aren't, I guess
     virtual void read(); //for reading binary data to the data's value types
     virtual void write(QFile& file);
     virtual QString display();
@@ -63,6 +63,8 @@ public:
     virtual void setValue(QString changedValue);
 
     virtual taDataEnum* cloneEnum();
+
+    std::variant<QString, QVector3D, QQuaternion, int> value();
 
     virtual QString stringValue();
     virtual QVector3D vectorValue();
@@ -293,6 +295,19 @@ public:
     int inheritedDictionaryIndex;
     //std::vector<dictItem> itemList;
     std::vector<std::shared_ptr<taData>> attributes;
+
+    template <typename ValueType>
+    ValueType searchAttributes(QString itemName){
+        for(int i = 0; i < attributes.size(); i++){
+            if(attributes[i]->name == itemName){
+                return std::get<ValueType>(attributes[i]->value());
+            }
+        }
+        return ValueType();
+    };
+
+    int setAttribute(QString itemName, QString value);
+    int setAttributeDefault(QString itemName);
 
     QString prototype;
     QVector3D position;

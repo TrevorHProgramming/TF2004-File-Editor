@@ -1073,10 +1073,11 @@ void Randomizer::fixBunkerLinks(int level){
             qDebug() << Q_FUNC_INFO << "Matching bunker index ID found at" << pacificFile->instances[j].instanceIndex;
             usedBunkers.push_back(pacificFile->instances[j].instanceIndex);
             for(int attribute = 0; attribute < pacificFile->instances[j].attributes.size(); attribute++){
-                if(pacificFile->instances[j].attributes[attribute]->name == "Reward_PickupLink"){
+                pacificFile->instances[j].setAttribute("Reward_PickupLink", QString::number(placedLocations[i].instanceIndex));
+                /*if(pacificFile->instances[j].attributes[attribute]->name == "Reward_PickupLink"){
                     qDebug() << Q_FUNC_INFO << "original link" << pacificFile->instances[j].attributes[attribute]->intValue() << "replacing with" << placedLocations[i].instanceIndex;
                     pacificFile->instances[j].attributes[attribute]->setValue(QString::number(placedLocations[i].instanceIndex));
-                }
+                }*/
             }
         }
     }
@@ -1091,10 +1092,11 @@ void Randomizer::fixBunkerLinks(int level){
         }
         //qDebug() << Q_FUNC_INFO << "Unused bunker index ID found at" << pacificFile->instances[j].instanceIndex;
         for(int attribute = 0; attribute < pacificFile->instances[j].attributes.size(); attribute++){
-            if(pacificFile->instances[j].attributes[attribute]->name == "Reward_PickupLink"){
+            pacificFile->instances[j].setAttributeDefault("Reward_PickupLink");
+            /*if(pacificFile->instances[j].attributes[attribute]->name == "Reward_PickupLink"){
                 qDebug() << Q_FUNC_INFO << "Setting bunker reward to default";
                 pacificFile->instances[j].attributes[attribute]->isDefault = true;
-            }
+            }*/
         }
     }
 }

@@ -1,5 +1,48 @@
 #include "Headers/Main/mainwindow.h"
 
+/*template <typename ValueType>
+ValueType dictItem::searchAttributes(QString itemName){
+    for(int i = 0; i < attributes.size(); i++){
+        if(attributes[i]->name == itemName){
+            return attributes[i]->value();
+        }
+    }
+    return;
+}*/
+
+int dictItem::setAttribute(QString itemName, QString value){
+    for(int i = 0; i < attributes.size(); i++){
+        if(attributes[i]->name == itemName){
+            attributes[i]->setValue(value);
+            return 0;
+        }
+    }
+    return 1; //value not found
+}
+
+int dictItem::setAttributeDefault(QString itemName){
+    for(int i = 0; i < attributes.size(); i++){
+        if(attributes[i]->name == itemName){
+            attributes[i]->isDefault = true;
+            return 0;
+        }
+    }
+    return 1; //value not found
+}
+
+std::variant<QString, QVector3D, QQuaternion, int> taData::value(){
+    if(type == "String"){
+        return stringValue();
+    } else if (type == "Point"){
+        return vectorValue();
+    } else if (type == "Quaternion"){
+        return quatValue();
+    } else if (type == "Integer" or type == "Link" or type == "Enum"){
+        return intValue();
+    }
+    return -1;
+}
+
 std::shared_ptr<taData> DefinitionFile::createItem(QString itemType){
     if(itemType == "Bool"){
         std::shared_ptr<taDataBool<bool>> boolItem(new taDataBool<bool>);
