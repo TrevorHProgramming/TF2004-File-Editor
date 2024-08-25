@@ -44,6 +44,14 @@ Randomizer::Randomizer(ProgWindow *parentPass){
     loadMinicons();
     loadMods();
     loadCustomLocations();
+    loadFileReplacements();
+
+    for(int i = 0; i < replacementList.size(); i++){
+        qDebug() << Q_FUNC_INFO << "replacement name:" << replacementList[i].name;
+        for(int j = 0; j < replacementList[i].fileNames.size(); j++){
+            qDebug() << Q_FUNC_INFO << "file" << j << "is named" << replacementList[i].fileNames[j] << "and is going to path" << replacementList[i].fileDestinations[j];
+        }
+    }
 
     seed = 0;
     randSettings.slipstreamDifficulty = 0;
@@ -372,8 +380,9 @@ void Randomizer::loadFileReplacements(){
     qDebug() << Q_FUNC_INFO << "next file info:" << modIterator.nextFileInfo().fileName() << "from path" << modFolder.absolutePath();
     bool headerFinished = false;
     TextProperty modProperty;
-    QStringList propertyOptions = {"File Version", "Name", "Description", "Rarity", "File Name", "Destination Path"};
+    QStringList propertyOptions = {"File Version", "Name", "Description", "Rarity", "File Count", "File Name", "Destination Path"};
     int modVersion = 0;
+    int replacementCount = 0;
 
     while (modIterator.hasNext()){
         QFile currentModFile = modIterator.next();
@@ -405,98 +414,48 @@ void Randomizer::loadFileReplacements(){
                     //the value x from 1/x that generates the chance of this file swap
                     //ex. a rarity of 4 has a 1/4 or 25% chance of swapping
                     moddedFiles.rarity = modProperty.readValue.toInt();
+                    break;
+                case 4: //File count
+                    replacementCount = modProperty.readValue.toInt();
                     headerFinished = true;
                     break;
                 default:
                     qDebug() << Q_FUNC_INFO << "Unknown property" << modProperty.name << "with value" << modProperty.readValue << "found at" << modBuffer.currentPosition;
                 }
             }
-            while(modBuffer.currentPosition < modBuffer.dataBytes.size()){ //verify this line with the SELF version
+            for(int i = 0; i < replacementCount*2; i++){ //verify this line with the SELF version
+                modProperty = modBuffer.readProperty();
                 switch(propertyOptions.indexOf(modProperty.name)){
-                case 4: //File Name
+                case 5: //File Name
                     moddedFiles.fileNames.push_back(modProperty.readValue);
                     break;
-                case 5: //Destination path
+                case 6: //Destination path
                     moddedFiles.fileDestinations.push_back(modProperty.readValue);
                     break;
                 default:
                     qDebug() << Q_FUNC_INFO << "Unknown property" << modProperty.name << "with value" << modProperty.readValue << "found at" << modBuffer.currentPosition;
                 }
             }
+            replacementList.push_back(moddedFiles);
         }
     }
 }
 
+
+
 void Randomizer::fileReplacements(){
-    int replaceCyclonus = placemaster.generate();
-    if(replaceCyclonus % 4 == 0){
-        //parent->log("Replacing Cyclonus theme. Please make sure this works.");
-        replaceFile("CYCLO1.MS", "/SOUND/MUSIC");
-        replaceFile("CYCLO2.MS", "/SOUND/MUSIC");
-    }
-
-    int replaceTidal = placemaster.generate();
-    if(replaceTidal % 4 == 0){
-        //parent->log("Replacing Tidal Wave theme. Please make sure this works.");
-        replaceFile("TIDAL1.MS", "/SOUND/MUSIC");
-        replaceFile("TIDAL2.MS", "/SOUND/MUSIC");
-    }
-
-    int enableRagdoll = placemaster.generate();
-    if(enableRagdoll % 4 == 0){
-        //parent->log("Replacing bunker ragdoll cutscene. Please make sure this works.");
-        replaceFile("BUNKEREXPLODE.CS", "/TFA/LEVELS/EPISODES/07_EASTERISLAND/CINEMA");
-    }
-
-    int enablePacificRain = placemaster.generate();
-    if(enablePacificRain % 4 == 0){
-        //parent->log("Replacing Pacific Island weather. PLEASE make sure this works.");
-        replaceFile("ENVIRONMENT.TDB", "/TFA/LEVELS/EPISODES/07_EASTERISLAND");
-        replaceFile("ISLANDSKY4.ITF", "/TFA/LEVELS/EPISODES/07_EASTERISLAND/GEOMETRY");
-    }
-
-    int enableMegaMock = placemaster.generate();
-    if(enableMegaMock % 2 == 0){
-        //parent->log("Replacing Megatron mock in intro cutscene. Please make sure this works.");
-        replaceFile("MEGATRONINTRO.CS", "/TFA/LEVELS/EPISODES/07_EASTERISLAND/CINEMA");
-        enableMegaMock = placemaster.generate();
-        if(enableMegaMock % 2 == 0){
-            //parent->log("Using alternate Megatron mock in intro cutscene. Please make sure this works.");
-            replaceFile("mg_mock.ms", "/TFA/LEVELS/EPISODES/07_EASTERISLAND/CINEMA");
+    for(int i = 0; i < replacementList.size(); i++){
+        int replaceChance = placemaster.generate();
+        if(replaceChance % replacementList[i].rarity == 0){
+            for(int j = 0; j < replacementList[i].fileNames.size(); j++){
+                replaceFile(replacementList[i].fileNames[j], replacementList[i].fileDestinations[j]);
+            }
         }
-    }
-
-    int starshipCrash = placemaster.generate();
-    if(starshipCrash % 2 == 0){
-        //parent->log("Replacing Starship crash dialog. Please make sure this works.");
-        replaceFile("RA_S03_2.MS", "/SOUND/ENGLISH/AUDIOCUE/SPACESHP");
-        replaceFile("OP_S03_2.MS", "/SOUND/ENGLISH/AUDIOCUE/SPACESHP");
-    }
-
-    int redAlertUnicron = placemaster.generate();
-    if(redAlertUnicron % 3 == 0){
-        //parent->log("Replacing Unicron Warning dialog. Please make sure this works.");
-        replaceFile("OP_MQ1.MS", "/SOUND/ENGLISH/AUDIOCUE/MISC");
-        replaceFile("OP_TC2.MS", "/SOUND/ENGLISH/AUDIOCUE/MISC");
-    }
-
-    int alphaGuerilla = placemaster.generate();
-    if(alphaGuerilla % 3 == 0){
-        //parent->log("Replacing guerilla texture. Please make sure this works.");
-        replaceFile("THIGHS.ITF", "/TFA/ANIMATION");
-        replaceFile("SHOULDER.ITF", "/TFA/ANIMATION");
-        replaceFile("SHIN.ITF", "/TFA/ANIMATION");
-        replaceFile("PELVIS.ITF", "/TFA/ANIMATION");
-        replaceFile("HEAD.ITF", "/TFA/ANIMATION");
-        replaceFile("HAND.ITF", "/TFA/ANIMATION");
-        replaceFile("GUT.ITF", "/TFA/ANIMATION");
-        replaceFile("FOREARM.ITF", "/TFA/ANIMATION");
-        replaceFile("CHEST.ITF", "/TFA/ANIMATION");
-        replaceFile("BICEP.ITF", "/TFA/ANIMATION");
     }
 
     qDebug() << Q_FUNC_INFO << "Replacing title screen.";
     replaceFile("ARMADALOGO.ITF", "/TFA/USERINTERFACE/TEXTURES");
+    return;
 }
 
 void Randomizer::loadMods(){

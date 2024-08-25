@@ -84,6 +84,7 @@ public:
     ProgWindow* parent;
     std::vector<Level> levelList;
     std::vector<RandomizerMod> modList;
+    std::vector<FileReplacement> replacementList;
     QString outputPath;
     QRandomGenerator placemaster;
     QLineEdit* editSeed;
