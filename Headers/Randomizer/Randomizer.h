@@ -98,13 +98,11 @@ public:
         int overallDifficulty = 0;
         int slipstreamDifficulty = 0;
         int highjumpDifficulty = 0;
+        bool randomizeTeams = false;
+        bool balancedTeams = false;
+        bool randomizePower = false;
+        bool balancedPower = false;
     } randSettings;
-
-    struct modificationSettings {
-        bool alwaysHighjump = false;
-        bool alwaysGlider = false;
-        bool ptBalancePatch = false;
-    } modSettings;
 
     //https://stackoverflow.com/questions/1604588/how-do-you-remove-elements-from-a-stdvector-while-iterating
     //use the above for turning pickuplist into the minicon and datacon lists
@@ -133,6 +131,8 @@ public:
     Minicon* getMinicon(int searchID);
 
     void testAllPlacements();
+    void randomizeTeamColors();
+    void randomizePowers();
 
     void randomize();
     void loadFileReplacements();

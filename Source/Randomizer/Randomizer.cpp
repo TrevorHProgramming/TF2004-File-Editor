@@ -92,7 +92,7 @@ Randomizer::Randomizer(ProgWindow *parentPass){
     buttonGetSettings->show();
 
     QGroupBox *groupRandomizerOptions = new QGroupBox("Radomizer Options", parent->centralContainer);
-    groupRandomizerOptions->setGeometry(QRect(QPoint(360,100), QSize(200,300)));
+    groupRandomizerOptions->setGeometry(QRect(QPoint(360,100), QSize(200,500)));
     groupRandomizerOptions->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
     parent->currentModeWidgets.push_back(groupRandomizerOptions);
 
@@ -149,11 +149,36 @@ Randomizer::Randomizer(ProgWindow *parentPass){
     randSettings.autoBuild = false;
     QCheckBox *checkAutoBuild = new QCheckBox("Automatically Build", groupRandomizerOptions);
     checkAutoBuild->setGeometry(QRect(QPoint(20,240), QSize(200,30)));
-    checkAutoBuild->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
     QAbstractButton::connect(checkAutoBuild, &QCheckBox::stateChanged, parent, [checkAutoBuild, this] {randSettings.autoBuild = checkAutoBuild->isChecked();});
     checkAutoBuild->toggle();
     checkAutoBuild->show();
     //parent->currentModeWidgets.push_back(checkAutoBuild);
+
+    QCheckBox *checkPowerBalance = new QCheckBox("Balanced Power Levels", groupRandomizerOptions);
+    checkPowerBalance->setGeometry(QRect(QPoint(40,300), QSize(200,30)));
+    QAbstractButton::connect(checkPowerBalance, &QCheckBox::stateChanged, parent, [checkPowerBalance, this] {randSettings.balancedPower = checkPowerBalance->isChecked();});
+    checkPowerBalance->toggle();
+    checkPowerBalance->hide();
+
+    QCheckBox *checkPower = new QCheckBox("Randomize Power Levels", groupRandomizerOptions);
+    checkPower->setGeometry(QRect(QPoint(20,270), QSize(200,30)));
+    QAbstractButton::connect(checkPower, &QCheckBox::stateChanged, parent, [checkPower, checkPowerBalance, this]
+        {randSettings.randomizePower = checkPower->isChecked();
+        checkPowerBalance->setVisible(checkPower->isChecked());});
+    checkPower->show();
+
+    QCheckBox *checkTeamBalance = new QCheckBox("Balanced Team Colors", groupRandomizerOptions);
+    checkTeamBalance->setGeometry(QRect(QPoint(40,360), QSize(200,30)));
+    QAbstractButton::connect(checkTeamBalance, &QCheckBox::stateChanged, parent, [checkTeamBalance, this] {randSettings.balancedTeams = checkTeamBalance->isChecked();});
+    checkTeamBalance->toggle();
+    checkTeamBalance->hide();
+
+    QCheckBox *checkTeam = new QCheckBox("Randomize Team Colors", groupRandomizerOptions);
+    checkTeam->setGeometry(QRect(QPoint(20,330), QSize(200,30)));
+    QAbstractButton::connect(checkTeam, &QCheckBox::stateChanged, parent, [checkTeam, checkTeamBalance, this]
+        {randSettings.randomizePower = checkTeam->isChecked();
+        checkTeamBalance->setVisible(checkTeam->isChecked());});
+    checkTeam->show();
 
     groupRandomizerOptions->show();
 
@@ -289,6 +314,7 @@ void Randomizer::manualSettings(){
 
     parent->log("Settings imported. Note that sliders will not change visibly.");
 }
+
 
 void Randomizer::setHighjumpDifficulty(int value){
     randSettings.highjumpDifficulty = value;
@@ -538,9 +564,6 @@ void Randomizer::applyModifications(){
             modFiles += modList[i].fileName;
         }
     }
-    /*if(modSettings.alwaysHighjump){
-        modFiles += QCoreApplication::applicationDirPath() + "/Mods/HighjumpAlways.txt";
-    }*/
     qDebug() << Q_FUNC_INFO << "mod file list:" << modFiles;
     args.append(modFiles);
 
@@ -1089,3 +1112,70 @@ void Randomizer::replaceFile(QString fileName, QString destinationPath){
     }
 }
 
+void Randomizer::randomizeTeamColors(){
+    int teamIndex = 0;
+    int shuffleValue = 0;
+    std::vector<int> teamList;
+    if(randSettings.balancedTeams){
+        for(int i = 0; i <miniconList.size(); i++){
+            teamList.push_back(miniconList[i].searchAttributes<int>("Team"));
+        }
+    }
+    for(int i = 0; i <miniconList.size(); i++){
+        teamIndex = miniconList[i].searchAttributes<int>("Team");
+        if(randSettings.balancedTeams){
+            /*Randomize the teams in a balanced way - there will be as many of each team in the final result as the base game*/
+            shuffleValue = placemaster.bounded(teamList.size());
+            miniconList[i].setAttribute("Team", QString::number(teamList[shuffleValue]));
+        } else {
+            /*Otherwise, assign a random team value with no regard to team count.*/
+            shuffleValue = placemaster.generate();
+            miniconList[i].setAttribute("Team", QString::number(shuffleValue%5));
+        }
+    }
+}
+
+void Randomizer::randomizePowers(){
+    int powerLevel = 0;
+    int shuffleValue = 0;
+    for(int i = 0; i <miniconList.size(); i++){
+        shuffleValue = placemaster.generate();
+        powerLevel = miniconList[i].searchAttributes<int>("PowerCost");
+        if(randSettings.balancedPower){
+            /*Randomize the powers in a balanced way all powers will stay close to their original*/
+            switch(powerLevel){
+            case 10: //power can go up, down, or stay the same
+                if(shuffleValue % 3 == 0){
+                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel - 10));
+                } else if(shuffleValue % 3 == 1) {
+                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel + 10));
+                }
+                break;
+            case 20: //power can go up, down, or stay the same
+                if(shuffleValue % 3 == 0){
+                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel - 10));
+                } else if(shuffleValue % 3 == 1) {
+                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel + 10));
+                }
+                break;
+            case 30: //power can go up, down, or stay the same
+                if(shuffleValue % 3 == 0){
+                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel - 10));
+                } else if(shuffleValue % 3 == 1) {
+                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel + 10));
+                }
+                break;
+            case 40: //power can only go down or stay the same
+                if(shuffleValue % 2 == 0){
+                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel - 10));
+                }
+                break;
+            default:
+                break;
+            }
+        } else {
+            /*Otherwise, assign a random team value with no regard to team count.*/
+            miniconList[i].setAttribute("PowerCost", QString::number((shuffleValue%5)*10));
+        }
+    }
+}
