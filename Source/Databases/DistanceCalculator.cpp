@@ -3,7 +3,8 @@
 void DistanceCalculator::userSelectLevel(int selectedLevel){
     //called when user makes a selection on the level list dropdown
     currentLevel = selectedLevel;
-    warpgateList = parent->databaseList[currentLevel]->sendWarpgates();
+    std::vector<dictItem> warpgateListRaw = parent->databaseList[currentLevel]->sendInstances("Warpgate");
+    //warpgateList = parent->databaseList[currentLevel]->sendWarpgates();
     //then currentlevel is used below to calculate the closest warpgate
 }
 
@@ -47,26 +48,6 @@ DistanceCalculator::DistanceCalculator(ProgWindow *parentPass){
     ListLevels->show();
     parent->currentModeWidgets.push_back(ListLevels);
     ListLevels->setCurrentIndex(0);
-}
-
-Warpgate::Warpgate(dictItem copyItem){
-    this->instanceIndex = copyItem.instanceIndex;
-    this->position = copyItem.position;
-    this->x_position = copyItem.position.x();
-    this->y_position = copyItem.position.y();
-    this->z_position = copyItem.position.z();
-    this->attributes = copyItem.attributes;
-    for(int i = 0; i < copyItem.attributes.size(); i++){
-        if(copyItem.attributes[i]->name == "WarpGateNumber"){
-            this->name = copyItem.attributes[i]->display();
-        }
-    }
-}
-
-Warpgate::Warpgate(){
-    this->x_position = 0;
-    this->y_position = 0;
-    this->z_position = 0;
 }
 
 void DistanceCalculator::calculateWarpgateDistance(){

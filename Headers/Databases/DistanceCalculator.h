@@ -5,6 +5,7 @@
 #include <QString>
 
 #include "Headers/Databases/Database.h"
+#include "Headers/Databases/DataHandler.h"
 
 class ProgWindow;
 

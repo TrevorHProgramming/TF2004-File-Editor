@@ -9,6 +9,7 @@ CONFIG += c++11
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    Source/Databases/DataHandler.cpp \
     Source/Databases/DatabaseModel.cpp \
     Source/Databases/DistanceCalculator.cpp \
     Source/Main/IsoBuilder.cpp \
@@ -16,7 +17,6 @@ SOURCES += \
     Source/Main/BinChanger.cpp \
     Source/Databases/Database.cpp \
     Source/Databases/DatabaseItems.cpp \
-    Source/Randomizer/PositionLocations.cpp \
     Source/Randomizer/Randomizer.cpp \
     Source/Textures/ITF.cpp \
     Source/Models/LevelGeo.cpp \
@@ -28,6 +28,7 @@ SOURCES += \
     Source/Main/openfile.cpp \
 
 HEADERS += \
+    Headers/Databases/DataHandler.h \
     Headers/Databases/DistanceCalculator.h \
     Headers/Main/CustomQT.h \
     Headers/Main/IsoBuilder.h \

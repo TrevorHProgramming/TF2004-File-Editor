@@ -29,29 +29,13 @@ Randomizer::Randomizer(ProgWindow *parentPass){
     }
     parent->clearWindow();
 
-    QDir gameParent(parent->setW->getValue("Game extract path"));
-    gameParent.cdUp();
-    outputPath = gameParent.absolutePath() + "/Randomizer";
-    //get containing directory
-    //create Randomizer folder in that directory
-    qDebug() << Q_FUNC_INFO << "path being checked:" << outputPath << "based on " << gameParent.absolutePath();
-    QDir checkDir(outputPath);
-    if(!checkDir.exists()){
-        checkDir.mkpath(".");
-    }
+    parent->isoBuilder->setCopyPath("Randomizer");
 
-    loadLevels();
-    loadMinicons();
+    parent->dataHandler->loadLevels();
+    parent->dataHandler->loadMinicons();
     loadMods();
-    loadCustomLocations();
-    loadFileReplacements();
-
-    for(int i = 0; i < replacementList.size(); i++){
-        qDebug() << Q_FUNC_INFO << "replacement name:" << replacementList[i].name;
-        for(int j = 0; j < replacementList[i].fileNames.size(); j++){
-            qDebug() << Q_FUNC_INFO << "file" << j << "is named" << replacementList[i].fileNames[j] << "and is going to path" << replacementList[i].fileDestinations[j];
-        }
-    }
+    parent->dataHandler->loadCustomLocations();
+    parent->dataHandler->loadFileReplacements();
 
     seed = 0;
     randSettings.slipstreamDifficulty = 0;
@@ -180,6 +164,12 @@ Randomizer::Randomizer(ProgWindow *parentPass){
         checkTeamBalance->setVisible(checkTeam->isChecked());});
     checkTeam->show();
 
+    QCheckBox *checkAutobots = new QCheckBox("Randomize Autobot Stats", groupRandomizerOptions);
+    checkAutobots->setGeometry(QRect(QPoint(20,390), QSize(200,30)));
+    QAbstractButton::connect(checkAutobots, &QCheckBox::stateChanged, parent, [checkAutobots, this]
+        {randSettings.randomizerAutobotStats = checkAutobots->isChecked();});
+    checkAutobots->show();
+
     groupRandomizerOptions->show();
 
     parent->centralContainer->setStyleSheet("QGroupBox{color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0);} "
@@ -212,12 +202,14 @@ Randomizer::Randomizer(ProgWindow *parentPass){
                                   "QToolTip{color: rgb(0,0,0);}");*/
     parent->currentModeWidgets.push_back(groupLocations);
 
-    for(int i = 0; i < customLocationList.size(); i++){
-        qDebug() << Q_FUNC_INFO << "location name for" << i << ":" << customLocationList[i].name;
-        QCheckBox *locationCheck = new QCheckBox(customLocationList[i].name, groupLocations);
+    for(int i = 0; i < parent->dataHandler->customLocationList.size(); i++){
+        qDebug() << Q_FUNC_INFO << "location name for" << i << ":" << parent->dataHandler->customLocationList[i].name;
+        QCheckBox *locationCheck = new QCheckBox(parent->dataHandler->customLocationList[i].name, groupLocations);
         locationCheck->setGeometry(QRect(QPoint(20,20 + (40*i)), QSize(200,30)));
-        QAbstractButton::connect(locationCheck, &QCheckBox::stateChanged, parent, [i, locationCheck, this] {customLocationList[i].enabled = locationCheck->isChecked();});
-        locationCheck->setToolTip(customLocationList[i].description);
+        QAbstractButton::connect(locationCheck, &QCheckBox::stateChanged, parent, [i, locationCheck, this]
+            {parent->dataHandler->customLocationList[i].enabled = locationCheck->isChecked();});
+        locationCheck->setToolTip(parent->dataHandler->customLocationList[i].description);
+        locationCheck->toggle();
         locationCheck->show();
         parent->currentModeWidgets.push_back(locationCheck);
     }
@@ -239,7 +231,7 @@ Randomizer::Randomizer(ProgWindow *parentPass){
 
 void Randomizer::testAllPlacements(){
     for(int i = 0; i < availableLocations.size(); i++){
-        place(27, availableLocations[i].uniqueID);
+        placeMinicon(27, availableLocations[i].uniqueID);
     }
     editDatabases();
     writeSpoilers();
@@ -344,17 +336,9 @@ void Randomizer::reset(){
     placedLocations.clear();
     availableLocations.clear();
 
-    for(int i = 0; i < levelList.size(); i++){
-        levelList[i].dataconCount = 0;
-        levelList[i].miniconCount = 0;
-    }
-
-    for(int i = 0; i < miniconList.size(); i++){
-        miniconList[i].placed = false;
-    }
-    for(int i = 0; i < dataconList.size(); i++){
-        dataconList[i].placed = false;
-    }
+    parent->dataHandler->resetLevels();
+    parent->dataHandler->resetMinicons();
+    parent->dataHandler->resetDatacons();
 
 }
 
@@ -368,12 +352,34 @@ void Randomizer::randomize(){
         editSeed->setText(QString::number(seed));
     }
     qDebug() << Q_FUNC_INFO << "difficulties - slipstream:" << randSettings.slipstreamDifficulty << "highjump" << randSettings.highjumpDifficulty << "overall" << randSettings.overallDifficulty;
-    //sort minicon list by enumID
-    std::sort(miniconList.begin(), miniconList.end());
-    availableLocations = loadedLocations;
+
 
     qDebug() << Q_FUNC_INFO << "Starting randomization. Available locations:" << availableLocations.size();
     placemaster.seed(seed);
+
+    if(randSettings.randomizePower){
+        randomizePowers();
+    }
+
+    if(randSettings.randomizeTeams){
+        randomizeTeamColors();
+    }
+
+    if(randSettings.randomizerAutobotStats){
+        randomizeAutobotStats();
+    }
+
+    //move this to datahandler, please
+    for(int i = 0; i < parent->dataHandler->customLocationList.size(); i++){
+        if(parent->dataHandler->customLocationList[i].enabled){
+            for(int j = 0; j < parent->dataHandler->customLocationList[i].locationList.size(); j++){
+                parent->dataHandler->loadedLocations.push_back(parent->dataHandler->customLocationList[i].locationList[j]);
+            }
+        }
+    }
+    //sort minicon list by enumID
+    availableLocations = parent->dataHandler->loadedLocations;
+
     placeSlipstream();
     placeHighjump();
     placeRangefinder();
@@ -381,15 +387,17 @@ void Randomizer::randomize(){
     if(randSettings.overallDifficulty == 0){
         placeStarterWeapon();
     }
+
     placeAll();
+
     parent->log("Minicon placements randomized.");
 
     std::sort(placedLocations.begin(), placedLocations.end());
-    qDebug() << Q_FUNC_INFO << "attempting to modify database files";
+
     editDatabases();
     writeSpoilers();
 
-    fileReplacements();
+    randomFileReplacements();
     applyModifications();
 
     if(randSettings.autoBuild){
@@ -399,88 +407,18 @@ void Randomizer::randomize(){
     availableLocations.clear();
 }
 
-void Randomizer::loadFileReplacements(){
-    QString modPath = QCoreApplication::applicationDirPath() + "/Replacements/";
-    QDir modFolder(modPath);
-    QDirIterator modIterator(modFolder.absolutePath());
-    qDebug() << Q_FUNC_INFO << "next file info:" << modIterator.nextFileInfo().fileName() << "from path" << modFolder.absolutePath();
-    bool headerFinished = false;
-    TextProperty modProperty;
-    QStringList propertyOptions = {"File Version", "Name", "Description", "Rarity", "File Count", "File Name", "Destination Path"};
-    int modVersion = 0;
-    int replacementCount = 0;
-
-    while (modIterator.hasNext()){
-        QFile currentModFile = modIterator.next();
-        qDebug() << Q_FUNC_INFO << "Current file" << currentModFile.fileName();
-        if (currentModFile.open(QIODevice::ReadOnly)){
-            qDebug() << Q_FUNC_INFO << "Reading file";
-            FileReplacement moddedFiles;
-            FileData modBuffer;
-            modBuffer.dataBytes = currentModFile.readAll();
-            modBuffer.input = true;
-            headerFinished = false;
-            QString targetLevel;
-            while(!headerFinished){
-                modProperty = modBuffer.readProperty();
-                qDebug() << Q_FUNC_INFO << "test property type:" << modProperty.name << "with value:" << modProperty.readValue;
-                switch(propertyOptions.indexOf(modProperty.name)){
-                case 0: //File Version
-                    modVersion = modProperty.readValue.toInt();
-                    break;
-                case 1: //Name
-                    moddedFiles.name = modProperty.readValue;
-                    break;
-                case 2: //Description
-                    //for human use only, for now. tooltips later.
-                    moddedFiles.description = modProperty.readValue;
-                    break;
-                case 3: //Rarity
-                    //Only used for Randomizer
-                    //the value x from 1/x that generates the chance of this file swap
-                    //ex. a rarity of 4 has a 1/4 or 25% chance of swapping
-                    moddedFiles.rarity = modProperty.readValue.toInt();
-                    break;
-                case 4: //File count
-                    replacementCount = modProperty.readValue.toInt();
-                    headerFinished = true;
-                    break;
-                default:
-                    qDebug() << Q_FUNC_INFO << "Unknown property" << modProperty.name << "with value" << modProperty.readValue << "found at" << modBuffer.currentPosition;
-                }
-            }
-            for(int i = 0; i < replacementCount*2; i++){ //verify this line with the SELF version
-                modProperty = modBuffer.readProperty();
-                switch(propertyOptions.indexOf(modProperty.name)){
-                case 5: //File Name
-                    moddedFiles.fileNames.push_back(modProperty.readValue);
-                    break;
-                case 6: //Destination path
-                    moddedFiles.fileDestinations.push_back(modProperty.readValue);
-                    break;
-                default:
-                    qDebug() << Q_FUNC_INFO << "Unknown property" << modProperty.name << "with value" << modProperty.readValue << "found at" << modBuffer.currentPosition;
-                }
-            }
-            replacementList.push_back(moddedFiles);
-        }
-    }
-}
-
-
-
-void Randomizer::fileReplacements(){
-    for(int i = 0; i < replacementList.size(); i++){
+void Randomizer::randomFileReplacements(){
+    for(int i = 0; i < parent->dataHandler->replacementList.size(); i++){
         int replaceChance = placemaster.generate();
-        if(replaceChance % replacementList[i].rarity == 0){
-            for(int j = 0; j < replacementList[i].fileNames.size(); j++){
-                replaceFile(replacementList[i].fileNames[j], replacementList[i].fileDestinations[j]);
+        if(replaceChance % parent->dataHandler->replacementList[i].rarity == 0){
+            for(int j = 0; j < parent->dataHandler->replacementList[i].fileNames.size(); j++){
+                parent->dataHandler->replaceFile(parent->dataHandler->replacementList[i]);
             }
         }
     }
 
     qDebug() << Q_FUNC_INFO << "Replacing title screen.";
-    replaceFile("ARMADALOGO.ITF", "/TFA/USERINTERFACE/TEXTURES");
+    parent->dataHandler->replaceFile("ARMADALOGO.ITF", "/TFA/USERINTERFACE/TEXTURES");
     return;
 }
 
@@ -499,6 +437,7 @@ void Randomizer::loadMods(){
         RandomizerMod currentModData;
         qDebug() << Q_FUNC_INFO << "Current file" << QFileInfo(currentModFile).fileName();
         currentModData.fileName = QFileInfo(currentModFile).fileName();
+        currentModData.enabled = false;
         if(QFileInfo(currentModFile).suffix() == "txt"){
             currentModData.type = 1;
         } else {
@@ -567,7 +506,7 @@ void Randomizer::applyModifications(){
     qDebug() << Q_FUNC_INFO << "mod file list:" << modFiles;
     args.append(modFiles);
 
-    QString randomizerPath = outputPath + "/SLUS_206.68";
+    QString randomizerPath = parent->isoBuilder->copyOutputPath + "/SLUS_206.68";
     parent->log("Putting modified ELF in " + randomizerPath);
     args.append(randomizerPath);
 
@@ -613,7 +552,7 @@ void Randomizer::placeSlipstream(){
     qDebug() << Q_FUNC_INFO << "Available slipstream locations:" << slipstreamLocations.size();
     int locationNumber = placemaster.bounded(slipstreamLocations.size());
     qDebug() << Q_FUNC_INFO << "Placing slipstream at" << slipstreamLocations[locationNumber].uniqueID;
-    place(28, slipstreamLocations[locationNumber].uniqueID);
+    placeMinicon(28, slipstreamLocations[locationNumber].uniqueID);
     if(randSettings.slipstreamDifficulty > 3){
         placeSlipstreamRequirement(44, slipstreamLocations[locationNumber].uniqueID);
         placeSlipstreamRequirement(14, slipstreamLocations[locationNumber].uniqueID);
@@ -631,7 +570,7 @@ void Randomizer::placeHighjump(){
     }
     int locationNumber = placemaster.bounded(highjumpLocations.size());
     qDebug() << Q_FUNC_INFO << "Placing highjump at" << highjumpLocations[locationNumber].uniqueID;
-    place(50, highjumpLocations[locationNumber].uniqueID);
+    placeMinicon(50, highjumpLocations[locationNumber].uniqueID);
 }
 
 void Randomizer::placeRangefinder(){
@@ -645,29 +584,26 @@ void Randomizer::placeRangefinder(){
     }
     int locationNumber = placemaster.bounded(rangefinderLocations.size());
     qDebug() << Q_FUNC_INFO << "Placing Rangefinder at" << rangefinderLocations[locationNumber].uniqueID;
-    place(43, rangefinderLocations[locationNumber].uniqueID);
+    placeMinicon(43, rangefinderLocations[locationNumber].uniqueID);
 }
 
 void Randomizer::placeStarterWeapon(){
     std::vector<Minicon> starterMinicons;
-    qDebug() << Q_FUNC_INFO << "Finding placement for starter weapon. minicons:" << miniconList.size();
-    for(int i = 0; i < miniconList.size(); i++){
-        qDebug() << Q_FUNC_INFO << "checking minicon" << i << "is weapon?" << miniconList[i].isWeapon;
-        if(miniconList[i].isWeapon){
-            qDebug() << Q_FUNC_INFO << "adding minicon:" << miniconList[i].enumID << miniconList[i].name;
-            starterMinicons.push_back(miniconList[i]);
+    for(int i = 0; i < parent->dataHandler->miniconList.size(); i++){
+        if(parent->dataHandler->miniconList[i].isWeapon){
+            starterMinicons.push_back(parent->dataHandler->miniconList[i]);
         }
     }
     int miniconNumber = placemaster.bounded(starterMinicons.size());
     qDebug() << Q_FUNC_INFO << "Placing starter weapon" << starterMinicons[miniconNumber].name;
-    place(starterMinicons[miniconNumber].enumID, 42069); //locationID tbd
+    placeMinicon(starterMinicons[miniconNumber].enumID, 42069); //locationID tbd
 }
 
 void Randomizer::placeShepherd(){
     qDebug() << Q_FUNC_INFO << "Finding placement for shepherd. available locations:" << availableLocations.size();
     std::vector<PickupLocation> shepherdLocations;
     for(int i = 0; i < availableLocations.size(); i++){
-        if((bunkerList.contains(availableLocations[i].uniqueID) && randSettings.overallDifficulty > 3)
+        if((parent->dataHandler->bunkerList.contains(availableLocations[i].uniqueID) && randSettings.overallDifficulty > 3)
                 || (availableLocations[i].level == 7 && randSettings.overallDifficulty == 3)
                 || (randSettings.overallDifficulty == 2)
                 || (availableLocations[i].level < 5 && randSettings.overallDifficulty < 2)){
@@ -676,7 +612,7 @@ void Randomizer::placeShepherd(){
     }
     int locationNumber = placemaster.bounded(shepherdLocations.size());
     qDebug() << Q_FUNC_INFO << "Placing shepherd at" << shepherdLocations[locationNumber].uniqueID;
-    place(42, shepherdLocations[locationNumber].uniqueID);
+    placeMinicon(42, shepherdLocations[locationNumber].uniqueID);
 }
 
 void Randomizer::placeSlipstreamRequirement(int miniconID, int placementID){
@@ -702,19 +638,19 @@ void Randomizer::placeSlipstreamRequirement(int miniconID, int placementID){
     }
     //qDebug() << Q_FUNC_INFO << "prereq locations:" << prereqLocations.size();
     int locationNumber = placemaster.bounded(prereqLocations.size());
-    place(miniconID, prereqLocations[locationNumber].uniqueID);
+    placeMinicon(miniconID, prereqLocations[locationNumber].uniqueID);
 }
 
-void Randomizer::place(int miniconToPlace, int placementID){
+void Randomizer::placeMinicon(int miniconToPlace, int placementID){
     //assign the minicon to the location
     //copy the location to the placed list
     //then remove that location and minicon from the working lists
     qDebug() << Q_FUNC_INFO << "Placing minicon" << miniconToPlace << "at" << placementID;
     Minicon* chosenMinicon = nullptr;
-    for(int i = 0; i < miniconList.size(); i++){
-        if(miniconList[i].enumID == miniconToPlace){
+    for(int i = 0; i < parent->dataHandler->miniconList.size(); i++){
+        if(parent->dataHandler->miniconList[i].enumID == miniconToPlace){
             //miniconList[i].placed = true;
-            chosenMinicon = &miniconList[i];
+            chosenMinicon = &parent->dataHandler->miniconList[i];
         }
     }
     if(chosenMinicon == nullptr){
@@ -726,11 +662,11 @@ void Randomizer::place(int miniconToPlace, int placementID){
             continue;
         }
         qDebug() << Q_FUNC_INFO << "found location ID" << placementID << "with linked location" << availableLocations[i].linkedLocationID;
-        qDebug() << Q_FUNC_INFO << "current placed pickups" << placedLocations.size();
+        qDebug() << Q_FUNC_INFO << "current placed pickups" << placedLocations.size() << "currently availlable locations" << availableLocations.size();
         int linkedLocation = availableLocations[i].linkedLocationID;
         availableLocations[i].assignMinicon(miniconToPlace);
         placedLocations.push_back(availableLocations[i]);
-        levelList[availableLocations[i].level].miniconCount++;
+        parent->dataHandler->levelList[availableLocations[i].level].miniconCount++;
         availableLocations.erase(availableLocations.begin() + i);
         if(linkedLocation != 999){
             qDebug() << Q_FUNC_INFO << "searching for linked location" << linkedLocation;
@@ -744,15 +680,72 @@ void Randomizer::place(int miniconToPlace, int placementID){
                 foundLocation = true;
                 availableLocations[j].assignMinicon(miniconToPlace);
                 placedLocations.push_back(availableLocations[j]);
-                levelList[availableLocations[j].level].miniconCount++;
+                parent->dataHandler->levelList[availableLocations[j].level].miniconCount++;
+                qDebug() << Q_FUNC_INFO << "confirming linked placement for locations" << placementID << availableLocations[j].uniqueID << ":" << miniconToPlace << "vs" << availableLocations[j].assignedMinicon();
+                qDebug() << Q_FUNC_INFO << "confirming linked placement for locations" << placedLocations[placedLocations.size()-1].assignedMinicon();
                 availableLocations.erase(availableLocations.begin() + j);
             }
             if(!foundLocation){
                 qDebug() << Q_FUNC_INFO << "did not find location" << linkedLocation;
             }
         }
-        qDebug() << Q_FUNC_INFO << "current placed pickups" << placedLocations.size();
+        qDebug() << Q_FUNC_INFO << "current placed pickups" << placedLocations.size() << "currently availlable locations" << availableLocations.size();
         chosenMinicon->placed = true;
+        return;
+    }
+    parent->log("Location "  + QString::number(placementID) + " was not found. | " + QString(Q_FUNC_INFO));
+}
+
+void Randomizer::placeDatacon(int dataconToPlace, int placementID){
+    //assign the datacon to the location
+    //copy the location to the placed list
+    //then remove that location and datacon from the working lists
+    qDebug() << Q_FUNC_INFO << "Placing datacon" << dataconToPlace << "at" << placementID;
+    Pickup* chosenDatacon = nullptr;
+    for(int i = 0; i < parent->dataHandler->dataconList.size(); i++){
+        if(parent->dataHandler->dataconList[i].dataID == dataconToPlace){
+            chosenDatacon = &parent->dataHandler->dataconList[i];
+        }
+    }
+    if(chosenDatacon == nullptr){
+        parent->log("Datacon "  + QString::number(dataconToPlace) + " was not found. | " + QString(Q_FUNC_INFO));
+        return;
+    }
+    for(int i = 0; i < availableLocations.size(); i++){
+        if(availableLocations[i].uniqueID != placementID){
+            continue;
+        }
+        qDebug() << Q_FUNC_INFO << "found location ID" << placementID << "with linked location" << availableLocations[i].linkedLocationID;
+        qDebug() << Q_FUNC_INFO << "current placed pickups" << placedLocations.size() << "currently availlable locations" << availableLocations.size();
+        int linkedLocation = availableLocations[i].linkedLocationID;
+        availableLocations[i].assignDatacon(dataconToPlace);
+        placedLocations.push_back(availableLocations[i]);
+        parent->dataHandler->levelList[availableLocations[i].level].dataconCount++;
+        qDebug() << Q_FUNC_INFO << "after assigning location" << availableLocations[i].uniqueID << "erasing location" << (availableLocations.begin() + i)->uniqueID;
+        availableLocations.erase(availableLocations.begin() + i);
+        if(linkedLocation != 999){
+            qDebug() << Q_FUNC_INFO << "searching for linked location" << linkedLocation;
+            bool foundLocation = false;
+            for(int j = 0; j < availableLocations.size(); j++){
+                qDebug() << Q_FUNC_INFO << "checking linked location ID" << availableLocations[j].uniqueID << "vs" << linkedLocation;
+                if(availableLocations[j].uniqueID != linkedLocation){
+                    continue;
+                }
+                qDebug() << Q_FUNC_INFO << "found linked location ID" << linkedLocation;
+                foundLocation = true;
+                availableLocations[j].assignDatacon(dataconToPlace);
+                placedLocations.push_back(availableLocations[j]);
+                parent->dataHandler->levelList[availableLocations[j].level].dataconCount++;
+                qDebug() << Q_FUNC_INFO << "confirming linked placement for locations" << placementID << availableLocations[j].uniqueID << ":" << dataconToPlace << "vs" << availableLocations[j].assignedMinicon();
+                qDebug() << Q_FUNC_INFO << "after assigning location" << availableLocations[j].uniqueID << "erasing location" << (availableLocations.begin() + j)->uniqueID;
+                availableLocations.erase(availableLocations.begin() + j);
+            }
+            if(!foundLocation){
+                qDebug() << Q_FUNC_INFO << "did not find location" << linkedLocation;
+            }
+        }
+        qDebug() << Q_FUNC_INFO << "current placed pickups" << placedLocations.size() << "currently availlable locations" << availableLocations.size();
+        chosenDatacon->placed = true;
         return;
     }
     parent->log("Location "  + QString::number(placementID) + " was not found. | " + QString(Q_FUNC_INFO));
@@ -760,7 +753,7 @@ void Randomizer::place(int miniconToPlace, int placementID){
 
 void Randomizer::placeAll(){
     //use std::shuffle with the randomizer's rng
-    qDebug() << Q_FUNC_INFO << "Placing all remaining minicons. Currently" << miniconList.size() << "pickups to go through and place";
+    qDebug() << Q_FUNC_INFO << "Placing all remaining minicons. Currently" << parent->dataHandler->miniconList.size() << "pickups to go through and place";
     //std::shuffle(std::begin(availableLocations), std::end(availableLocations), placemaster);
     //with this, we have three lists: the minicon list, the location list, and the list of placed locations
     //since we'll have more locations than minicons, we can shuffle the location list
@@ -768,124 +761,145 @@ void Randomizer::placeAll(){
     //then the placed locations combos would be written back to the database files
     int locationNumber = 0;
     int availableLevel = 0;
-    for(int i = 0; i < miniconList.size(); i++){
-        qDebug() << Q_FUNC_INFO << "has minicon" << i << miniconList[i].name << "already been placed?" << miniconList[i].placed;
-        if(!miniconList[i].placed){
+    for(int i = 0; i < parent->dataHandler->miniconList.size(); i++){
+        if(!parent->dataHandler->miniconList[i].placed){
             qDebug() << Q_FUNC_INFO << "Placing minicon.";
             locationNumber = placemaster.bounded(availableLocations.size());
-            qDebug() << Q_FUNC_INFO << "level" << levelList[availableLocations[locationNumber].level].levelName << "has" << levelList[availableLocations[locationNumber].level].miniconCount << "placements already";
+
             //The below doesn't account for special placement counts (slipstream, highjump, etc) so some levels end up stacked anyway.
             availableLevel = availableLocations[locationNumber].level;
-            while(levelList[availableLevel].miniconCount > 6 /*|| (levelList[availableLevel].removedInstances < levelList[availableLevel].miniconCount)*/){
-                qDebug() << Q_FUNC_INFO << "Level" << levelList[availableLevel].levelName << "has too many placements. Rerolling.";
-                qDebug() << Q_FUNC_INFO << "Max placements:" << levelList[availableLevel].removedInstances << "current placements:" << levelList[availableLevel].miniconCount;
+            while(parent->dataHandler->levelList[availableLevel].miniconCount > 6 /*|| (levelList[availableLevel].removedInstances < levelList[availableLevel].miniconCount)*/){
+                qDebug() << Q_FUNC_INFO << "Level" << parent->dataHandler->levelList[availableLevel].levelName << "has too many placements. Rerolling.";
+                qDebug() << Q_FUNC_INFO << "Max placements:" << parent->dataHandler->levelList[availableLevel].removedInstances;
+                qDebug() << Q_FUNC_INFO << "current placements:" << parent->dataHandler->levelList[availableLevel].miniconCount;
                 locationNumber = placemaster.bounded(availableLocations.size());
                 availableLevel = availableLocations[locationNumber].level;
             }
-            //qDebug() << Q_FUNC_INFO << "Placing minicon" << miniconList[i].enumID << "at" << availableLocations[locationNumber].uniqueID << "or" << availableLocations[locationNumber].level << availableLocations[locationNumber].position();
-//            availableLocations[locationNumber].assignMinicon(miniconList[i].enumID);
-//            placedLocations.push_back(availableLocations[locationNumber]);
-//            levelList[availableLevel].miniconCount++;
-//            miniconList[i].placed = true;
-//            availableLocations.erase(availableLocations.begin() + locationNumber);
-            place(miniconList[i].enumID, availableLocations[locationNumber].uniqueID);
+            placeMinicon(parent->dataHandler->miniconList[i].enumID, availableLocations[locationNumber].uniqueID);
         } else {
             qDebug() << Q_FUNC_INFO << "Skipping placement.";
         }
     }
 
+    qDebug() << Q_FUNC_INFO << "running pre-datacon check";
+    for(int i = 0; i < placedLocations.size(); i++){
+        qDebug() << Q_FUNC_INFO << i << "placed location" << placedLocations[i].uniqueID << "has assigned pickup" << placedLocations[i].assignedMinicon();
+    }
+    for(int i = 0; i < availableLocations.size(); i++){
+        qDebug() << Q_FUNC_INFO << i << "available location" << availableLocations[i].uniqueID << "has assigned pickup" << availableLocations[i].assignedMinicon();
+    }
+
     if(randSettings.generateDatacons){
         qDebug() << Q_FUNC_INFO << "Placing datacons.";
-        std::sort(dataconList.begin(), dataconList.end());
-        for(int i = 0; i < dataconList.size(); i++){
-            qDebug() << Q_FUNC_INFO << "has datacon" << i << dataconList[i].name << "already been placed?" << dataconList[i].placed;
-            if(!dataconList[i].placed){
+        for(int i = 0; i < parent->dataHandler->dataconList.size(); i++){
+            if(!parent->dataHandler->dataconList[i].placed){
                 qDebug() << Q_FUNC_INFO << "Placing datacon.";
                 qDebug() << Q_FUNC_INFO << "current placed pickups" << placedLocations.size();
+                qDebug() << Q_FUNC_INFO << "reaches point 0. available locations:" << availableLocations.size();
                 locationNumber = placemaster.bounded(availableLocations.size());
+                qDebug() << Q_FUNC_INFO << "reaches point 1";
                 availableLevel = availableLocations[locationNumber].level;
-                while(levelList[availableLevel].dataconCount > 12){
-                    qDebug() << Q_FUNC_INFO << "Level" << levelList[availableLevel].levelName << "has too many datacons. Rerolling.";
-                    qDebug() << Q_FUNC_INFO << "Max placements:" << levelList[availableLevel].removedInstances << "current datacons:" << levelList[availableLevel].dataconCount << "available locations:" << availableLocations.size();
+                qDebug() << Q_FUNC_INFO << "reaches point 2";
+                while(parent->dataHandler->levelList[availableLevel].dataconCount > 12){
+                    qDebug() << Q_FUNC_INFO << "Level" << parent->dataHandler->levelList[availableLevel].levelName << "has too many datacons. Rerolling.";
+                    qDebug() << Q_FUNC_INFO << "Max placements:" << parent->dataHandler->levelList[availableLevel].removedInstances;
+                    qDebug() << Q_FUNC_INFO << "current datacons:" << parent->dataHandler->levelList[availableLevel].dataconCount << "available locations:" << availableLocations.size();
                     locationNumber = placemaster.bounded(availableLocations.size());
                     availableLevel = availableLocations[locationNumber].level;
                 }
-                //fix below to work with linked locations
-                int linkedLocation = availableLocations[locationNumber].linkedLocationID;
-                availableLocations[locationNumber].assignDatacon(dataconList[i].dataID);
-                placedLocations.push_back(availableLocations[locationNumber]);
-                levelList[availableLevel].dataconCount++;
-                availableLocations.erase(availableLocations.begin() + locationNumber);
-                if(linkedLocation != 999){
-                    bool foundLocation = false;
-                    qDebug() << Q_FUNC_INFO << "searching for linked location" << linkedLocation;
-                    for(int j = 0; j < availableLocations.size(); j++){
-                        if(availableLocations[j].uniqueID != linkedLocation){
-                            continue;
-                        }
-                        qDebug() << Q_FUNC_INFO << "found linked location ID" << linkedLocation;
-                        foundLocation = true;
-                        availableLocations[j].assignDatacon(dataconList[i].dataID);
-                        placedLocations.push_back(availableLocations[j]);
-                        levelList[availableLocations[j].level].dataconCount++;
-                        availableLocations.erase(availableLocations.begin() + j);
-                    }
-                    if(!foundLocation){
-                        qDebug() << Q_FUNC_INFO << "did not find location" << linkedLocation;
-                    }
-                }
-                qDebug() << Q_FUNC_INFO << "current placed pickups" << placedLocations.size();
-                dataconList[i].placed = true;
+                qDebug() << Q_FUNC_INFO << "reaches point 3";
+                placeDatacon(parent->dataHandler->dataconList[i], availableLocations[locationNumber]);
             } else {
                 qDebug() << Q_FUNC_INFO << "Skipping placement.";
             }
         }
     }
+    qDebug() << Q_FUNC_INFO << "running post-datacon check";
+    for(int i = 0; i < placedLocations.size(); i++){
+        qDebug() << Q_FUNC_INFO << i << "placed location" << placedLocations[i].uniqueID << "has assigned pickup" << placedLocations[i].assignedMinicon();
+    }
+
 }
 
-Minicon* Randomizer::getMinicon(int searchID){
-    for(int i = 0; i < miniconList.size(); i++){
-        if(miniconList[i].enumID == searchID){
-            return &miniconList[i];
+void Randomizer::removeLocation(PickupLocation locationToRemove){
+    qDebug() << Q_FUNC_INFO << "available location count before removal:" << availableLocations.size();
+    for(int i = 0; i < availableLocations.size(); i++){
+        if(availableLocations[i].uniqueID == locationToRemove.uniqueID){
+            availableLocations.erase(availableLocations.begin() + i);
         }
     }
-    qDebug() << Q_FUNC_INFO << "minicon" << searchID << "was not found.";
-    return nullptr;
+    qDebug() << Q_FUNC_INFO << "available location count after removal:" << availableLocations.size();
+}
+
+void Randomizer::placeDatacon(Pickup dataconToPlace, PickupLocation location){
+    qDebug() << Q_FUNC_INFO << "placing datacon at location ID" << location.uniqueID << "with linked location" << location.linkedLocationID;
+    qDebug() << Q_FUNC_INFO << "current placed pickups" << placedLocations.size() << "currently availlable locations" << availableLocations.size();
+    int linkedLocation = location.linkedLocationID;
+    location.assignDatacon(dataconToPlace.dataID); //<- confirmed that this line right here is absolutely the problem
+    placedLocations.push_back(location);
+    parent->dataHandler->levelList[location.level].dataconCount++;
+    removeLocation(location);
+    if(linkedLocation != 999){
+        qDebug() << Q_FUNC_INFO << "searching for linked location" << linkedLocation;
+        bool foundLocation = false;
+        for(int j = 0; j < availableLocations.size(); j++){
+            //qDebug() << Q_FUNC_INFO << "checking linked location ID" << availableLocations[j].uniqueID << "vs" << linkedLocation;
+            if(availableLocations[j].uniqueID != linkedLocation){
+                continue;
+            }
+            qDebug() << Q_FUNC_INFO << "found linked location ID" << linkedLocation;
+            foundLocation = true;
+            availableLocations[j].assignDatacon(dataconToPlace.dataID);
+            placedLocations.push_back(availableLocations[j]);
+            parent->dataHandler->levelList[availableLocations[j].level].dataconCount++;
+            availableLocations.erase(availableLocations.begin() + j);
+        }
+        if(!foundLocation){
+            qDebug() << Q_FUNC_INFO << "did not find location" << linkedLocation;
+        }
+    }
+    qDebug() << Q_FUNC_INFO << "current placed pickups" << placedLocations.size() << "currently availlable locations" << availableLocations.size();
+    dataconToPlace.placed = true;
+    return;
 }
 
 void Randomizer::spoilMinicon(PickupLocation placement, QTextStream& stream){
     //qDebug() << Q_FUNC_INFO << "attempting to place" << placement.uniqueID << "with assigned minicon"
     //         << placement.assignedMinicon << "out of" << miniconList.size() << "minicons";
-    QVector3D placedPosition = placement.position();
-    stream << getMinicon(placement.assignedMinicon())->name << " is located at " << placement.name << " id " << placement.uniqueID << ", or x" <<
+    if(placement.assignedMinicon() == 3){
+        qDebug() << Q_FUNC_INFO << "Attempted to spoil a datacon position. We don't do that (yet).";
+        return;
+    }
+    QVector3D placedPosition = placement.searchAttributes<QVector3D>("Position");
+    qDebug() << Q_FUNC_INFO << "sending miniconID" << placement.assignedMinicon() << "to be spoiled";
+    stream << parent->dataHandler->getMinicon(placement.assignedMinicon())->name << " is located at " << placement.name << " id " << placement.uniqueID << ", or x" <<
                                                              placedPosition.x() << " y" << placedPosition.y() << " z" << placedPosition.z() << Qt::endl;
     placement.spoiled = true;
 }
 
 void Randomizer::spoilMinicon(int miniconID, QTextStream& stream){
-    PickupLocation placement;
-    placement.uniqueID = 0;
+    int placementIndex;
     qDebug() << Q_FUNC_INFO << "placedlocations count:" << placedLocations.size();
     for(int i = 0; i < placedLocations.size(); i++){
         if(placedLocations[i].assignedMinicon() == miniconID){
-            placement = placedLocations[i];
+            placementIndex = i;
             //placedLocations[i].spoiled = true;
         }
     }
-    if(placement.uniqueID == 0){
+    if(placedLocations[placementIndex].uniqueID == 0){
         parent->log("Could not find minicon " + QString::number(miniconID) + " at any placement." );
     }
-    QVector3D placedPosition = placement.position();
-    qDebug() << Q_FUNC_INFO << "spoiling minicon" << miniconID << "at location" << placement.uniqueID;
-    QString miniconName = getMinicon(placement.assignedMinicon())->name;
-    stream << miniconName << " is located at " << levelList[placement.level].levelName << "'s " << placement.name << " id " << placement.uniqueID << ", or x" <<
-                                                             placedPosition.x() << " y" << placedPosition.y() << " z" << placedPosition.z() << Qt::endl;
+    QVector3D placedPosition = placedLocations[placementIndex].searchAttributes<QVector3D>("Position");
+    qDebug() << Q_FUNC_INFO << "spoiling minicon" << miniconID << "at location" << placedLocations[placementIndex].uniqueID;
+    QString miniconName = parent->dataHandler->getMinicon(miniconID)->name;
+    stream << miniconName << " is located at " << parent->dataHandler->levelList[placedLocations[placementIndex].level].levelName << "'s " << placedLocations[placementIndex].name << " id "
+           << placedLocations[placementIndex].uniqueID << ", or x" << placedPosition.x() << " y" << placedPosition.y() << " z" << placedPosition.z() << Qt::endl;
 }
 
 int Randomizer::writeSpoilers(){
     //use game directory, make new directory in same directory as game
     //this will actually be read earlier in the process, just doing this here for now
-    QString outputFile = outputPath + "/Spoilers.txt";
+    QString outputFile = parent->isoBuilder->copyOutputPath + "/Spoilers.txt";
     QFile spoilerOut(outputFile);
     QFile file(outputFile);
     qDebug() << Q_FUNC_INFO << "checking if randomizer directory exists:" << file.exists();
@@ -928,17 +942,13 @@ int Randomizer::writeSpoilers(){
                 currentLevel++;
                 fileStream << Qt::endl;
                 fileStream << Qt::endl;
-                fileStream << "Level " << QString::number(currentLevel+1) << ": " << levelList[currentLevel].levelName << Qt::endl;
-                fileStream << "Contains " << QString::number(levelList[currentLevel].dataconCount) << " Datacons";
+                fileStream << "Level " << QString::number(currentLevel+1) << ": " << parent->dataHandler->levelList[currentLevel].levelName << Qt::endl;
+                fileStream << "Contains " << QString::number(parent->dataHandler->levelList[currentLevel].dataconCount) << " Datacons";
                 fileStream << Qt::endl;
             }
-            //qDebug() << Q_FUNC_INFO << "writing location" << placedLocations[i].uniqueID << "with assigned minicon" << placedLocations[i].assignedMinicon << "to location" << placedLocations[i].position;
+            qDebug() << Q_FUNC_INFO << "writing location" << placedLocations[i].uniqueID << "with assigned minicon" << placedLocations[i].assignedMinicon() << "to location" << placedLocations[i].searchAttributes<QVector3D>("Position");
             if(!placedLocations[i].spoiled){
-                if(placedLocations[i].isData){
-                    //not gonna worry about spoiling datacons yet. Maybe just a count of datacons?
-                } else {
-                    spoilMinicon(placedLocations[i], fileStream);
-                }
+                spoilMinicon(placedLocations[i], fileStream);
             }
         }
 
@@ -966,9 +976,9 @@ int Randomizer::editDatabases(){
         Check deep amazon to see if the dropship not being able to find its minicon causes problems
         check bunkers to make sure that script isn't sad without a datacon
     */
-    for(int i = 0; i<parent->databaseList.size(); i++){
-        qDebug() << Q_FUNC_INFO << "removing all pickups from" << parent->databaseList[i]->fileName;
-        parent->databaseList[i]->removeAll("PickupPlaced");
+    for(int i = 0; i<parent->dataHandler->levelList.size(); i++){
+        qDebug() << Q_FUNC_INFO << "removing all pickups from" << parent->dataHandler->levelList[i].levelFile->fileName;
+        parent->dataHandler->levelList[i].levelFile->removeAll("PickupPlaced");
     }
     QString modFileDirectory = QDir::currentPath();
     QString slipstreamInPath = modFileDirectory + "/ASSETS/INTROGLIDING.CS";
@@ -982,8 +992,8 @@ int Randomizer::editDatabases(){
     for(int i = 0; i < placedLocations.size(); i++){
         qDebug() << Q_FUNC_INFO << "checking level for location" << i << "uniqueID" << placedLocations[i].uniqueID << "level" << placedLocations[i].level;
         if(placedLocations[i].level != level){
-            qDebug() << Q_FUNC_INFO << "output path for this level will be" << QString(outputPath + "/TFA/LEVELS/EPISODES/" + levelList[level].outputName + "/CREATURE.TDB");
-            levelPath = outputPath + "/TFA/LEVELS/EPISODES/" + levelList[level].outputName;
+            qDebug() << Q_FUNC_INFO << "output path for this level will be" << QString(parent->isoBuilder->copyOutputPath + "/TFA/LEVELS/EPISODES/" + parent->dataHandler->levelList[level].outputName + "/CREATURE.TDB");
+            levelPath = parent->isoBuilder->copyOutputPath + "/TFA/LEVELS/EPISODES/" + parent->dataHandler->levelList[level].outputName;
             //get containing directory
             //create Randomizer folder in that directory
             qDebug() << Q_FUNC_INFO << "path being checked:" << levelPath;
@@ -993,8 +1003,8 @@ int Randomizer::editDatabases(){
             }
             //since the placedLocations list should be sorted by level
             //this just saves on a couple hundred loops
-            parent->databaseList[level]->outputPath = levelPath + "/CREATURE.TDB";
-            parent->databaseList[level]->save("TDB");
+            parent->dataHandler->levelList[level].levelFile->outputPath = levelPath + "/CREATURE.TDB";
+            parent->dataHandler->levelList[level].levelFile->save("TDB");
 
             //I am purposefully leaving the slipstream fix out of pacific island
             //if you get that far without it, you don't get the cutscene or the option to equip. You clearly don't need it anyway.
@@ -1016,13 +1026,13 @@ int Randomizer::editDatabases(){
             level++;
         }
         //itemToAdd = *getMinicon(placedLocations[i].assignedMinicon());
-        placedLocations[i].instanceIndex = parent->databaseList[level]->addInstance(placedLocations[i]);
+        placedLocations[i].instanceIndex = parent->dataHandler->levelList[level].levelFile->addInstance(placedLocations[i]);
         qDebug() << Q_FUNC_INFO << "placed location instance index is" << placedLocations[i].instanceIndex;
     }
     qDebug() << Q_FUNC_INFO << "Correcting Pacific island bunker links";
     fixBunkerLinks(level);
-    qDebug() << Q_FUNC_INFO << "output path for this level will be" << QString(outputPath + "/TFA/LEVELS/EPISODES/" + levelList[level].outputName + "/CREATURE.TDB");
-    levelPath = outputPath + "/TFA/LEVELS/EPISODES/" + levelList[level].outputName;
+    qDebug() << Q_FUNC_INFO << "output path for this level will be" << QString(parent->isoBuilder->copyOutputPath + "/TFA/LEVELS/EPISODES/" + parent->dataHandler->levelList[level].outputName + "/CREATURE.TDB");
+    levelPath = parent->isoBuilder->copyOutputPath + "/TFA/LEVELS/EPISODES/" + parent->dataHandler->levelList[level].outputName;
     //get containing directory
     //create Randomizer folder in that directory
     qDebug() << Q_FUNC_INFO << "path being checked:" << levelPath;
@@ -1032,19 +1042,54 @@ int Randomizer::editDatabases(){
     }
     //since the placedLocations list should be sorted by level
     //this just saves on a couple hundred loops
-    parent->databaseList[level]->outputPath = levelPath + "/CREATURE.TDB";
-    parent->databaseList[level]->save("TDB");
+    parent->dataHandler->levelList[level].levelFile->outputPath = levelPath + "/CREATURE.TDB";
+    parent->dataHandler->levelList[level].levelFile->save("TDB");
     level++;
+
+
+    std::shared_ptr<DatabaseFile> metagameFile;
+    bool metagameEdited = false;
+    for(int i = 0; i<parent->databaseList.size(); i++){
+        qDebug() << Q_FUNC_INFO << "checking databse file" << parent->databaseList[i]->fileName;
+        if(parent->databaseList[i]->fileName == "TFA-METAGAME"){
+            qDebug() << Q_FUNC_INFO << "setting metagame file to:" << parent->databaseList[i]->fileName;
+            metagameFile = parent->databaseList[i];
+        }
+    }
+
+    if(randSettings.randomizePower || randSettings.randomizeTeams){
+        //this could be an issue - some minicons are their own classes and inherit from minicon.
+        metagameEdited = true;
+        metagameFile->removeAll("Minicon");
+        for(int i = 0; i < parent->dataHandler->miniconList.size(); i++){
+            metagameFile->addInstance(parent->dataHandler->miniconList[i]);
+        }
+    }
+
+    if(randSettings.randomizerAutobotStats){
+        metagameEdited = true;
+        metagameFile->removeAll("Autobot");
+        for(int i = 0; i < parent->dataHandler->autobotList.size(); i++){
+            metagameFile->addInstance(parent->dataHandler->autobotList[i]);
+        }
+    }
+
+    if(metagameEdited){
+        qDebug() << Q_FUNC_INFO << "output path for METAGAME will be" << QString(parent->isoBuilder->copyOutputPath + "/TFA/METAGAME.TDB");
+        QString metagamePath = parent->isoBuilder->copyOutputPath + "/TFA/METAGAME.TDB";
+        metagameFile->outputPath = metagamePath;
+        metagameFile->save("TDB");
+    }
 
     return 0;
 }
 
 void Randomizer::fixBunkerLinks(int level){
-    std::shared_ptr<DatabaseFile> pacificFile = parent->databaseList[level];
+    std::shared_ptr<DatabaseFile> pacificFile = parent->dataHandler->levelList[level].levelFile;
     std::vector<int> usedBunkers;
     qDebug() << Q_FUNC_INFO << "bunker file level name:" << pacificFile->fullFileName();
     for(int i = 0; i < placedLocations.size(); i++){
-        if(placedLocations[i].bunkerID == 0 || !placedLocations[i].isData){
+        if(placedLocations[i].bunkerID == 0 || placedLocations[i].assignedMinicon() != 3){
             continue;
         }
         qDebug() << Q_FUNC_INFO << "bunker ID for pickup" << placedLocations[i].uniqueID << "is" << placedLocations[i].bunkerID;
@@ -1083,91 +1128,66 @@ void Randomizer::fixBunkerLinks(int level){
     }
 }
 
-void Randomizer::replaceFile(QString fileName, QString destinationPath){
-    QString modFileDirectory = QDir::currentPath();
-    bool didItWork = false;
-    qDebug() << Q_FUNC_INFO << "current path:" << modFileDirectory;
-    QString fileInputDirectory = modFileDirectory + "/ASSETS/" + fileName;
-    QFile fileReplacement(fileInputDirectory);
-    qDebug() << Q_FUNC_INFO << "checking if replacement image exists:" << fileReplacement.exists();
-
-    QString fileOutputDirectory = outputPath + destinationPath;
-
-    qDebug() << Q_FUNC_INFO << "creating directory" << fileOutputDirectory;
-    QDir createFile(fileOutputDirectory);
-    if(!createFile.exists()){
-        createFile.mkpath(".");
-    }
-    fileOutputDirectory += "/" + fileName;
-    QFile original(fileOutputDirectory);
-    qDebug() << Q_FUNC_INFO << "checking if original file exists:" << original.exists() << "path" << fileOutputDirectory;
-    if(original.exists()){
-        original.remove();
-    }
-    if(fileReplacement.exists()){
-        didItWork = QFile::copy(fileInputDirectory, fileOutputDirectory);
-        qDebug() << Q_FUNC_INFO << "did it work?" << didItWork;
-    } else {
-        parent->log("File " + fileName + " could not be replaced.");
-    }
-}
-
+/*These don't work currently because we're loading all the
+creature database files, not the metagame database. These will currently
+never find the powercost and team attributes*/
 void Randomizer::randomizeTeamColors(){
     int teamIndex = 0;
     int shuffleValue = 0;
     std::vector<int> teamList;
     if(randSettings.balancedTeams){
-        for(int i = 0; i <miniconList.size(); i++){
-            teamList.push_back(miniconList[i].searchAttributes<int>("Team"));
+        for(int i = 0; i <parent->dataHandler->miniconList.size(); i++){
+            teamList.push_back(parent->dataHandler->miniconList[i].searchAttributes<int>("Team"));
         }
     }
-    for(int i = 0; i <miniconList.size(); i++){
-        teamIndex = miniconList[i].searchAttributes<int>("Team");
+    for(int i = 0; i <parent->dataHandler->miniconList.size(); i++){
+        teamIndex = parent->dataHandler->miniconList[i].searchAttributes<int>("Team");
         if(randSettings.balancedTeams){
             /*Randomize the teams in a balanced way - there will be as many of each team in the final result as the base game*/
             shuffleValue = placemaster.bounded(teamList.size());
-            miniconList[i].setAttribute("Team", QString::number(teamList[shuffleValue]));
+            parent->dataHandler->miniconList[i].setAttribute("Team", QString::number(teamList[shuffleValue]));
         } else {
             /*Otherwise, assign a random team value with no regard to team count.*/
             shuffleValue = placemaster.generate();
-            miniconList[i].setAttribute("Team", QString::number(shuffleValue%5));
+            parent->dataHandler->miniconList[i].setAttribute("Team", QString::number(shuffleValue%5));
         }
     }
 }
 
+
 void Randomizer::randomizePowers(){
     int powerLevel = 0;
     int shuffleValue = 0;
-    for(int i = 0; i <miniconList.size(); i++){
+    for(int i = 0; i <parent->dataHandler->miniconList.size(); i++){
         shuffleValue = placemaster.generate();
-        powerLevel = miniconList[i].searchAttributes<int>("PowerCost");
+        powerLevel = parent->dataHandler->miniconList[i].searchAttributes<int>("PowerCost");
         if(randSettings.balancedPower){
             /*Randomize the powers in a balanced way all powers will stay close to their original*/
             switch(powerLevel){
             case 10: //power can go up, down, or stay the same
                 if(shuffleValue % 3 == 0){
-                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel - 10));
+                    parent->dataHandler->miniconList[i].setAttribute("PowerCost", QString::number(powerLevel - 10));
                 } else if(shuffleValue % 3 == 1) {
-                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel + 10));
+                    parent->dataHandler->miniconList[i].setAttribute("PowerCost", QString::number(powerLevel + 10));
                 }
                 break;
             case 20: //power can go up, down, or stay the same
                 if(shuffleValue % 3 == 0){
-                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel - 10));
+                    parent->dataHandler->miniconList[i].setAttribute("PowerCost", QString::number(powerLevel - 10));
                 } else if(shuffleValue % 3 == 1) {
-                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel + 10));
+                    parent->dataHandler->miniconList[i].setAttribute("PowerCost", QString::number(powerLevel + 10));
                 }
                 break;
             case 30: //power can go up, down, or stay the same
                 if(shuffleValue % 3 == 0){
-                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel - 10));
+                    parent->dataHandler->miniconList[i].setAttribute("PowerCost", QString::number(powerLevel - 10));
                 } else if(shuffleValue % 3 == 1) {
-                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel + 10));
+                    parent->dataHandler->miniconList[i].setAttribute("PowerCost", QString::number(powerLevel + 10));
                 }
                 break;
             case 40: //power can only go down or stay the same
                 if(shuffleValue % 2 == 0){
-                    miniconList[i].setAttribute("PowerCost", QString::number(powerLevel - 10));
+                    parent->dataHandler->miniconList[i].setAttribute("PowerCost", QString::number(powerLevel - 10));
                 }
                 break;
             default:
@@ -1175,7 +1195,82 @@ void Randomizer::randomizePowers(){
             }
         } else {
             /*Otherwise, assign a random team value with no regard to team count.*/
-            miniconList[i].setAttribute("PowerCost", QString::number((shuffleValue%5)*10));
+            parent->dataHandler->miniconList[i].setAttribute("PowerCost", QString::number((shuffleValue%5)*10));
         }
     }
+}
+
+void Randomizer::randomizeAutobotStats(){
+    parent->dataHandler->loadAutobots();
+    /*Randomizable stats:
+        Health
+        Walking speed min and max
+        Running speed min and max
+        Gravity and flight gravity (maybe not these)
+        Dash speed
+        height
+        lava damage (nobody will notice this one, make it extreme)
+        sidekick energy retention level (how much health you get back from powerlinx)
+        Zero to full acceleration time
+        power capacity (minicon equip max)
+        name (not ID, the enum value at the top. the name.)
+        */
+    for(int i = 0; i < parent->dataHandler->autobotList.size(); i++){
+        //Health
+        float currentHealth = parent->dataHandler->autobotList[i].searchAttributes<float>("Health");
+        float changedHealth = 0;
+        switch(placemaster.bounded(2)){
+            case 0: //unchanged
+            break;
+            case 1: //lowered
+            changedHealth = currentHealth + currentHealth*randomFloat(-0.3, -0.1);
+            parent->dataHandler->autobotList[i].setAttribute("Health", QString::number(changedHealth, 'f', 2));
+            break;
+            case 2: //increased
+            changedHealth = currentHealth + currentHealth*randomFloat(0.1, 0.3);
+            parent->dataHandler->autobotList[i].setAttribute("Health", QString::number(changedHealth, 'f', 2));
+            break;
+            default: //unchanged
+            break;
+        }
+
+        //Height
+        float currentHeight = parent->dataHandler->autobotList[i].searchAttributes<float>("Height");
+        float changedHeight = currentHeight + randomFloat(-1, 1);
+        parent->dataHandler->autobotList[i].setAttribute("Height", QString::number(changedHeight, 'f', 2));
+
+        //Name
+        QStringList nameOptions = {"Hot Shot", "Red Alert", "Optimus Prime", "Hot Shot?"
+            , "Red Alert?", "Optimus Prime?", "tohS toH", "trelA deR", "emirP sumitpO"
+            , "Hot Rod", "Ratchet", "Convoy", "Hotter Shot", "Green Alert"
+            , "Optimum Pride", "Rodimus Prime", "ALERTA", "Euro Truck Simulator"
+        };
+        parent->dataHandler->autobotList[i].setAttribute("Name", nameOptions[placemaster.bounded(nameOptions.size())]);
+
+        //PowerCapacity
+        int currentPower = parent->dataHandler->autobotList[i].searchAttributes<int>("PowerCapacity");
+        int changedPower = currentPower + placemaster.bounded(-2, 2)*10;
+        parent->dataHandler->autobotList[i].setAttribute("PowerCapacity", QString::number(changedPower));
+
+        //Lava Damage Value
+        //bounded of 4 means 20% chance - balance as needed.
+        switch(placemaster.bounded(4)){
+            case 0: //lethal lava land
+            parent->dataHandler->autobotList[i].setAttribute("LavaDamageValue", QString::number(200, 'f', 2));
+            break;
+            default: //no change
+            break;
+        }
+
+        //Dash Speed + time
+        float currentSpeed = parent->dataHandler->autobotList[i].searchAttributes<float>("DashSpeed");
+        float changedSpeed = currentSpeed + randomFloat(-10.0, 20.0);
+        parent->dataHandler->autobotList[i].setAttribute("DashSpeed", QString::number(changedSpeed, 'f', 2));
+        parent->dataHandler->autobotList[i].setAttribute("DashTime", QString::number(randomFloat(0.23, 0.43), 'f', 2));
+
+    }
+}
+
+float Randomizer::randomFloat(float minimum, float maximum){
+    return (placemaster.generateDouble() * (maximum - minimum)) + minimum;
 }

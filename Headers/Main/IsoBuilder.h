@@ -13,6 +13,7 @@ class ProgWindow;
 class IsoBuilder {
 public:
     ProgWindow *parent;
+    QString copyOutputPath;
     QString sevenZipPath;
     QString imgBurnPath;
     QString inputISOPath;
@@ -20,6 +21,7 @@ public:
     QString randomizerInput = "";
     QString randomizerOutput = "";
 
+    void setCopyPath(QString folderName = "FC2004Output");
     int unpackISO(); //calls TF04 ISO Manager to unpack and attempt to unzip TFA etc
     int unzipSpecial(); //calls 7zip to unzip TFA if the ISO Manager was unable to
     int rezipTFA_isoManager(bool removeFiles); //calls TF04 ISO Manager to repack TFA etc

@@ -114,6 +114,9 @@ ProgWindow::ProgWindow(QWidget *parent)
     isoBuilder = new IsoBuilder();
     isoBuilder->parent = this;
 
+    dataHandler = new DataHandler();
+    dataHandler->parent = this;
+
     connect(actionSaveModel, &QAction::triggered, this, [this] {saveFile("Model");});
     connect(actionBulkSaveModel, &QAction::triggered, this, [this] {bulkSave("Model");});
     //connect(actionSaveDAE, &QAction::triggered, this, [this] {saveFile("VBIN");});
@@ -384,6 +387,7 @@ void ProgWindow::openRandomizer(){
     }
     clearWindow();
     databaseList.clear();
+    //load data with datahandler
     randomizer = new Randomizer(this);
 }
 
@@ -610,6 +614,43 @@ int ProgWindow::loadDatabases(){
             gamePath = "";
             return 1;
         }
+    }
+
+    //Load the METAGAME files for minicon randomization.
+    testLoaded = matchFile("METAGAME.TMD");
+    if(testLoaded == nullptr){
+        QString definitionPath = gamePath + "/TFA/METAGAME.TMD";
+        bool isFileInDirectory = QFileInfo::exists(definitionPath);
+        qDebug() << Q_FUNC_INFO << "file directory is" << definitionPath << "and file exists?" << isFileInDirectory;
+        if(isFileInDirectory){
+            openFile("TMD", definitionPath);
+        }
+        testLoaded = matchFile("METAGAME.TMD");
+
+        if(testLoaded == nullptr){
+            messageError("METAGAME.TMD was not found. Database files were not loaded.");
+            gamePath = "";
+            return 1;
+        }
+    }
+
+    testLoaded = matchFile("METAGAME.TDB");
+    if(testLoaded == nullptr){
+        QString definitionPath = gamePath + "/TFA/METAGAME.TDB";
+        bool isFileInDirectory = QFileInfo::exists(definitionPath);
+        qDebug() << Q_FUNC_INFO << "file directory is" << definitionPath << "and file exists?" << isFileInDirectory;
+        if(isFileInDirectory){
+            openFile("TDB", definitionPath);
+        }
+        testLoaded = matchFile("TFA-METAGAME.TDB");
+
+        if(testLoaded == nullptr){
+            messageError("METAGAME.TDB was not found. Database files were not loaded.");
+            gamePath = "";
+            return 1;
+        }
+        //adds the database to the database list
+        testLoaded->acceptVisitor(*this);
     }
 
     QString levelPath = gamePath + "/TFA/LEVELS/EPISODES";

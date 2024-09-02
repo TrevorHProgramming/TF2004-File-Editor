@@ -35,6 +35,7 @@
 #include "IsoBuilder.h"
 #include "Headers/Models/LevelGeo.h"
 #include "Headers/Databases/Database.h"
+#include "Headers/Databases/DataHandler.h"
 #include "Headers/Audio/ToneLibraries.h"
 #include "Headers/Databases/DistanceCalculator.h"
 #include "Headers/Randomizer/Randomizer.h"
@@ -84,6 +85,7 @@ public:
     DistanceCalculator* warpgateCalculator;
     Randomizer* randomizer;
     IsoBuilder* isoBuilder;
+    DataHandler* dataHandler;
     SettingsWindow *setW;
     std::vector<std::shared_ptr<TFFile>> loadedFiles;
     std::vector<std::shared_ptr<DatabaseFile>> databaseList;

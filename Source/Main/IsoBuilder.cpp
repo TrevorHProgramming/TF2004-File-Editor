@@ -2,6 +2,19 @@
 
 //https://doc.qt.io/qt-6/qprocess.html
 
+void IsoBuilder::setCopyPath(QString folderName){
+    QDir gameParent(parent->setW->getValue("Game extract path"));
+    gameParent.cdUp();
+    copyOutputPath = gameParent.absolutePath() + "/" + folderName;
+    //get containing directory
+    //create Randomizer folder in that directory
+    qDebug() << Q_FUNC_INFO << "path being checked:" << copyOutputPath << "based on " << gameParent.absolutePath();
+    QDir checkDir(copyOutputPath);
+    if(!checkDir.exists()){
+        checkDir.mkpath(".");
+    }
+}
+
 int IsoBuilder::unpackISO(){
     //calls TF04 ISO Manager to unpack and attempt to unzip TFA etc
     qDebug() << Q_FUNC_INFO << QCoreApplication::applicationDirPath();

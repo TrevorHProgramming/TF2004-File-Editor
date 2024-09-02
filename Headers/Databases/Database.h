@@ -64,12 +64,13 @@ public:
 
     virtual taDataEnum* cloneEnum();
 
-    std::variant<QString, QVector3D, QQuaternion, int> value();
+    std::variant<QString, QVector3D, QQuaternion, int, float> value();
 
     virtual QString stringValue();
     virtual QVector3D vectorValue();
     virtual QQuaternion quatValue();
     virtual int intValue();
+    virtual float floatValue();
 
     virtual int size(){
         return 0;
@@ -165,6 +166,10 @@ public:
     void setValue(QString changedValue);
     QString display();
     //void write();
+
+    float floatValue(){
+        return this->value;
+    };
 };
 
 template <class valueType>
@@ -199,6 +204,10 @@ public:
     std::shared_ptr<taData> clone();
     void setValue(QString changedValue);
     //void write();
+
+    int intValue(){
+        return this->value;
+    };
 };
 
 template <class valueType>
@@ -209,6 +218,10 @@ public:
     std::shared_ptr<taData> clone();
     void setValue(QString changedValue);
     //void write();
+
+    int intValue(){
+        return this->value;
+    };
 };
 
 template <class valueType>
@@ -244,6 +257,7 @@ public:
     QString definitionOutput();
     QString databaseOutput();
     QVector3D vectorValue();
+    QString stringValue();
     //void write();
 };
 
@@ -319,7 +333,7 @@ public:
     }
 };
 
-class Warpgate : public dictItem{
+/*class Warpgate : public dictItem{
 public:
     double x_position;
     double y_position;
@@ -371,7 +385,7 @@ public:
 
     Minicon(Pickup copyItem);
     Minicon();
-};
+};*/
 
 class DictionaryFile : public TFFile {
 public:
@@ -441,8 +455,8 @@ public:
     std::vector<dictItem> instances;
     int maxInstances;
     QStringList majorSections;
-    std::vector<Warpgate> warpgates;
-    std::vector<Pickup> pickups;
+    /*std::vector<Warpgate> warpgates;
+    std::vector<Pickup> pickups;*/
     void writeText();
     void writeBinary();
     void writeDAE();
@@ -454,8 +468,9 @@ public:
     void newItem();
 
     std::shared_ptr<taData> createItem(QString itemType);
-    std::vector<Warpgate> sendWarpgates();
-    std::vector<Pickup> sendPickups();
+    /*std::vector<Warpgate> sendWarpgates();
+    std::vector<Pickup> sendPickups();*/
+    std::vector<dictItem> sendInstances(QString instanceType);
     void updateCenter();
     int readIncludedFiles(QString fullRead); //note that includedfiles only needs fullread, not partsplit
     int readFileDictionary(); //text version
@@ -465,7 +480,8 @@ public:
     void createDBTree();
     void filterInstances();
     void editTreeItem(QModelIndex item, int itemIndex);
-    int addInstance(Pickup itemToAdd);
+    int addInstance(dictItem itemToAdd);
+    //int addInstance(Pickup itemToAdd);
     void removeAll(QString itemType);
 
     std::vector<std::shared_ptr<taData>> generateAttributes(QString className);

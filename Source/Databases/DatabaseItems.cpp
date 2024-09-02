@@ -14,6 +14,7 @@ int dictItem::setAttribute(QString itemName, QString value){
     for(int i = 0; i < attributes.size(); i++){
         if(attributes[i]->name == itemName){
             attributes[i]->setValue(value);
+            attributes[i]->isDefault = false;
             return 0;
         }
     }
@@ -30,7 +31,7 @@ int dictItem::setAttributeDefault(QString itemName){
     return 1; //value not found
 }
 
-std::variant<QString, QVector3D, QQuaternion, int> taData::value(){
+std::variant<QString, QVector3D, QQuaternion, int, float> taData::value(){
     if(type == "String"){
         return stringValue();
     } else if (type == "Point"){
@@ -39,6 +40,8 @@ std::variant<QString, QVector3D, QQuaternion, int> taData::value(){
         return quatValue();
     } else if (type == "Integer" or type == "Link" or type == "Enum"){
         return intValue();
+    } else if (type == "Float"){
+        return floatValue();
     }
     return -1;
 }
@@ -166,6 +169,11 @@ int taData::intValue(){
     return 0;
 }
 
+float taData::floatValue(){
+    //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid multi-option value";
+    return 0;
+}
+
 void taData::setValue(QString changedValue){
     //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid value-setting function.";
 }
@@ -216,15 +224,6 @@ QString taDataSingle<valueType>::display(){
     return displayValue;
 }
 
-/*---------- Float ----------*/
-
-template <>
-std::shared_ptr<taData> taDataFloatArray<float>::clone(){
-    std::shared_ptr<taDataFloatArray<float>> vectorArrayItem(new taDataFloatArray<float>(*this));
-    vectorArrayItem->values = values;
-    return vectorArrayItem;
-}
-
 /*---------- Bool ----------*/
 
 template <>
@@ -263,6 +262,14 @@ void taDataBool<valueType>::write(QFile& file){
 }
 
 /*---------- Float ----------*/
+
+
+template <>
+std::shared_ptr<taData> taDataFloatArray<float>::clone(){
+    std::shared_ptr<taDataFloatArray<float>> vectorArrayItem(new taDataFloatArray<float>(*this));
+    vectorArrayItem->values = values;
+    return vectorArrayItem;
+}
 
 template <>
 std::shared_ptr<taData> taDataFloat<float>::clone(){
@@ -496,6 +503,11 @@ QString taDataPoint<valueType>::databaseOutput(){
     QString outputValue;
     outputValue = QString::number(this->value.x()) + " " + QString::number(this->value.y()) + " "+QString::number(this->value.z()) + " ";
     return outputValue;
+}
+
+template <class valueType>
+QString taDataPoint<valueType>::stringValue(){
+    return this->backupDisplay();
 }
 
 template <class valueType>

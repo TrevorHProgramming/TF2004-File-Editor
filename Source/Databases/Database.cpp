@@ -214,12 +214,18 @@ void DefinitionFile::updateValue(QModelIndex topLeft, QModelIndex bottomRight){
     }
 }
 
-int DatabaseFile::addInstance(Pickup itemToAdd){
+int DatabaseFile::addInstance(dictItem itemToAdd){
+    /*This was originally written to only work with pickups - that will need to be
+    changed since this now handles dictItems of any time.*/
     //modify itemToAdd to put enumID and location where they belong in the attributes
     dictItem tempItem = dictItem();
     int dictIndex = 0;
     int attributeIndex = 0;
-    tempItem.name = "PickupPlaced";
+    qDebug() << Q_FUNC_INFO << "itemToAdd has type name:" << itemToAdd.name;
+    tempItem.name = itemToAdd.name;
+    if(itemToAdd.name == ""){
+        tempItem.name = "PickupPlaced";
+    }
 
 
     //this needs to limit itself to the attributes present in the target file
@@ -703,7 +709,7 @@ int DatabaseFile::readFileDictionary(SectionHeader signature){
 int DatabaseFile::readInstances(SectionHeader signature){
     int sectionIndex = 0;
     long endInstances = signature.sectionLength + signature.sectionLocation;
-    bool isPickup = false;
+    //bool isPickup = false;
     //qDebug() << Q_FUNC_INFO << "just double checking. binary?" << binary;
     while(fileData->currentPosition < endInstances){
         fileData->signature(&signature);
@@ -751,7 +757,7 @@ int DatabaseFile::readInstances(SectionHeader signature){
                     instances[sectionIndex].orientation = instances[sectionIndex].attributes[i]->quatValue();
                 }
                 if(signature.type == "PickupPlaced" && instances[sectionIndex].attributes[i]->name == "PickupToSpawn"){
-                    isPickup = true;
+                    //isPickup = true;
                     if(instances[sectionIndex].attributes[i]->intValue() == 3){
                         instances[sectionIndex].prototype = "DATADISK_DISK";
                     } else if (instances[sectionIndex].attributes[i]->intValue() > 3){
@@ -762,17 +768,17 @@ int DatabaseFile::readInstances(SectionHeader signature){
         }
         if(instances[sectionIndex].name == "CreatureWarpGate"){
             instances[sectionIndex].prototype = "WARP_ANIM";
-            warpgates.push_back(instances[sectionIndex]);
+            //warpgates.push_back(instances[sectionIndex]);
         }
-        if(isPickup){
-            pickups.push_back(instances[sectionIndex]);
+        /*if(isPickup){
+            //pickups.push_back(instances[sectionIndex]);
             isPickup = false;
-        }
+        }*/
         sectionIndex++;
     }
-    for(int i = 0; i < warpgates.size(); i++){
+    /*for(int i = 0; i < warpgates.size(); i++){
         qDebug() << Q_FUNC_INFO << "Warpgate" << i << "is instance index" << warpgates[i].instanceIndex << "with name" << warpgates[i].name << "and position" << warpgates[i].position;
-    }
+    }*/
     maxInstances = instances.size();
     qDebug() << Q_FUNC_INFO << "file" << fileName << "has instance count" << instances.size();
     return 0;
@@ -1149,7 +1155,7 @@ int DatabaseFile::readInstances(){
     //dictItem itemDetails;
     bool instancesEnd = false;
     bool sectionEnd = false;
-    bool isPickup = false;
+    //bool isPickup = false;
     SectionHeader signature;
     //itemDetails.file = this;
 
@@ -1229,7 +1235,7 @@ int DatabaseFile::readInstances(){
                     instances[sectionIndex].orientation = instances[sectionIndex].attributes[itemIndex]->quatValue();
                 }
                 if(signature.type == "PickupPlaced" && instances[sectionIndex].attributes[itemIndex]->name == "PickupToSpawn"){
-                    isPickup = true;
+                    //isPickup = true;
                     if(instances[sectionIndex].attributes[itemIndex]->intValue() == 3){
                         instances[sectionIndex].prototype = "DATADISK_DISK";
                     } else if (instances[sectionIndex].attributes[itemIndex]->intValue() > 3){
@@ -1239,12 +1245,11 @@ int DatabaseFile::readInstances(){
             }
             if(instances[sectionIndex].name == "CreatureWarpGate"){
                 instances[sectionIndex].prototype = "WARP_ANIM";
-                warpgates.push_back(instances[sectionIndex]);
             }
-            if(isPickup){
-                pickups.push_back(instances[sectionIndex]);
+            /*if(isPickup){
+                //pickups.push_back(instances[sectionIndex]);
                 isPickup = false;
-            }
+            }*/
             fileData->nextLine();
             //qDebug() << Q_FUNC_INFO << "Data read as:" << instances[sectionIndex].attributes[itemIndex]->type << instances[sectionIndex].attributes[itemIndex]->name
             //         << instances[sectionIndex].attributes[itemIndex]->active << instances[sectionIndex].attributes[itemIndex]->display() << instances[sectionIndex].attributes[itemIndex]->comment;
@@ -1682,12 +1687,22 @@ void DatabaseFile::acceptVisitor(ProgWindow& visitor){
     visitor.visit(*this);
 }
 
-std::vector<Warpgate> DatabaseFile::sendWarpgates(){
+/*std::vector<Warpgate> DatabaseFile::sendWarpgates(){
     return warpgates;
 }
 
 std::vector<Pickup> DatabaseFile::sendPickups(){
     return pickups;
+}*/
+
+std::vector<dictItem> DatabaseFile::sendInstances(QString instanceType){
+    std::vector<dictItem> itemList;
+    for(int i = 0; i < instances.size(); i++){
+        if(instances[i].name == instanceType){
+            itemList.push_back(instances[i]);
+        }
+    }
+    return itemList;
 }
 
 std::vector<std::shared_ptr<taData>> DatabaseFile::generateAttributes(QString className){
@@ -1711,74 +1726,4 @@ std::vector<std::shared_ptr<taData>> DatabaseFile::generateAttributes(QString cl
     }
     qDebug() << Q_FUNC_INFO << "generated attributes:" << generatedAttributes.size();
     return generatedAttributes;
-}
-
-Pickup::Pickup(dictItem copyItem){
-    dataID = 99;
-    this->instanceIndex = copyItem.instanceIndex;
-    this->attributes = copyItem.attributes;
-    for(int i = 0; i < attributes.size(); i++){
-        if(attributes[i]->name == "PickupToSpawn"){
-            this->name = attributes[i]->display();
-            this->enumID = attributes[i]->intValue();
-            if(enumID > 3){
-                this->isMinicon = true;
-            } else {
-                this->isMinicon = false;
-            }
-        }
-        if(attributes[i]->name == "ProductionArt"){
-            this->name = attributes[i]->display();
-            this->dataID = attributes[i]->intValue();
-        }
-    }
-    qDebug() << Q_FUNC_INFO << "adding pickup" << copyItem.instanceIndex << "name" << copyItem.name << "|" << name << "has enumID" << enumID << "is minicon?" << isMinicon;
-    placed = false;
-}
-
-Pickup::Pickup(){
-    dataID = 99;
-    isMinicon = false;
-    isWeapon = false;
-    setPosition(QVector3D());
-}
-
-QVector3D Pickup::position(){
-    for(int i = 0; i < attributes.size(); i++){
-        if(attributes[i]->name == "Position"){
-            return attributes[i]->vectorValue();
-        }
-    }
-    qDebug() << Q_FUNC_INFO << "Pickup" << name << "does not have a position attribute.";
-    return QVector3D();
-}
-
-void Pickup::setPosition(QVector3D changedPosition){
-    for(int att = 0; att < attributes.size(); att++){
-        //qDebug() << Q_FUNC_INFO << "Checking attribute" << attributes[att]->name;
-        if(attributes[att]->name == "Position"){
-           qDebug() << Q_FUNC_INFO << "Setting position value to" << changedPosition;
-           attributes[att]->setValue(QString::number(changedPosition.x()) + "," + QString::number(changedPosition.y()) + "," +QString::number(changedPosition.z()));
-           attributes[att]->isDefault = false;
-           qDebug() << Q_FUNC_INFO << "new value:" << attributes[att]->display();
-        }
-    }
-}
-
-Minicon::Minicon(Pickup copyItem){
-    this->instanceIndex = copyItem.instanceIndex;
-    this->isWeapon = copyItem.isWeapon;
-    this->setPosition(copyItem.position());
-    this->attributes = copyItem.attributes;
-    for(int i = 0; i < attributes.size(); i++){
-        if(attributes[i]->name == "PickupToSpawn"){
-            this->name = attributes[i]->display();
-            this->enumID = attributes[i]->intValue();
-        }
-    }
-    placed = false;
-}
-
-Minicon::Minicon(){
-    this->setPosition(QVector3D());
 }
