@@ -701,7 +701,7 @@ int DatabaseFile::readFileDictionary(SectionHeader signature){
     }
     //qDebug() << Q_FUNC_INFO << "Finished FileDictionary at" << fileData->currentPosition << "based on expected end of section" << endSection;
     for(int i = 0; i < dictionary.size(); i++){
-        qDebug() << Q_FUNC_INFO << "dictionary item" << i << "has" << dictionary[i].attributes.size() << "attributes";
+        //qDebug() << Q_FUNC_INFO << "dictionary item" << i << "has" << dictionary[i].attributes.size() << "attributes";
     }
     return 0;
 }
@@ -817,7 +817,7 @@ int DictionaryFile::readBinary(){
         if (majorSignature.type == "FileDictionary"){
             failed = readFileDictionary(majorSignature);
             for(int i = 0; i < dictionary.size(); i++){
-                qDebug() << Q_FUNC_INFO << "dictionary item" << i << "has" << dictionary[i].attributes.size() << "attributes";
+                //qDebug() << Q_FUNC_INFO << "dictionary item" << i << "has" << dictionary[i].attributes.size() << "attributes";
             }
         }
 

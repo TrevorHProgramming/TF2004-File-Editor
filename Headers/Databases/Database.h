@@ -333,60 +333,6 @@ public:
     }
 };
 
-/*class Warpgate : public dictItem{
-public:
-    double x_position;
-    double y_position;
-    double z_position;
-    bool isStartingGate;
-    bool hasScript;
-
-    Warpgate(dictItem copyItem);
-    Warpgate();
-    static std::vector<Warpgate*> createAmazonWarpgates();
-};
-
-class Pickup : public dictItem{
-public:
-    int isMinicon;
-    bool isWeapon;
-    int spawnDifficulty;
-    int level;
-    int enumID;
-    int dataID;
-    bool placed;
-
-    Pickup(dictItem copyItem);
-    Pickup();
-    QVector3D position();
-    void setPosition(QVector3D changedPosition);
-
-
-    bool operator < (const Pickup& compPickup) const
-    {
-        return (enumID < compPickup.enumID);
-    }
-
-    bool operator == (const Pickup& compPickup) const
-    {
-        if(dataID != 99){
-            return (dataID == compPickup.dataID);
-        } else {
-            return (enumID == compPickup.enumID);
-        }
-    }
-};
-
-class Minicon : public Pickup{
-public:
-    bool isExplosive;
-    bool isSlipstream;
-    bool isHighjump;
-
-    Minicon(Pickup copyItem);
-    Minicon();
-};*/
-
 class DictionaryFile : public TFFile {
 public:
     virtual const QString fileCategory(){

@@ -24,23 +24,23 @@ Pickup::Pickup(dictItem copyItem){
     dataID = 99;
     this->name = copyItem.name;
     this->instanceIndex = copyItem.instanceIndex;
-    this->attributes = copyItem.attributes;
-    for(int i = 0; i < attributes.size(); i++){
-        if(attributes[i]->name == "PickupToSpawn"){
-            this->name = attributes[i]->display();
-            this->enumID = attributes[i]->intValue();
+    //this->attributes = copyItem.attributes;
+    for(int i = 0; i < copyItem.attributes.size(); i++){
+        if(copyItem.attributes[i]->name == "PickupToSpawn"){
+            this->pickupToSpawn = copyItem.attributes[i]->display();
+            this->enumID = copyItem.attributes[i]->intValue();
             if(enumID > 3){
                 this->isMinicon = true;
             } else {
                 this->isMinicon = false;
             }
         }
-        if(attributes[i]->name == "ProductionArt"){
-            this->name = attributes[i]->display();
-            this->dataID = attributes[i]->intValue();
+        if(copyItem.attributes[i]->name == "ProductionArt" && !this->isMinicon){
+            this->pickupToSpawn = copyItem.attributes[i]->display();
+            this->dataID = copyItem.attributes[i]->intValue();
         }
     }
-    qDebug() << Q_FUNC_INFO << "adding pickup" << copyItem.instanceIndex << "name" << copyItem.name << "|" << name << "has enumID" << enumID << "is minicon?" << isMinicon;
+    //qDebug() << Q_FUNC_INFO << "adding pickup" << copyItem.instanceIndex << "name" << copyItem.name << "|" << pickupToSpawn << "has enumID" << enumID << "is minicon?" << isMinicon;
     placed = false;
 }
 
@@ -56,22 +56,24 @@ Minicon::Minicon(Pickup copyItem){
     this->name = copyItem.name;
     this->instanceIndex = copyItem.instanceIndex;
     this->isWeapon = copyItem.isWeapon;
-    QVector3D location = copyItem.searchAttributes<QVector3D>("Position");
-    this->setAttribute("Position", QString::number(location.x()) + ", " + QString::number(location.y()) + ", " + QString::number(location.z()));
-    this->attributes = copyItem.attributes;
-    for(int i = 0; i < attributes.size(); i++){
-        if(attributes[i]->name == "PickupToSpawn"){
-            this->name = attributes[i]->display();
-            this->enumID = attributes[i]->intValue();
+    this->pickupToSpawn = copyItem.pickupToSpawn;
+    this->enumID = copyItem.enumID;
+    //QVector3D location = copyItem.searchAttributes<QVector3D>("Position");
+    //this->setAttribute("Position", QString::number(location.x()) + ", " + QString::number(location.y()) + ", " + QString::number(location.z()));
+    //this->attributes = copyItem.attributes;
+    /*for(int i = 0; i < copyItem.attributes.size(); i++){
+        if(copyItem.attributes[i]->name == "PickupToSpawn"){
+            this->pickupToSpawn = copyItem.attributes[i]->display();
+            this->enumID = copyItem.attributes[i]->intValue();
         }
-    }
+    }*/
     placed = false;
 }
 
 Minicon::Minicon(){
     instanceIndex = 0;
     isWeapon = false;
-    name = "Default Shockpunch";
+    pickupToSpawn = "Default Shockpunch";
     enumID = 27;
     setAttribute("Position", "0, 0, 0");
 }
@@ -87,6 +89,16 @@ Minicon* DataHandler::getMinicon(int searchID){
         }
     }
     qDebug() << Q_FUNC_INFO << "minicon" << searchID << "was not found.";
+    return nullptr;
+}
+
+Minicon* DataHandler::getMinicon(QString searchName){
+    for(int i = 0; i < miniconList.size(); i++){
+        if(miniconList[i].pickupToSpawn == searchName){
+            return &miniconList[i];
+        }
+    }
+    qDebug() << Q_FUNC_INFO << "minicon" << searchName << "was not found.";
     return nullptr;
 }
 
@@ -282,25 +294,9 @@ void DataHandler::loadLevels(){
         }
         levelList.push_back(nextLevel);
     }
-}
 
-void DataHandler::loadMinicons(){
-    //go through the database files and get the minicon items. then split the minicons into minicons and positions
-    //this is probably where all the static stuff is gonna be. Might move this to another file, or at least to the end of this one, just for that
-    //ideally this will be handled with an external file - maybe a custom TDB?
     int totalRemoved = 0;
-    /*for(int i = 0; i < parent->databaseList.size(); i++){
-        qDebug() << Q_FUNC_INFO << "Checking database file:" << parent->databaseList[i]->fileName;
-        std::vector<dictItem> filePickups = parent->databaseList[i]->sendInstances("PickupPlaced");
-        if(filePickups.empty()){
-            qDebug() << Q_FUNC_INFO << "File has no pickups. Skipping.";
-            continue;
-        }
-        databaseLevels.push_back(parent->databaseList[i]);
-        qDebug() << Q_FUNC_INFO << "File has pickups. Processing.";
-    }*/
     std::vector<PickupLocation> tempLocations;
-
     for(int i = 0; i < levelList.size(); i++){
         std::vector<dictItem> filePickupsBase = levelList[i].levelFile->sendInstances("PickupPlaced");
         //std::vector<PickupLocation> filePickups = convertInstances<PickupLocation>(filePickupsBase);
@@ -314,110 +310,97 @@ void DataHandler::loadMinicons(){
         }
     }
 
-    qDebug() << Q_FUNC_INFO << "Total removed pickups (total available spaces):" << totalRemoved;
-
-    //We'll need to go through the available locations and remove duplicate positions
-    //or just not add them in the first place with the hard-coded positions we'll be using anyway
-
-    /*addCustomLocation(42069, 0, QVector3D(887, -1741, 9)); //Beginner weapon
-    addCustomLocation(200, 3, QVector3D(329, 2329, 121)); //Tidal Wave's Roof
-    addCustomLocation(201, 4, QVector3D(1523, 1304, 2)); //Atoll Center*/
-
-    //below is based on this answer:
-    //https://stackoverflow.com/a/1604632
-    //std::vector<Pickup>::iterator currentPickup;
     int id = 0;
 
     foreach(PickupLocation currentLocation, tempLocations){
-        qDebug() << Q_FUNC_INFO << "level" << currentLocation.level << "pickup" << id << "named" << currentLocation.name << "is located at";
         currentLocation.uniqueID = id;
         //addedLocation.setAttribute("PickupToSpawn", "0");
 
         //to be placed inside the switch:
-        currentLocation.name = "Unnamed Location";
+        currentLocation.locationName = "Unnamed Location";
         switch(currentLocation.level){
         case 0: //Amazon 1
             currentLocation.slipstreamDifficulty = 0;
             currentLocation.highjumpDifficulty = 0;
             switch(currentLocation.uniqueID){
                 case 0:
-                    currentLocation.name = "Claymore Cave";
+                    currentLocation.locationName = "Claymore Cave";
                     break;
                 case 18: //1
-                    currentLocation.name = "Ruined Temple Courtyard";
+                    currentLocation.locationName = "Ruined Temple Courtyard";
                     break;
                 case 2:
                     currentLocation.slipstreamDifficulty = 3;
-                    currentLocation.name = "Spire";
+                    currentLocation.locationName = "Spire";
                     break;
                 case 17: //3
-                    currentLocation.name = "Tutorial Minicon";
+                    currentLocation.locationName = "Tutorial Minicon";
                     break;
                 case 4:
-                    currentLocation.name = "Neighboring Mountain";
+                    currentLocation.locationName = "Neighboring Mountain";
                     break;
                 case 5:
-                    currentLocation.name = "Ravine Cliff Cave";
+                    currentLocation.locationName = "Ravine Cliff Cave";
                     break;
                 case 6:
-                    currentLocation.name = "Pressurepoint's Corner";
+                    currentLocation.locationName = "Pressurepoint's Corner";
                     break;
                 case 7:
-                    currentLocation.name = "Foot of the Mountain";
+                    currentLocation.locationName = "Foot of the Mountain";
                     break;
                 case 8:
-                    currentLocation.name = "Mountain Ruins";
+                    currentLocation.locationName = "Mountain Ruins";
                     break;
                 case 9:
-                    currentLocation.name = "Before the Waterfall Bridge";
+                    currentLocation.locationName = "Before the Waterfall Bridge";
                     break;
                 case 20: //10
-                    currentLocation.name = "Hidden Cave";
+                    currentLocation.locationName = "Hidden Cave";
                     break;
                 case 11:
-                    currentLocation.name = "Spidertank Triplets";
+                    currentLocation.locationName = "Spidertank Triplets";
                     break;
                 case 12:
-                    currentLocation.name = "Ruined Temple Alcove";
+                    currentLocation.locationName = "Ruined Temple Alcove";
                     break;
                 case 13:
-                    currentLocation.name = "Forest before the Bridge";
+                    currentLocation.locationName = "Forest before the Bridge";
                     break;
                 case 19: //14
-                    currentLocation.name = "Light Unit Party";
+                    currentLocation.locationName = "Light Unit Party";
                     break;
                 case 15:
-                    currentLocation.name = "Ruined Temple Ledge";
+                    currentLocation.locationName = "Ruined Temple Ledge";
                     break;
                 case 16:
-                    currentLocation.name = "Forest before Firefight";
+                    currentLocation.locationName = "Forest before Firefight";
                     break;
                 case 21:
-                    currentLocation.name = "Riverside Ledge";
+                    currentLocation.locationName = "Riverside Ledge";
                     break;
                 case 22:
-                    currentLocation.name = "Waterfall Base";
+                    currentLocation.locationName = "Waterfall Base";
                     break;
                 case 23:
-                    currentLocation.name = "Forest after the Bridge";
+                    currentLocation.locationName = "Forest after the Bridge";
                     break;
                 case 24:
-                    currentLocation.name = "Surprise";
+                    currentLocation.locationName = "Surprise";
                     break;
                 case 25:
-                    currentLocation.name = "Forgettable Location";
+                    currentLocation.locationName = "Forgettable Location";
                     break;
                 case 26:
-                    currentLocation.name = "Medium Unit Party";
+                    currentLocation.locationName = "Medium Unit Party";
                     break;
                 case 27:
-                    currentLocation.name = "Forest Across from the Basin 1";
+                    currentLocation.locationName = "Forest Across from the Basin 1";
                     break;
                 case 28:
-                    currentLocation.name = "Forest Across from the Basin 2";
+                    currentLocation.locationName = "Forest Across from the Basin 2";
                     break;
                 case 42069:
-                    currentLocation.name = "Beginner Weapon";
+                    currentLocation.locationName = "Beginner Weapon";
                     break;
                 }
             break;
@@ -426,53 +409,53 @@ void DataHandler::loadMinicons(){
             currentLocation.highjumpDifficulty = 0;
             switch(currentLocation.uniqueID){
                 case 49: //29
-                    currentLocation.name = "Crevasse Field Overlook";
+                    currentLocation.locationName = "Crevasse Field Overlook";
                     break;
                 case 30:
-                    currentLocation.name = "Rock of Power";
+                    currentLocation.locationName = "Rock of Power";
                     currentLocation.highjumpDifficulty = 1;
                     break;
                 case 45: //31
-                    currentLocation.name = "Research Center Hangar";
+                    currentLocation.locationName = "Research Center Hangar";
                     break;
                 case 44: //32
-                    currentLocation.name = "Crashed Icebreaker";
+                    currentLocation.locationName = "Crashed Icebreaker";
                     break;
                 case 47: //33
-                    currentLocation.name = "Crashed Plane";
+                    currentLocation.locationName = "Crashed Plane";
                     break;
                 case 34:
-                    currentLocation.name = "Research Base Office 1";
+                    currentLocation.locationName = "Research Base Office 1";
                     break;
                 case 46: //35
-                    currentLocation.name = "Beachfront Property";
+                    currentLocation.locationName = "Beachfront Property";
                     break;
                 case 51: //36
-                    currentLocation.name = "Research Base Office 2";
+                    currentLocation.locationName = "Research Base Office 2";
                     break;
                 case 37:
-                    currentLocation.name = "Midfield Beacon";
+                    currentLocation.locationName = "Midfield Beacon";
                     break;
                 case 38:
-                    currentLocation.name = "Hide-and-Seek Champion";
+                    currentLocation.locationName = "Hide-and-Seek Champion";
                     break;
                 case 39:
-                    currentLocation.name = "Research Base Containers 1";
+                    currentLocation.locationName = "Research Base Containers 1";
                     break;
                 case 40:
-                    currentLocation.name = "Research Base Containers 2";
+                    currentLocation.locationName = "Research Base Containers 2";
                     break;
                 case 41:
-                    currentLocation.name = "Research Base Office 3";
+                    currentLocation.locationName = "Research Base Office 3";
                     break;
                 case 48: //42
-                    currentLocation.name = "Research Base Office 4";
+                    currentLocation.locationName = "Research Base Office 4";
                     break;
                 case 50: //43
-                    currentLocation.name = "Lonely Island";
+                    currentLocation.locationName = "Lonely Island";
                     break;
                 case 52:
-                    currentLocation.name = "Across the Field";
+                    currentLocation.locationName = "Across the Field";
                     break;
             }
             break;
@@ -481,63 +464,63 @@ void DataHandler::loadMinicons(){
             currentLocation.highjumpDifficulty = 0;
             switch(currentLocation.uniqueID){
                 case 53:
-                    currentLocation.name = "Island Altar";
+                    currentLocation.locationName = "Island Altar";
                     break;
                 case 67: //54
-                    currentLocation.name = "Jungle Village Warpgate";
+                    currentLocation.locationName = "Jungle Village Warpgate";
                     break;
                 case 55:
-                    currentLocation.name = "Top of the Temple";
+                    currentLocation.locationName = "Top of the Temple";
                     break;
                 case 66: //56
-                    currentLocation.name = "Village at the Foot of the Hill";
+                    currentLocation.locationName = "Village at the Foot of the Hill";
                     break;
                 case 57:
-                    currentLocation.name = "Spawn Ledge";
+                    currentLocation.locationName = "Spawn Ledge";
                     break;
                 case 58:
-                    currentLocation.name = "Waterfall Rock";
+                    currentLocation.locationName = "Waterfall Rock";
                     break;
                 case 59:
-                    currentLocation.name = "Jungle Ruins";
+                    currentLocation.locationName = "Jungle Ruins";
                     break;
                 case 60:
                     currentLocation.slipstreamDifficulty = 4;
-                    currentLocation.name = "Patrolling Dropship";
+                    currentLocation.locationName = "Patrolling Dropship";
                     break;
                 case 61:
-                    currentLocation.name = "Jungle Village Outskirts";
+                    currentLocation.locationName = "Jungle Village Outskirts";
                     break;
                 case 62:
-                    currentLocation.name = "Field before the Bridge";
+                    currentLocation.locationName = "Field before the Bridge";
                     break;
                 case 69: //63
-                    currentLocation.name = "Temple Pool";
+                    currentLocation.locationName = "Temple Pool";
                     break;
                 case 64:
-                    currentLocation.name = "Temple Climb";
+                    currentLocation.locationName = "Temple Climb";
                     break;
                 case 65:
-                    currentLocation.name = "Mid-Jungle Ditch";
+                    currentLocation.locationName = "Mid-Jungle Ditch";
                     break;
                 case 68:
-                    currentLocation.name = "Temple Dead End";
+                    currentLocation.locationName = "Temple Dead End";
                     break;
                 case 70:
-                    currentLocation.name = "Temple Side-Path";
+                    currentLocation.locationName = "Temple Side-Path";
                     break;
                 case 71:
-                    currentLocation.name = "Forest before the Bridge";
+                    currentLocation.locationName = "Forest before the Bridge";
                     break;
                 case 72:
-                    currentLocation.name = "Antechamber";
+                    currentLocation.locationName = "Antechamber";
                     break;
                 case 73:
-                    currentLocation.name = "Antechamber Alcove";
+                    currentLocation.locationName = "Antechamber Alcove";
                     currentLocation.highjumpDifficulty = 2;
                     break;
                 case 74:
-                    currentLocation.name = "Behind the Temple";
+                    currentLocation.locationName = "Behind the Temple";
                     break;
             }
             break;
@@ -547,21 +530,21 @@ void DataHandler::loadMinicons(){
             switch(currentLocation.uniqueID){
                 case 75:
                     currentLocation.linkedLocationID = 79;
-                    currentLocation.name = "Vanilla Progression";
+                    currentLocation.locationName = "Vanilla Progression";
                     break;
                 case 76:
                     currentLocation.linkedLocationID = 80;
                     currentLocation.slipstreamDifficulty = 5;
                     //this is the only location that is completely impossible without slipstream
-                    currentLocation.name = "Distant Island";
+                    currentLocation.locationName = "Distant Island";
                     break;
                 case 77:
                     currentLocation.linkedLocationID = 82;
-                    currentLocation.name = "Pinnacle Rock";
+                    currentLocation.locationName = "Pinnacle Rock";
                     break;
                 case 78:
                     currentLocation.linkedLocationID = 81;
-                    currentLocation.name = "Atoll";
+                    currentLocation.locationName = "Atoll";
                     break;
             }
             break;
@@ -571,21 +554,21 @@ void DataHandler::loadMinicons(){
             switch(currentLocation.uniqueID){
                 case 79:
                     currentLocation.linkedLocationID = 75;
-                    currentLocation.name = "Vanilla Progression";
+                    currentLocation.locationName = "Vanilla Progression";
                     break;
                 case 80:
                     currentLocation.linkedLocationID = 76;
                     currentLocation.slipstreamDifficulty = 5;
                     //this is the only location that is completely impossible without slipstream
-                    currentLocation.name = "Distant Island";
+                    currentLocation.locationName = "Distant Island";
                     break;
                 case 81:
                     currentLocation.linkedLocationID = 78;
-                    currentLocation.name = "Atoll";
+                    currentLocation.locationName = "Atoll";
                     break;
                 case 82:
                     currentLocation.linkedLocationID = 77;
-                    currentLocation.name = "Pinnacle Rock";
+                    currentLocation.locationName = "Pinnacle Rock";
                     break;
             }
             break;
@@ -594,63 +577,63 @@ void DataHandler::loadMinicons(){
             currentLocation.highjumpDifficulty = 3; //can be lower for early placements
             switch(currentLocation.uniqueID){
                 case 83:
-                    currentLocation.name = "Mountaintop";
+                    currentLocation.locationName = "Mountaintop";
                     currentLocation.slipstreamDifficulty = 5;
                     currentLocation.highjumpDifficulty = 4;
                     break;
                 case 84:
-                    currentLocation.name = "Small Forest";
+                    currentLocation.locationName = "Small Forest";
                     break;
                 case 98: //85
-                    currentLocation.name = "Peninsula";
+                    currentLocation.locationName = "Peninsula";
                     break;
                 case 86:
-                    currentLocation.name = "Cave's Far Ledge";
+                    currentLocation.locationName = "Cave's Far Ledge";
                     currentLocation.slipstreamDifficulty = 5;
                     currentLocation.highjumpDifficulty = 4;
                     break;
                 case 87:
-                    currentLocation.name = "Cave's Right Fork";
+                    currentLocation.locationName = "Cave's Right Fork";
                     currentLocation.slipstreamDifficulty = 5;
                     currentLocation.highjumpDifficulty = 4;
                     break;
                 case 88:
-                    currentLocation.name = "Cave's Left Fork";
+                    currentLocation.locationName = "Cave's Left Fork";
                     currentLocation.slipstreamDifficulty = 5;
                     currentLocation.highjumpDifficulty = 4;
                     break;
                 case 89:
-                    currentLocation.name = "Cave's Pool";
+                    currentLocation.locationName = "Cave's Pool";
                     currentLocation.slipstreamDifficulty = 5;
                     currentLocation.highjumpDifficulty = 4;
                     break;
                 case 90:
-                    currentLocation.name = "Along the Canyon";
+                    currentLocation.locationName = "Along the Canyon";
                     break;
                 case 91:
-                    currentLocation.name = "Ocean Overlook";
+                    currentLocation.locationName = "Ocean Overlook";
                     break;
                 case 97: //92
-                    currentLocation.name = "Dropship Island";
+                    currentLocation.locationName = "Dropship Island";
                     break;
                 case 93:
-                    currentLocation.name = "Hidden Hill";
+                    currentLocation.locationName = "Hidden Hill";
                     break;
                 case 94:
-                    currentLocation.name = "Canyon Clearing Ledge 1";
+                    currentLocation.locationName = "Canyon Clearing Ledge 1";
                     break;
                 case 95:
-                    currentLocation.name = "Battlefield";
+                    currentLocation.locationName = "Battlefield";
                     break;
                 case 96:
-                    currentLocation.name = "Canyon Clearing Ledge 2";
+                    currentLocation.locationName = "Canyon Clearing Ledge 2";
                     break;
                 case 99:
-                    currentLocation.name = "Escape";
+                    currentLocation.locationName = "Escape";
                     currentLocation.slipstreamDifficulty = 5;
                     break;
                 case 100:
-                    currentLocation.name = "Hillside";
+                    currentLocation.locationName = "Hillside";
                     break;
 
             }
@@ -661,68 +644,68 @@ void DataHandler::loadMinicons(){
             currentLocation.highjumpDifficulty = 6;
             switch(currentLocation.uniqueID){
                 case 101:
-                    currentLocation.name = "Start of the Climb";
+                    currentLocation.locationName = "Start of the Climb";
                     break;
                 case 102:
-                    currentLocation.name = "First Steps";
+                    currentLocation.locationName = "First Steps";
                     break;
                 case 103:
-                    currentLocation.name = "Main Elevator";
+                    currentLocation.locationName = "Main Elevator";
                     break;
                 case 104:
-                    currentLocation.name = "Sideways Elevator";
+                    currentLocation.locationName = "Sideways Elevator";
                     break;
                 case 105:
-                    currentLocation.name = "Lower Dropship";
+                    currentLocation.locationName = "Lower Dropship";
                     break;
                 case 106:
-                    currentLocation.name = "Bait";
+                    currentLocation.locationName = "Bait";
                     break;
                 case 107:
-                    currentLocation.name = "Free Space";
+                    currentLocation.locationName = "Free Space";
                     break;
                 case 108:
-                    currentLocation.name = "Across the Gap";
+                    currentLocation.locationName = "Across the Gap";
                     break;
                 case 109:
-                    currentLocation.name = "Early Gift";
+                    currentLocation.locationName = "Early Gift";
                     break;
                 case 110:
                     currentLocation.slipstreamDifficulty = 4;
                     //slipstream can technically be on the Bridge as long as highjump is acquired before then
                     currentLocation.linkedLocationID = 111;
-                    currentLocation.name = "Pristine Bridge";
+                    currentLocation.locationName = "Pristine Bridge";
                     break;
                 case 111:
                     currentLocation.linkedLocationID = 110;
-                    currentLocation.name = "Crashed Bridge";
+                    currentLocation.locationName = "Crashed Bridge";
                     break;
                 case 112:
-                    currentLocation.name = "Top of the Crashed Ship";
+                    currentLocation.locationName = "Top of the Crashed Ship";
                     break;
                 case 113:
-                    currentLocation.name = "Dropdown 1";
+                    currentLocation.locationName = "Dropdown 1";
                     break;
                 case 114:
-                    currentLocation.name = "Risky Jump";
+                    currentLocation.locationName = "Risky Jump";
                     break;
                 case 115:
-                    currentLocation.name = "Rock 1";
+                    currentLocation.locationName = "Rock 1";
                     break;
                 case 116:
-                    currentLocation.name = "Middle Dropship";
+                    currentLocation.locationName = "Middle Dropship";
                     break;
                 case 117:
-                    currentLocation.name = "Dropdown 2";
+                    currentLocation.locationName = "Dropdown 2";
                     break;
                 case 118:
-                    currentLocation.name = "Rock 2";
+                    currentLocation.locationName = "Rock 2";
                     break;
                 case 119:
-                    currentLocation.name = "Rock 3";
+                    currentLocation.locationName = "Rock 3";
                     break;
                 case 120:
-                    currentLocation.name = "Rock 4";
+                    currentLocation.locationName = "Rock 4";
                     break;
             }
             break;
@@ -731,78 +714,78 @@ void DataHandler::loadMinicons(){
             currentLocation.highjumpDifficulty = 6;
             switch(currentLocation.uniqueID){
                 case 132: //121
-                    currentLocation.name = "Forest Basin";
+                    currentLocation.locationName = "Forest Basin";
                     break;
                 case 122:
-                    currentLocation.name = "Small Silo";
+                    currentLocation.locationName = "Small Silo";
                     break;
                 case 123:
-                    currentLocation.name = "Moai";
+                    currentLocation.locationName = "Moai";
                     break;
                 case 124:
-                    currentLocation.name = "Back of the Volcano";
+                    currentLocation.locationName = "Back of the Volcano";
                     break;
                 case 125:
-                    currentLocation.name = "Volcano Path";
+                    currentLocation.locationName = "Volcano Path";
                     break;
                 case 133: //126
-                    currentLocation.name = "Hidden Ledge";
+                    currentLocation.locationName = "Hidden Ledge";
                     break;
                 case 127:
-                    currentLocation.name = "Lighthouse";
+                    currentLocation.locationName = "Lighthouse";
                     break;
                 case 128:
-                    currentLocation.name = "Waterfall Climb";
+                    currentLocation.locationName = "Waterfall Climb";
                     break;
                 case 129:
-                    currentLocation.name = "Stronghold Ledge";
+                    currentLocation.locationName = "Stronghold Ledge";
                     break;
                 case 136: //130
-                    currentLocation.name = "Small Island";
+                    currentLocation.locationName = "Small Island";
                     break;
                 case 131:
-                    currentLocation.name = "River Basin Peak (I think?)";
+                    currentLocation.locationName = "River Basin Peak (I think?)";
                     break;
                 case 134:
-                    currentLocation.name = "Above the Waterfall";
+                    currentLocation.locationName = "Above the Waterfall";
                     break;
                 case 135:
-                    currentLocation.name = "Large Silo";
+                    currentLocation.locationName = "Large Silo";
                     break;
                 case 137:
-                    currentLocation.name = "Bunker 1";
+                    currentLocation.locationName = "Bunker 1";
                     currentLocation.bunkerID = 526;
                     break;
                 case 138:
-                    currentLocation.name = "Bunker 2";
+                    currentLocation.locationName = "Bunker 2";
                     currentLocation.bunkerID = 525;
                     break;
                 case 139:
-                    currentLocation.name = "Bunker 3";
+                    currentLocation.locationName = "Bunker 3";
                     currentLocation.bunkerID = 522;
                     break;
                 case 140:
-                    currentLocation.name = "Bunker 4";
+                    currentLocation.locationName = "Bunker 4";
                     currentLocation.bunkerID = 521;
                     break;
                 case 141:
-                    currentLocation.name = "Bunker 5";
+                    currentLocation.locationName = "Bunker 5";
                     currentLocation.bunkerID = 527;
                     break;
                 case 142:
-                    currentLocation.name = "Bunker 6";
+                    currentLocation.locationName = "Bunker 6";
                     currentLocation.bunkerID = 523;
                     break;
                 case 143:
-                    currentLocation.name = "Bunker 7";
+                    currentLocation.locationName = "Bunker 7";
                     currentLocation.bunkerID = 520;
                     break;
                 case 144:
-                    currentLocation.name = "Bunker 8";
+                    currentLocation.locationName = "Bunker 8";
                     currentLocation.bunkerID = 519;
                     break;
                 case 145:
-                    currentLocation.name = "Bunker 9";
+                    currentLocation.locationName = "Bunker 9";
                     currentLocation.bunkerID = 524;
                     break;
             }
@@ -816,47 +799,6 @@ void DataHandler::loadMinicons(){
         id++;
 
     }
-
-
-    foreach(Pickup currentPickup, pickupList){
-        bool miniconIsLoaded = false;
-        bool dataconIsLoaded = false;
-
-        qDebug() << Q_FUNC_INFO << "pickup properties for:" << currentPickup.name << "enumID" << currentPickup.enumID << "dataID" << currentPickup.dataID;
-        miniconIsLoaded = miniconLoaded(currentPickup.enumID);
-        dataconIsLoaded = dataconLoaded(currentPickup.dataID);
-        qDebug() << Q_FUNC_INFO << "already loaded? minicon:" << miniconIsLoaded << "datacon:" << dataconIsLoaded;
-        if(!miniconIsLoaded && currentPickup.enumID != 3){
-            //if it's a minicon we don't already have, add it to the minicon list and remove it from the general pickups
-            if(weaponList.contains(currentPickup.enumID)){
-                currentPickup.isWeapon = true;
-            }
-            miniconList.push_back(currentPickup);
-            //currentPickup = pickupList.erase(currentPickup);
-        } else if (miniconIsLoaded && currentPickup.enumID != 3){
-            //if it's a minicon we already have, just remove it from the list
-            //currentPickup = pickupList.erase(currentPickup);
-            continue;
-        } else if (!dataconIsLoaded && currentPickup.enumID == 3){
-            //we now know it's a datacon (but still check to be sure). if it hasn't been loaded, add it to the datacon list
-            dataconList.push_back(currentPickup);
-            //currentPickup = pickupList.erase(currentPickup);
-        } else if (dataconIsLoaded && currentPickup.enumID == 3){
-            //if it has been loaded, just remove it from the pickup list
-            //currentPickup = pickupList.erase(currentPickup);
-            continue;
-        } else {
-            //this should never happen, logically, but better safe than confused.
-            //put some debugs here, just in case
-            //currentPickup++;
-            continue;
-        }
-    }
-
-
-
-    qDebug() << Q_FUNC_INFO << "Total loaded datacons:" << dataconList.size();
-    qDebug() << Q_FUNC_INFO << "Remaining pickups to process (should be 0):" << pickupList.size();
 
     id = 0;
     bool positionIsDuplicate = false;
@@ -874,14 +816,63 @@ void DataHandler::loadMinicons(){
     for(int i = 0; i < loadedLocations.size(); i++){
         QVector3D debugPosition = loadedLocations[i].searchAttributes<QVector3D>("Position");
         qDebug() << Q_FUNC_INFO << i << " " << loadedLocations[i].uniqueID << "  " << loadedLocations[i].linkedLocationID << "    "
-                 << loadedLocations[i].level << "    " << loadedLocations[i].name << "    " << debugPosition.x()
+                 << loadedLocations[i].level << "    " << loadedLocations[i].locationName << "    " << debugPosition.x()
                  << "   " << debugPosition.y() << "  " << debugPosition.z();
     }
+}
+
+void DataHandler::loadMinicons(){
+
+    for(int i = 0; i < levelList.size(); i++){
+        std::vector<dictItem> filePickupsBase = levelList[i].levelFile->sendInstances("PickupPlaced");
+        for(int pickup = 0; pickup < filePickupsBase.size(); pickup++){
+            //qDebug() << Q_FUNC_INFO << "pickup" << pickup << "has instance ID" << filePickupsBase[pickup].instanceIndex << "and name" << filePickupsBase[pickup].name;
+            pickupList.push_back(filePickupsBase[pickup]);
+        }
+    }
+
+    foreach(Pickup currentPickup, pickupList){
+        bool miniconIsLoaded = false;
+        bool dataconIsLoaded = false;
+
+        qDebug() << Q_FUNC_INFO << "pickup properties for:" << currentPickup.pickupToSpawn << "enumID" << currentPickup.enumID << "dataID" << currentPickup.dataID;
+        miniconIsLoaded = miniconLoaded(currentPickup.enumID);
+        dataconIsLoaded = dataconLoaded(currentPickup.dataID);
+        qDebug() << Q_FUNC_INFO << "already loaded? minicon:" << miniconIsLoaded << "datacon:" << dataconIsLoaded;
+        if(!miniconIsLoaded && currentPickup.enumID != 3){
+            //if it's a minicon we don't already have, add it to the minicon list
+            if(weaponList.contains(currentPickup.enumID)){
+                currentPickup.isWeapon = true;
+            }
+            miniconList.push_back(currentPickup);
+        } else if (miniconIsLoaded && currentPickup.enumID != 3){
+            //if it's a minicon we already have, don't add it again
+            continue;
+        } else if (!dataconIsLoaded && currentPickup.enumID == 3){
+            //we now know it's a datacon (but still check to be sure). if it hasn't been loaded, add it to the datacon list
+            dataconList.push_back(currentPickup);
+        } else if (dataconIsLoaded && currentPickup.enumID == 3){
+            //if it has been loaded, just skip it
+            continue;
+        } else {
+            //this should never happen, logically, but better safe than confused.
+            //put some debugs here, just in case
+            continue;
+        }
+    }
+
+    qDebug() << Q_FUNC_INFO << "Remaining pickups to process (should be 0):" << pickupList.size();
 
     qDebug() << Q_FUNC_INFO << "Total loaded minicons:" << miniconList.size();
     for(int i = 0; i < miniconList.size(); i++){
-        qDebug() << Q_FUNC_INFO << i << " " << miniconList[i].enumID << "  " << miniconList[i].name << "    "
+        qDebug() << Q_FUNC_INFO << i << " " << miniconList[i].enumID << "  " << miniconList[i].pickupToSpawn << "    "
                  << miniconList[i].dataID;
+    }
+
+    qDebug() << Q_FUNC_INFO << "Total loaded datacons:" << dataconList.size();
+    for(int i = 0; i < dataconList.size(); i++){
+        qDebug() << Q_FUNC_INFO << i << " " << dataconList[i].enumID << "  " << dataconList[i].pickupToSpawn << "    "
+                 << dataconList[i].dataID;
     }
 
 
@@ -899,6 +890,32 @@ void DataHandler::loadAutobots(){
     }
 
     autobotList = metagameFile->sendInstances("Autobot");
+}
+
+void DataHandler::loadMetagameMinicons(){
+    std::shared_ptr<DatabaseFile> metagameFile;
+    std::vector<dictItem> metagameMinicons;
+    for(int i = 0; i < parent->databaseList.size(); i++){
+        qDebug() << Q_FUNC_INFO << "checking file name" << parent->databaseList[i]->fileName;
+        if(parent->databaseList[i]->fileName == "TFA-METAGAME"){
+            metagameFile = parent->databaseList[i];
+        }
+    }
+    QStringList miniconTypes = {"Minicon", "MiniconDamageBonus", "MiniconArmor", "MiniconEmergencyWarpgate", "MiniconRangeBonus", "MiniconRegeneration"};
+
+    for(int type = 0; type < miniconTypes.size(); type++){
+        metagameMinicons = metagameFile->sendInstances(miniconTypes[type]);
+        for(int i = 0; i < metagameMinicons.size(); i++){
+            QString currentName = metagameMinicons[i].searchAttributes<QString>("Name");
+            Minicon *currentMinicon = getMinicon(currentName);
+            if(currentMinicon != nullptr){
+                //qDebug() << Q_FUNC_INFO << "successfully found minicon" << currentName << "with enumID" << currentMinicon->enumID;
+                currentMinicon->name = metagameMinicons[i].name;
+                currentMinicon->attributes = metagameMinicons[i].attributes;
+            }
+        }
+    }
+
 }
 
 void DataHandler::loadCustomLocations(){
@@ -1022,89 +1039,7 @@ void DataHandler::loadCustomLocations(){
     }
 }
 
-/*void DataHandler::addCustomLocation(int locationID, int level, QVector3D location){
-    PickupLocation customLocation = PickupLocation();
-    customLocation.uniqueID = locationID;
-    customLocation.level = level;
-    customLocation.attributes = levelList[0].levelFile->generateAttributes("PickupPlaced");
-    customLocation.setPosition(location);
-    switch(level){
-        case 0: //Amazon 1
-            customLocation.slipstreamDifficulty = 0;
-            customLocation.highjumpDifficulty = 0;
-            switch(customLocation.uniqueID){
-                case 42069:
-                    customLocation.name = "Beginner Weapon";
-                    customLocation.slipstreamDifficulty = 6;
-                    customLocation.highjumpDifficulty = 6;
-                    break;
-                }
-            break;
-        case 1: //Antarctica
-            customLocation.slipstreamDifficulty = 0;
-            customLocation.highjumpDifficulty = 0;
-            switch(customLocation.uniqueID){
 
-            }
-            break;
-        case 2: //Amazon 2
-            customLocation.slipstreamDifficulty = 0;
-            customLocation.highjumpDifficulty = 0;
-            switch(customLocation.uniqueID){
-
-            }
-            break;
-        case 3: //Mid atlantic 1
-            customLocation.slipstreamDifficulty = 0;
-            customLocation.highjumpDifficulty = 0;
-            switch(customLocation.uniqueID){
-                case 200:
-                    customLocation.linkedLocationID = 201;
-                    customLocation.name = "Tidal Wave's Roof";
-                    break;
-            }
-            break;
-        case 4: //Mid atlantic 2
-            customLocation.slipstreamDifficulty = 3;
-            customLocation.highjumpDifficulty = 0;
-            switch(customLocation.uniqueID){
-                case 201:
-                    customLocation.linkedLocationID = 200;
-                    customLocation.name = "Atoll Center";
-                    break;
-            }
-            break;
-        case 5: //Alaska
-            customLocation.slipstreamDifficulty = 3;
-            customLocation.highjumpDifficulty = 3; //can be lower for early placements
-            switch(customLocation.uniqueID){
-
-
-            }
-            break;
-        case 6: //Starship
-            //must have either Slipstream or Highjump before starship, even for cheaters
-            customLocation.slipstreamDifficulty = 5;
-            customLocation.highjumpDifficulty = 6;
-            switch(customLocation.uniqueID){
-
-            }
-            break;
-        case 7: //Pacific Island
-            customLocation.slipstreamDifficulty = 5;
-            customLocation.highjumpDifficulty = 6;
-            switch(customLocation.uniqueID){
-
-            }
-            break;
-        default:
-            customLocation.slipstreamDifficulty = 6;
-            customLocation.highjumpDifficulty = 6;
-            break;
-    }
-
-    loadedLocations.push_back(customLocation);
-}*/
 
 bool DataHandler::duplicateLocation(PickupLocation testLocation){
     QVector3D loadedPosition;
@@ -1126,9 +1061,7 @@ bool DataHandler::duplicateLocation(PickupLocation testLocation){
 }
 
 bool DataHandler::miniconLoaded(int checkID){
-    qDebug() << Q_FUNC_INFO << "minicon list size:" << miniconList.size();
     for(int i = 0; i < miniconList.size(); i++){
-        qDebug() << Q_FUNC_INFO << "comparing checkID" << checkID << "to minicon" << miniconList[i].name << "ID" << miniconList[i].enumID;
         if(checkID == miniconList[i].enumID){
             return true;
         }
@@ -1137,14 +1070,12 @@ bool DataHandler::miniconLoaded(int checkID){
 }
 
 bool DataHandler::dataconLoaded(int checkID){
-    //qDebug() << Q_FUNC_INFO << "minicon list size:" << miniconList.size();
     int pickupCount = 0;
-    for(int i = 0; i < pickupList.size(); i++){
-        //qDebug() << Q_FUNC_INFO << "comparing checkID" << checkID << "to minicon" << miniconList[i].name << "ID" << miniconList[i].enumID;
-        if(checkID == pickupList[i].dataID){
+    for(int i = 0; i < dataconList.size(); i++){
+        if(checkID == dataconList[i].dataID){
             pickupCount++;
         }
-        if(pickupCount > 1){
+        if(pickupCount > 0){
             return true;
         }
     }
@@ -1155,12 +1086,6 @@ void PickupLocation::assignMinicon(int miniconID){
     qDebug() << Q_FUNC_INFO << "Assigning minicon" << miniconID << "to position" << uniqueID;
     setAttribute("PickupToSpawn", QString::number(miniconID));
     qDebug() << Q_FUNC_INFO << "checking placement" << searchAttributes<int>("PickupToSpawn") << "vs" << miniconID;
-    /*for(int i = 0; i < attributes.size(); i++){
-        if(attributes[i]->name == "PickupToSpawn"){
-            attributes[i]->setValue(QString::number(miniconID));
-            //qDebug() << Q_FUNC_INFO << "pickuptospawn current minicon:" << attributes[i]->display();
-        }
-    }*/
     qDebug() << Q_FUNC_INFO << "done assigning minicon";
 }
 
@@ -1168,14 +1093,6 @@ void PickupLocation::assignDatacon(int dataID){
     qDebug() << Q_FUNC_INFO << "Assigning datacon" << dataID << "to position" << uniqueID;
     setAttribute("PickupToSpawn", QString::number(3));
     setAttribute("ProductionArt", QString::number(dataID));
-    /*for(int i = 0; i < attributes.size(); i++){
-        if(attributes[i]->name == "PickupToSpawn"){
-            attributes[i]->setValue(QString::number(3));
-        }
-        if(attributes[i]->name == "ProductionArt"){
-            attributes[i]->setValue(QString::number(dataID));
-        }
-    }*/
     qDebug() << Q_FUNC_INFO << "done assigning datacon";
 }
 
@@ -1184,13 +1101,6 @@ int PickupLocation::assignedMinicon(){
     miniconID = searchAttributes<int>("PickupToSpawn");
     //qDebug() << Q_FUNC_INFO << "Position" << uniqueID << "currently has pickup ID" << miniconID;
     return miniconID;
-    /*for(int i = 0; i < attributes.size(); i++){
-        if(attributes[i]->name == "PickupToSpawn"){
-            miniconID = attributes[i]->intValue();
-            return miniconID;
-        }
-    }
-    return miniconID;*/
 }
 
 PickupLocation::PickupLocation(dictItem fromItem){
@@ -1207,19 +1117,6 @@ PickupLocation::PickupLocation(dictItem fromItem){
     this->spawnEvent = fromItem.searchAttributes<QString>("SpawnEvent");
     setAttributeDefault("GenerationDifficulty");
     setAttributeDefault("ProductionArt");
-    /*for(int i = 0; i < attributes.size(); i++){
-        if(fromItem.attributes[i]->name == "SpawnEvent"){
-            this->spawnEvent = fromItem.attributes[i]->stringValue();
-        }
-        if(attributes[i]->name == "GenerationDifficulty"){
-            //this should work without issues?
-            attributes[i]->isDefault = true;
-        }
-        if(attributes[i]->name == "ProductionArt"){
-            //this should work without issues?
-            attributes[i]->isDefault = true;
-        }
-    }*/
 }
 
 PickupLocation::PickupLocation(){

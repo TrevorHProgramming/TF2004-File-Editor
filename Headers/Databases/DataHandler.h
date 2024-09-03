@@ -23,7 +23,7 @@ public:
     int uniqueID;
     int slipstreamDifficulty;
     int highjumpDifficulty;
-    QString name = "PickupPlaced";
+    QString locationName;
     QString spawnEvent;
     int level;
     int originalDatabaseInstance;
@@ -68,6 +68,7 @@ public:
     int enumID;
     int dataID;
     bool placed;
+    QString pickupToSpawn;
 
     Pickup(dictItem copyItem);
     Pickup();
@@ -156,11 +157,13 @@ public:
     void loadMinicons();
     void loadLevels();
     void loadAutobots();
+    void loadMetagameMinicons();
     bool miniconLoaded(int checkID);
     bool dataconLoaded(int checkID);
     void loadCustomLocations();
     //void addCustomLocation(int locationID, int level, QVector3D location);
     Minicon* getMinicon(int searchID);
+    Minicon* getMinicon(QString searchName);
     bool duplicateLocation(PickupLocation testLocation);
     void replaceFile(QString fileName, QString destinationPath);
     void replaceFile(FileReplacement fileToReplace);

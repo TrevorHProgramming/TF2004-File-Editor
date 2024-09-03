@@ -37,6 +37,15 @@ Randomizer::Randomizer(ProgWindow *parentPass){
     parent->dataHandler->loadCustomLocations();
     parent->dataHandler->loadFileReplacements();
 
+
+    qDebug() << Q_FUNC_INFO << "Testing metagame minicon loading";
+    parent->dataHandler->loadMetagameMinicons();
+    for(int i = 0; i < parent->dataHandler->miniconList.size(); i++){
+        int team = parent->dataHandler->miniconList[i].searchAttributes<int>("Team");
+        int power = parent->dataHandler->miniconList[i].searchAttributes<int>("PowerCost");
+        qDebug() << Q_FUNC_INFO << "minicon" << parent->dataHandler->miniconList[i].pickupToSpawn << "has team:" << team << "and power cost" << power;
+    }
+
     seed = 0;
     randSettings.slipstreamDifficulty = 0;
     randSettings.highjumpDifficulty = 0;
@@ -595,7 +604,7 @@ void Randomizer::placeStarterWeapon(){
         }
     }
     int miniconNumber = placemaster.bounded(starterMinicons.size());
-    qDebug() << Q_FUNC_INFO << "Placing starter weapon" << starterMinicons[miniconNumber].name;
+    qDebug() << Q_FUNC_INFO << "Placing starter weapon" << starterMinicons[miniconNumber].pickupToSpawn;
     placeMinicon(starterMinicons[miniconNumber].enumID, 42069); //locationID tbd
 }
 
@@ -632,7 +641,7 @@ void Randomizer::placeSlipstreamRequirement(int miniconID, int placementID){
         if((availableLocations[i].slipstreamDifficulty <= 3)
                 && (availableLocations[i].level <= placementLevel)
                 && (availableLocations[i].uniqueID != 42069)){ //we don't want one of the requirements spawning right at the start - the player asked for pain.
-            //qDebug() << Q_FUNC_INFO << "prereq location" << availableLocations[i].uniqueID << "name" << availableLocations[i].name << "added to possible list.";
+            //qDebug() << Q_FUNC_INFO << "prereq location" << availableLocations[i].uniqueID << "name" << availableLocations[i].locationName << "added to possible list.";
             prereqLocations.push_back(availableLocations[i]);
         }
     }
@@ -872,7 +881,7 @@ void Randomizer::spoilMinicon(PickupLocation placement, QTextStream& stream){
     }
     QVector3D placedPosition = placement.searchAttributes<QVector3D>("Position");
     qDebug() << Q_FUNC_INFO << "sending miniconID" << placement.assignedMinicon() << "to be spoiled";
-    stream << parent->dataHandler->getMinicon(placement.assignedMinicon())->name << " is located at " << placement.name << " id " << placement.uniqueID << ", or x" <<
+    stream << parent->dataHandler->getMinicon(placement.assignedMinicon())->pickupToSpawn << " is located at " << placement.locationName << " id " << placement.uniqueID << ", or x" <<
                                                              placedPosition.x() << " y" << placedPosition.y() << " z" << placedPosition.z() << Qt::endl;
     placement.spoiled = true;
 }
@@ -891,8 +900,8 @@ void Randomizer::spoilMinicon(int miniconID, QTextStream& stream){
     }
     QVector3D placedPosition = placedLocations[placementIndex].searchAttributes<QVector3D>("Position");
     qDebug() << Q_FUNC_INFO << "spoiling minicon" << miniconID << "at location" << placedLocations[placementIndex].uniqueID;
-    QString miniconName = parent->dataHandler->getMinicon(miniconID)->name;
-    stream << miniconName << " is located at " << parent->dataHandler->levelList[placedLocations[placementIndex].level].levelName << "'s " << placedLocations[placementIndex].name << " id "
+    QString miniconName = parent->dataHandler->getMinicon(miniconID)->pickupToSpawn;
+    stream << miniconName << " is located at " << parent->dataHandler->levelList[placedLocations[placementIndex].level].levelName << "'s " << placedLocations[placementIndex].locationName << " id "
            << placedLocations[placementIndex].uniqueID << ", or x" << placedPosition.x() << " y" << placedPosition.y() << " z" << placedPosition.z() << Qt::endl;
 }
 
@@ -985,6 +994,7 @@ int Randomizer::editDatabases(){
     QFile slipstreamFix(slipstreamInPath);
     bool didItWork = false;
 
+    QString tempNameStorage; //I don't like this, but changing it permanently will prevent the spoiler file from writing correctly
     QString levelPath;
     QString slipstreamOutPath;
     Minicon itemToAdd;
@@ -1026,7 +1036,11 @@ int Randomizer::editDatabases(){
             level++;
         }
         //itemToAdd = *getMinicon(placedLocations[i].assignedMinicon());
+        tempNameStorage = placedLocations[i].name;
+        qDebug() << Q_FUNC_INFO << "Storing minicon category" << tempNameStorage;
+        placedLocations[i].name = "PickupPlaced";
         placedLocations[i].instanceIndex = parent->dataHandler->levelList[level].levelFile->addInstance(placedLocations[i]);
+        placedLocations[i].name = tempNameStorage;
         qDebug() << Q_FUNC_INFO << "placed location instance index is" << placedLocations[i].instanceIndex;
     }
     qDebug() << Q_FUNC_INFO << "Correcting Pacific island bunker links";
@@ -1101,10 +1115,6 @@ void Randomizer::fixBunkerLinks(int level){
             usedBunkers.push_back(pacificFile->instances[j].instanceIndex);
             for(int attribute = 0; attribute < pacificFile->instances[j].attributes.size(); attribute++){
                 pacificFile->instances[j].setAttribute("Reward_PickupLink", QString::number(placedLocations[i].instanceIndex));
-                /*if(pacificFile->instances[j].attributes[attribute]->name == "Reward_PickupLink"){
-                    qDebug() << Q_FUNC_INFO << "original link" << pacificFile->instances[j].attributes[attribute]->intValue() << "replacing with" << placedLocations[i].instanceIndex;
-                    pacificFile->instances[j].attributes[attribute]->setValue(QString::number(placedLocations[i].instanceIndex));
-                }*/
             }
         }
     }
@@ -1120,10 +1130,6 @@ void Randomizer::fixBunkerLinks(int level){
         //qDebug() << Q_FUNC_INFO << "Unused bunker index ID found at" << pacificFile->instances[j].instanceIndex;
         for(int attribute = 0; attribute < pacificFile->instances[j].attributes.size(); attribute++){
             pacificFile->instances[j].setAttributeDefault("Reward_PickupLink");
-            /*if(pacificFile->instances[j].attributes[attribute]->name == "Reward_PickupLink"){
-                qDebug() << Q_FUNC_INFO << "Setting bunker reward to default";
-                pacificFile->instances[j].attributes[attribute]->isDefault = true;
-            }*/
         }
     }
 }
@@ -1213,7 +1219,7 @@ void Randomizer::randomizeAutobotStats(){
         sidekick energy retention level (how much health you get back from powerlinx)
         Zero to full acceleration time
         power capacity (minicon equip max)
-        name (not ID, the enum value at the top. the name.)
+        name (not ID, the enum value at the top. the name.) This does nothing as far as I can tell. The actual name is defined in the STRINGS file
         */
     for(int i = 0; i < parent->dataHandler->autobotList.size(); i++){
         //Health
