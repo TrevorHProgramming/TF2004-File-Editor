@@ -33,13 +33,12 @@ Randomizer::Randomizer(ProgWindow *parentPass){
 
     parent->dataHandler->loadLevels();
     parent->dataHandler->loadMinicons();
+    parent->dataHandler->loadDatacons();
+    parent->dataHandler->loadAutobots();
     loadMods();
     parent->dataHandler->loadCustomLocations();
     parent->dataHandler->loadFileReplacements();
 
-
-    qDebug() << Q_FUNC_INFO << "Testing metagame minicon loading";
-    parent->dataHandler->loadMetagameMinicons();
     for(int i = 0; i < parent->dataHandler->miniconList.size(); i++){
         int team = parent->dataHandler->miniconList[i].searchAttributes<int>("Team");
         int power = parent->dataHandler->miniconList[i].searchAttributes<int>("PowerCost");
@@ -169,7 +168,7 @@ Randomizer::Randomizer(ProgWindow *parentPass){
     QCheckBox *checkTeam = new QCheckBox("Randomize Team Colors", groupRandomizerOptions);
     checkTeam->setGeometry(QRect(QPoint(20,330), QSize(200,30)));
     QAbstractButton::connect(checkTeam, &QCheckBox::stateChanged, parent, [checkTeam, checkTeamBalance, this]
-        {randSettings.randomizePower = checkTeam->isChecked();
+        {randSettings.randomizeTeams = checkTeam->isChecked();
         checkTeamBalance->setVisible(checkTeam->isChecked());});
     checkTeam->show();
 
@@ -771,7 +770,7 @@ void Randomizer::placeAll(){
     int locationNumber = 0;
     int availableLevel = 0;
     for(int i = 0; i < parent->dataHandler->miniconList.size(); i++){
-        if(!parent->dataHandler->miniconList[i].placed){
+        if(!parent->dataHandler->miniconList[i].placed && parent->dataHandler->miniconList[i].hasVanillaPlacement){
             qDebug() << Q_FUNC_INFO << "Placing minicon.";
             locationNumber = placemaster.bounded(availableLocations.size());
 
@@ -786,7 +785,7 @@ void Randomizer::placeAll(){
             }
             placeMinicon(parent->dataHandler->miniconList[i].enumID, availableLocations[locationNumber].uniqueID);
         } else {
-            qDebug() << Q_FUNC_INFO << "Skipping placement.";
+            qDebug() << Q_FUNC_INFO << "Skipping placement for" << parent->dataHandler->miniconList[i].pickupToSpawn;
         }
     }
 
@@ -1071,10 +1070,13 @@ int Randomizer::editDatabases(){
         }
     }
 
+    QStringList miniconTypes = {"Minicon", "MiniconDamageBonus", "MiniconArmor", "MiniconEmergencyWarpgate", "MiniconRangeBonus", "MiniconRegeneration"};
     if(randSettings.randomizePower || randSettings.randomizeTeams){
         //this could be an issue - some minicons are their own classes and inherit from minicon.
         metagameEdited = true;
-        metagameFile->removeAll("Minicon");
+        for(int i = 0; i < miniconTypes.size(); i++){
+            metagameFile->removeAll(miniconTypes[i]);
+        }
         for(int i = 0; i < parent->dataHandler->miniconList.size(); i++){
             metagameFile->addInstance(parent->dataHandler->miniconList[i]);
         }
@@ -1143,10 +1145,16 @@ void Randomizer::randomizeTeamColors(){
     std::vector<int> teamList;
     if(randSettings.balancedTeams){
         for(int i = 0; i <parent->dataHandler->miniconList.size(); i++){
+            if(!parent->dataHandler->miniconList[i].hasVanillaPlacement){
+                continue;
+            }
             teamList.push_back(parent->dataHandler->miniconList[i].searchAttributes<int>("Team"));
         }
     }
     for(int i = 0; i <parent->dataHandler->miniconList.size(); i++){
+        if(!parent->dataHandler->miniconList[i].hasVanillaPlacement){
+            continue;
+        }
         teamIndex = parent->dataHandler->miniconList[i].searchAttributes<int>("Team");
         if(randSettings.balancedTeams){
             /*Randomize the teams in a balanced way - there will be as many of each team in the final result as the base game*/

@@ -91,10 +91,12 @@ public:
 
 class Minicon : public Pickup{
 public:
+    bool hasVanillaPlacement;
     bool isExplosive;
     bool isSlipstream;
     bool isHighjump;
 
+    void setCreature(Pickup copyItem);
     Minicon(Pickup copyItem);
     Minicon();
 };
@@ -155,9 +157,9 @@ public:
 
     void loadFileReplacements();
     void loadMinicons();
+    void loadDatacons();
     void loadLevels();
     void loadAutobots();
-    void loadMetagameMinicons();
     bool miniconLoaded(int checkID);
     bool dataconLoaded(int checkID);
     void loadCustomLocations();

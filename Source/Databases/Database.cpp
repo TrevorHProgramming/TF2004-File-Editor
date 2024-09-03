@@ -223,9 +223,6 @@ int DatabaseFile::addInstance(dictItem itemToAdd){
     int attributeIndex = 0;
     qDebug() << Q_FUNC_INFO << "itemToAdd has type name:" << itemToAdd.name;
     tempItem.name = itemToAdd.name;
-    if(itemToAdd.name == ""){
-        tempItem.name = "PickupPlaced";
-    }
 
 
     //this needs to limit itself to the attributes present in the target file
@@ -248,20 +245,20 @@ int DatabaseFile::addInstance(dictItem itemToAdd){
 //        previousIndex = instances[i].instanceIndex;
 //    }
 
-    //qDebug() << Q_FUNC_INFO << "original dictionary item has" << dictionary[dictIndex].attributes.size() << "attributes";
+    qDebug() << Q_FUNC_INFO << "original dictionary item has" << dictionary[dictIndex].attributes.size() << "attributes, new item has" << itemToAdd.attributes.size();
     //dictionary does not have all attributes for some reason.
     for(int i = 0; i < dictionary[dictIndex].attributes.size(); i++){
         attributeIndex = 9999;
-        //qDebug() << Q_FUNC_INFO << "checking attribute" << i << dictionary[dictIndex].attributes[i]->name;
+        //qDebug() << Q_FUNC_INFO << "checking attribute" << i << dictionary[dictIndex].attributes[i]->name << "in itemtoadd's attribute list of" << itemToAdd.attributes.size() << "items";
         for(int j = 0; j < itemToAdd.attributes.size(); j++){
             if(itemToAdd.attributes[j]->name == dictionary[dictIndex].attributes[i]->name){
-                //qDebug() << Q_FUNC_INFO << "found a match";
+                qDebug() << Q_FUNC_INFO << "found a match";
                 attributeIndex = j;
             }
         }
         if(attributeIndex == 9999){
             //add attribute with default value
-            //qDebug() << Q_FUNC_INFO << "creating default value";
+            qDebug() << Q_FUNC_INFO << "creating default value";
             tempItem.attributes.push_back(dictionary[dictIndex].attributes[i]->clone());
         } else {
             tempItem.attributes.push_back(itemToAdd.attributes[attributeIndex]->clone());

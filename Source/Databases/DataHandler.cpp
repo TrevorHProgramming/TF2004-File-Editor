@@ -24,7 +24,8 @@ Pickup::Pickup(dictItem copyItem){
     dataID = 99;
     this->name = copyItem.name;
     this->instanceIndex = copyItem.instanceIndex;
-    //this->attributes = copyItem.attributes;
+    this->pickupToSpawn = copyItem.searchAttributes<QString>("Name");
+    this->attributes = copyItem.attributes;
     for(int i = 0; i < copyItem.attributes.size(); i++){
         if(copyItem.attributes[i]->name == "PickupToSpawn"){
             this->pickupToSpawn = copyItem.attributes[i]->display();
@@ -54,19 +55,15 @@ Pickup::Pickup(){
 
 Minicon::Minicon(Pickup copyItem){
     this->name = copyItem.name;
+    this->pickupToSpawn = copyItem.pickupToSpawn;
+    this->attributes = copyItem.attributes;
+    hasVanillaPlacement = false;
+}
+
+void Minicon::setCreature(Pickup copyItem){
+    this->enumID = copyItem.enumID;
     this->instanceIndex = copyItem.instanceIndex;
     this->isWeapon = copyItem.isWeapon;
-    this->pickupToSpawn = copyItem.pickupToSpawn;
-    this->enumID = copyItem.enumID;
-    //QVector3D location = copyItem.searchAttributes<QVector3D>("Position");
-    //this->setAttribute("Position", QString::number(location.x()) + ", " + QString::number(location.y()) + ", " + QString::number(location.z()));
-    //this->attributes = copyItem.attributes;
-    /*for(int i = 0; i < copyItem.attributes.size(); i++){
-        if(copyItem.attributes[i]->name == "PickupToSpawn"){
-            this->pickupToSpawn = copyItem.attributes[i]->display();
-            this->enumID = copyItem.attributes[i]->intValue();
-        }
-    }*/
     placed = false;
 }
 
@@ -823,6 +820,35 @@ void DataHandler::loadLevels(){
 
 void DataHandler::loadMinicons(){
 
+    std::shared_ptr<DatabaseFile> metagameFile;
+    std::vector<dictItem> metagameMinicons;
+    for(int i = 0; i < parent->databaseList.size(); i++){
+        qDebug() << Q_FUNC_INFO << "checking file name" << parent->databaseList[i]->fileName;
+        if(parent->databaseList[i]->fileName == "TFA-METAGAME"){
+            metagameFile = parent->databaseList[i];
+        }
+    }
+    QStringList miniconTypes = {"Minicon", "MiniconDamageBonus", "MiniconArmor", "MiniconEmergencyWarpgate", "MiniconRangeBonus", "MiniconRegeneration"};
+
+    for(int type = 0; type < miniconTypes.size(); type++){
+        metagameMinicons = metagameFile->sendInstances(miniconTypes[type]);
+        for(int i = 0; i < metagameMinicons.size(); i++){
+            miniconList.push_back(Pickup(metagameMinicons[i]));
+            /*QString currentName = metagameMinicons[i].searchAttributes<QString>("Name");
+            Minicon *currentMinicon = getMinicon(currentName);
+            if(currentMinicon != nullptr){
+                //qDebug() << Q_FUNC_INFO << "successfully found minicon" << currentName << "with enumID" << currentMinicon->enumID;
+                currentMinicon->name = metagameMinicons[i].name;
+                currentMinicon->attributes = metagameMinicons[i].attributes;
+            }*/
+        }
+    }
+
+    qDebug() << Q_FUNC_INFO << "Total loaded minicons:" << miniconList.size();
+    for(int i = 0; i < miniconList.size(); i++){
+        qDebug() << Q_FUNC_INFO << "loaded minicon" << i << "is named" << miniconList[i].pickupToSpawn;
+    }
+
     for(int i = 0; i < levelList.size(); i++){
         std::vector<dictItem> filePickupsBase = levelList[i].levelFile->sendInstances("PickupPlaced");
         for(int pickup = 0; pickup < filePickupsBase.size(); pickup++){
@@ -831,35 +857,40 @@ void DataHandler::loadMinicons(){
         }
     }
 
-    foreach(Pickup currentPickup, pickupList){
-        bool miniconIsLoaded = false;
-        bool dataconIsLoaded = false;
-
-        qDebug() << Q_FUNC_INFO << "pickup properties for:" << currentPickup.pickupToSpawn << "enumID" << currentPickup.enumID << "dataID" << currentPickup.dataID;
-        miniconIsLoaded = miniconLoaded(currentPickup.enumID);
-        dataconIsLoaded = dataconLoaded(currentPickup.dataID);
-        qDebug() << Q_FUNC_INFO << "already loaded? minicon:" << miniconIsLoaded << "datacon:" << dataconIsLoaded;
-        if(!miniconIsLoaded && currentPickup.enumID != 3){
-            //if it's a minicon we don't already have, add it to the minicon list
-            if(weaponList.contains(currentPickup.enumID)){
-                currentPickup.isWeapon = true;
+    for(int i = 0; i < miniconList.size(); i++){
+        foreach(Pickup currentPickup, pickupList){
+            bool miniconIsLoaded = false;
+            //qDebug() << Q_FUNC_INFO << "comparing minicon" << currentMinicon.pickupToSpawn << "to pickup" << currentPickup.pickupToSpawn;
+            if(miniconList[i].pickupToSpawn != currentPickup.pickupToSpawn){
+                //Only process minicons that have a placement.
+                continue;
             }
-            miniconList.push_back(currentPickup);
-        } else if (miniconIsLoaded && currentPickup.enumID != 3){
-            //if it's a minicon we already have, don't add it again
-            continue;
-        } else if (!dataconIsLoaded && currentPickup.enumID == 3){
-            //we now know it's a datacon (but still check to be sure). if it hasn't been loaded, add it to the datacon list
-            dataconList.push_back(currentPickup);
-        } else if (dataconIsLoaded && currentPickup.enumID == 3){
-            //if it has been loaded, just skip it
-            continue;
-        } else {
-            //this should never happen, logically, but better safe than confused.
-            //put some debugs here, just in case
-            continue;
+            miniconIsLoaded = miniconLoaded(currentPickup.enumID);
+            //dataconIsLoaded = dataconLoaded(currentPickup.dataID);
+
+            qDebug() << Q_FUNC_INFO << "minicon" << miniconList[i].pickupToSpawn << "is loaded?" << miniconIsLoaded << "should get enumID" << currentPickup.enumID;
+            if(!miniconIsLoaded && currentPickup.enumID != 3){
+                //if it's a minicon we don't already have, add it to the minicon list
+                qDebug() << Q_FUNC_INFO << "Doing initial minicon load";
+                if(weaponList.contains(currentPickup.enumID)){
+                    miniconList[i].isWeapon = true;
+                }
+                miniconList[i].hasVanillaPlacement = true;
+                miniconList[i].setCreature(currentPickup);
+                qDebug() << Q_FUNC_INFO << "minicon enum ID set to" << miniconList[i].enumID;
+            } else if (miniconIsLoaded && currentPickup.enumID != 3){
+                //if it's a minicon we already have, don't add it again
+                continue;
+            } else {
+                //this should never happen, logically, but better safe than confused.
+                //put some debugs here, just in case
+                continue;
+            }
         }
     }
+
+    /*
+    }*/
 
     qDebug() << Q_FUNC_INFO << "Remaining pickups to process (should be 0):" << pickupList.size();
 
@@ -869,11 +900,6 @@ void DataHandler::loadMinicons(){
                  << miniconList[i].dataID;
     }
 
-    qDebug() << Q_FUNC_INFO << "Total loaded datacons:" << dataconList.size();
-    for(int i = 0; i < dataconList.size(); i++){
-        qDebug() << Q_FUNC_INFO << i << " " << dataconList[i].enumID << "  " << dataconList[i].pickupToSpawn << "    "
-                 << dataconList[i].dataID;
-    }
 
 
     //std::sort(miniconList.begin(), miniconList.end());
@@ -892,30 +918,33 @@ void DataHandler::loadAutobots(){
     autobotList = metagameFile->sendInstances("Autobot");
 }
 
-void DataHandler::loadMetagameMinicons(){
-    std::shared_ptr<DatabaseFile> metagameFile;
-    std::vector<dictItem> metagameMinicons;
-    for(int i = 0; i < parent->databaseList.size(); i++){
-        qDebug() << Q_FUNC_INFO << "checking file name" << parent->databaseList[i]->fileName;
-        if(parent->databaseList[i]->fileName == "TFA-METAGAME"){
-            metagameFile = parent->databaseList[i];
+void DataHandler::loadDatacons(){
+    foreach(Pickup currentPickup, pickupList){
+        bool dataconIsLoaded = false;
+        if(currentPickup.isMinicon){
+            continue;
         }
-    }
-    QStringList miniconTypes = {"Minicon", "MiniconDamageBonus", "MiniconArmor", "MiniconEmergencyWarpgate", "MiniconRangeBonus", "MiniconRegeneration"};
-
-    for(int type = 0; type < miniconTypes.size(); type++){
-        metagameMinicons = metagameFile->sendInstances(miniconTypes[type]);
-        for(int i = 0; i < metagameMinicons.size(); i++){
-            QString currentName = metagameMinicons[i].searchAttributes<QString>("Name");
-            Minicon *currentMinicon = getMinicon(currentName);
-            if(currentMinicon != nullptr){
-                //qDebug() << Q_FUNC_INFO << "successfully found minicon" << currentName << "with enumID" << currentMinicon->enumID;
-                currentMinicon->name = metagameMinicons[i].name;
-                currentMinicon->attributes = metagameMinicons[i].attributes;
-            }
+        qDebug() << Q_FUNC_INFO << "pickup properties for:" << currentPickup.pickupToSpawn << "enumID" << currentPickup.enumID << "dataID" << currentPickup.dataID;
+        dataconIsLoaded = dataconLoaded(currentPickup.dataID);
+        qDebug() << Q_FUNC_INFO << "already loaded?" << dataconIsLoaded;
+        if (!dataconIsLoaded && currentPickup.enumID == 3){
+            //we now know it's a datacon (but still check to be sure). if it hasn't been loaded, add it to the datacon list
+            dataconList.push_back(currentPickup);
+        } else if (dataconIsLoaded && currentPickup.enumID == 3){
+            //if it has been loaded, just skip it
+            continue;
+        } else {
+            //this should never happen, logically, but better safe than confused.
+            //put some debugs here, just in case
+            continue;
         }
     }
 
+    qDebug() << Q_FUNC_INFO << "Total loaded datacons:" << dataconList.size();
+    for(int i = 0; i < dataconList.size(); i++){
+        qDebug() << Q_FUNC_INFO << i << " " << dataconList[i].enumID << "  " << dataconList[i].pickupToSpawn << "    "
+                 << dataconList[i].dataID;
+    }
 }
 
 void DataHandler::loadCustomLocations(){
@@ -990,7 +1019,7 @@ void DataHandler::loadCustomLocations(){
                             }
                             break;
                         case 6: //Location Name
-                            customLocation.name = modProperty.readValue;
+                            customLocation.locationName = modProperty.readValue;
                             qDebug() << Q_FUNC_INFO << "name read as" << modProperty.readValue;
                             break;
                         case 7: //Coordinates
