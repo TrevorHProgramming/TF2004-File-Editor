@@ -33,7 +33,7 @@ public:
         bool balancedTeams = false;
         bool randomizePower = false;
         bool balancedPower = false;
-        bool randomizerAutobotStats = false;
+        bool randomizeAutobotStats = false;
     } randSettings;
 
     //https://stackoverflow.com/questions/1604588/how-do-you-remove-elements-from-a-stdvector-while-iterating

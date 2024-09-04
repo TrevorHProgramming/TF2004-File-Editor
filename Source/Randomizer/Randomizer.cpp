@@ -85,12 +85,10 @@ Randomizer::Randomizer(ProgWindow *parentPass){
 
     QGroupBox *groupRandomizerOptions = new QGroupBox("Radomizer Options", parent->centralContainer);
     groupRandomizerOptions->setGeometry(QRect(QPoint(360,100), QSize(200,500)));
-    groupRandomizerOptions->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
     parent->currentModeWidgets.push_back(groupRandomizerOptions);
 
     QCheckBox *checkDatacon = new QCheckBox("Place Datacons", groupRandomizerOptions);
     checkDatacon->setGeometry(QRect(QPoint(20,20), QSize(200,30)));
-    checkDatacon->setStyleSheet("color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0)");
     QAbstractButton::connect(checkDatacon, &QCheckBox::stateChanged, parent, [checkDatacon, this]
         {randSettings.generateDatacons = checkDatacon->isChecked();
         qDebug() << Q_FUNC_INFO << "Datacon placement set to" << randSettings.generateDatacons;
@@ -148,12 +146,15 @@ Randomizer::Randomizer(ProgWindow *parentPass){
 
     QCheckBox *checkPowerBalance = new QCheckBox("Balanced Power Levels", groupRandomizerOptions);
     checkPowerBalance->setGeometry(QRect(QPoint(40,300), QSize(200,30)));
+    checkPowerBalance->setToolTip("If checked, each Minicon's power will be within 1 of its original power (can't go over 4). "
+                                  "If unchecked, each Minicon will get a random power requirement.");
     QAbstractButton::connect(checkPowerBalance, &QCheckBox::stateChanged, parent, [checkPowerBalance, this] {randSettings.balancedPower = checkPowerBalance->isChecked();});
     checkPowerBalance->toggle();
     checkPowerBalance->hide();
 
     QCheckBox *checkPower = new QCheckBox("Randomize Power Levels", groupRandomizerOptions);
     checkPower->setGeometry(QRect(QPoint(20,270), QSize(200,30)));
+    checkPower->setToolTip("Randomizes the power needed for each Minicon. NOTE: Minicons with a power of 3 will not display correctly in HQ.");
     QAbstractButton::connect(checkPower, &QCheckBox::stateChanged, parent, [checkPower, checkPowerBalance, this]
         {randSettings.randomizePower = checkPower->isChecked();
         checkPowerBalance->setVisible(checkPower->isChecked());});
@@ -161,12 +162,15 @@ Randomizer::Randomizer(ProgWindow *parentPass){
 
     QCheckBox *checkTeamBalance = new QCheckBox("Balanced Team Colors", groupRandomizerOptions);
     checkTeamBalance->setGeometry(QRect(QPoint(40,360), QSize(200,30)));
+    checkTeamBalance->setToolTip("Checking this means there there will be as many of each team color after randomization."
+                                 "Leaving this unchecked will make a random number of each team.");
     QAbstractButton::connect(checkTeamBalance, &QCheckBox::stateChanged, parent, [checkTeamBalance, this] {randSettings.balancedTeams = checkTeamBalance->isChecked();});
     checkTeamBalance->toggle();
     checkTeamBalance->hide();
 
     QCheckBox *checkTeam = new QCheckBox("Randomize Team Colors", groupRandomizerOptions);
     checkTeam->setGeometry(QRect(QPoint(20,330), QSize(200,30)));
+    checkTeam->setToolTip("Randomizes all Minicon team colors.");
     QAbstractButton::connect(checkTeam, &QCheckBox::stateChanged, parent, [checkTeam, checkTeamBalance, this]
         {randSettings.randomizeTeams = checkTeam->isChecked();
         checkTeamBalance->setVisible(checkTeam->isChecked());});
@@ -174,8 +178,9 @@ Randomizer::Randomizer(ProgWindow *parentPass){
 
     QCheckBox *checkAutobots = new QCheckBox("Randomize Autobot Stats", groupRandomizerOptions);
     checkAutobots->setGeometry(QRect(QPoint(20,390), QSize(200,30)));
+    checkAutobots->setToolTip("Slightly randomizes some Autobot stats (Health, height, dash speed). More will be added after further research.");
     QAbstractButton::connect(checkAutobots, &QCheckBox::stateChanged, parent, [checkAutobots, this]
-        {randSettings.randomizerAutobotStats = checkAutobots->isChecked();});
+        {randSettings.randomizeAutobotStats = checkAutobots->isChecked();});
     checkAutobots->show();
 
     groupRandomizerOptions->show();
@@ -373,7 +378,7 @@ void Randomizer::randomize(){
         randomizeTeamColors();
     }
 
-    if(randSettings.randomizerAutobotStats){
+    if(randSettings.randomizeAutobotStats){
         randomizeAutobotStats();
     }
 
@@ -1082,7 +1087,7 @@ int Randomizer::editDatabases(){
         }
     }
 
-    if(randSettings.randomizerAutobotStats){
+    if(randSettings.randomizeAutobotStats){
         metagameEdited = true;
         metagameFile->removeAll("Autobot");
         for(int i = 0; i < parent->dataHandler->autobotList.size(); i++){

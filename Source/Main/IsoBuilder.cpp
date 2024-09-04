@@ -472,8 +472,10 @@ int IsoBuilder::packRandomizer(){
 
     QDirIterator currentFile(inputDir, QDirIterator::Subdirectories);
     int sourcePathLength = inputDir.absoluteFilePath(randomizerInput).length();
-    const static QStringList skipCopy = {"CREATURE.BDB", "TFA.ZIP", "TFA2.ZIP", "TA_XTRAS.ZIP", "SOUNDE.ZIP"};
-
+    QStringList skipCopy = {"CREATURE.BDB", "TFA.ZIP", "TFA2.ZIP", "TA_XTRAS.ZIP", "SOUNDE.ZIP"};
+    if(parent->randomizer->randSettings.randomizeAutobotStats || parent->randomizer->randSettings.randomizePower || parent->randomizer->randSettings.randomizeTeams){
+        skipCopy.push_back("METAGAME.TDB");
+    }
 
     while(currentFile.hasNext()){
         currentFile.next();
