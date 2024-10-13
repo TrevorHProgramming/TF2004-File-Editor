@@ -47,6 +47,8 @@ ProgWindow::ProgWindow(QWidget *parent)
     QAction *actionSaveVAC = menuSFX->addAction("Export VAC");
     QAction *actionBulkVAC = menuSFX->addAction("Bulk Export Sound");
 
+    QAction *actionCreateDefinition = menuDatabase->addAction("Create Definition");
+    QAction *actionCreateDatabase = menuDatabase->addAction("Create Database");
     QAction *actionLoadTMD = menuDatabase ->addAction("Load TMD");
     QAction *actionLoadTDB = menuDatabase ->addAction("Load TDB");
     QAction *actionLoadBMD = menuDatabase ->addAction("Load BMD");
@@ -140,6 +142,8 @@ ProgWindow::ProgWindow(QWidget *parent)
     connect(actionLoadBMD, &QAction::triggered, this, [this] {openFile("BMD");});
     connect(actionLoadTDB, &QAction::triggered, this, [this] {openFile("TDB");});
     connect(actionLoadBDB, &QAction::triggered, this, [this] {openFile("BDB");});
+    connect(actionCreateDefinition, &QAction::triggered, this, [this] {createDefinitionFile();});
+    connect(actionCreateDatabase, &QAction::triggered, this, [this] {createDatabaseFile();});
 
     connect(actionSettings, &QAction::triggered, this, &ProgWindow::handleSettings);
 
@@ -345,6 +349,9 @@ void ProgWindow::bulkSave(QString category){
 std::shared_ptr<TFFile> ProgWindow::matchFile(QString fileNameFull){
     if(loadedFileNames.contains(fileNameFull.toUpper())){
         return loadedFiles[loadedFileNames.indexOf(fileNameFull.toUpper())];
+    } else {
+        qDebug() << Q_FUNC_INFO << "loaded file names:" << loadedFileNames;
+        log("File " + fileNameFull + " was not found.");
     }
     /*for(int i = 0; i < loadedFiles.size(); i++){
         qDebug() << Q_FUNC_INFO << "loaded file" << loadedFiles[i]->fullFileName().toUpper() << "vs" << fileNameFull.toUpper();
@@ -676,4 +683,277 @@ int ProgWindow::loadDatabases(){
 
     }
     return 0;
+}
+
+int ProgWindow::createDefinitionFile(){
+    //make popup window with all options
+    /*for a definition file, need:
+        Name - can get this from save dialog
+        text or binary
+        inherited files - this is sometimes used. Excluding for now
+    */
+
+    bool isBinary = false;
+    bool isDialogOpen = true;
+
+    //popup
+
+    QDialog *dialogDefinition = makePopup(isDialogOpen);
+    QCheckBox *comboBinOrText = new QCheckBox("Check box if making a binary file.", dialogDefinition);
+    dialogDefinition->setWindowTitle("Create Database Definition");
+    comboBinOrText->setGeometry(QRect(QPoint(20,20), QSize(200,30)));
+
+    dialogDefinition->open();
+
+    int resultDialog = 0;
+    connect(dialogDefinition, &QDialog::finished, this, [&isDialogOpen]() {isDialogOpen = false;});
+
+    while(isDialogOpen){
+        forceProcessEvents();
+    }
+    resultDialog = dialogDefinition->result();
+    isBinary = comboBinOrText->isChecked();
+
+    qDebug() << Q_FUNC_INFO << "escaping while loop. isBinary value:" << isBinary << "result value:" << resultDialog;
+
+    if(resultDialog == 0){
+        qDebug() << Q_FUNC_INFO << "Process was cancelled.";
+        return 1;
+    }
+
+    QString selectedType = "TMD";
+
+    if(isBinary){
+        selectedType = "BMD";
+    }
+
+    QString fileOut = QFileDialog::getSaveFileName(this, tr(QString("Select Output "  + selectedType).toStdString().c_str()), QDir::currentPath() + "/" + selectedType + "/"
+                                                       , tr(QString("Definition File (*." + selectedType + ")").toStdString().c_str()));
+
+    QFile outputFile(fileOut);
+    QFileInfo fileInfo(outputFile);
+    std::shared_ptr<DefinitionFile> customFile(new DefinitionFile);
+
+    customFile->inputPath = fileOut;
+    customFile->fileName = fileInfo.fileName().left(fileInfo.fileName().indexOf("."));
+    customFile->fileExtension = selectedType;
+    customFile->parent = this;
+
+    loadedFiles.push_back(customFile);
+    loadedFileNames.push_back(customFile->fullFileName().toUpper());
+    fileBrowser->addItem(customFile->fullFileName());
+    qDebug() << Q_FUNC_INFO << "number of items in file browser" << fileBrowser->count();
+    fileBrowser->setCurrentRow(fileBrowser->count()-1);
+    customFile->updateCenter();
+
+    return 0;
+
+}
+
+int ProgWindow::createDatabaseFile(){
+    //make popup window with all options
+    /*for a database file, need:
+        Name - can get this from save dialog
+        text or binary
+        inherited file(s)
+    */
+
+    bool isBinary = false;
+    bool isDialogOpen = true;
+
+    CustomPopup *dialogDatabase = makeSpecificPopup(isDialogOpen, {"checkbox", "combobox"}, {"Choose inherited file:"});
+    dialogDatabase->setWindowTitle("Create Database Definition");
+    dialogDatabase->checkOption->setText("Check box if making a binary file.");
+
+    for(int i = 0; i < loadedFiles.size(); i++){
+        dialogDatabase->comboOption->addItem(loadedFiles[i]->fullFileName());
+    }
+
+    dialogDatabase->open();
+
+    int resultDialog = 0;
+    connect(dialogDatabase, &QDialog::finished, this, [&isDialogOpen]() {isDialogOpen = false;});
+
+    while(isDialogOpen){
+        forceProcessEvents();
+    }
+    resultDialog = dialogDatabase->result();
+
+    qDebug() << Q_FUNC_INFO << "escaping while loop. isBinary value:" << isBinary << "result value:" << resultDialog;
+
+    if(resultDialog == 0){
+        qDebug() << Q_FUNC_INFO << "Process was cancelled.";
+        return 1;
+    }
+    isBinary = dialogDatabase->checkOption->isChecked();
+
+    QString selectedType = "TDB";
+
+    if(isBinary){
+        selectedType = "BDB";
+    }
+
+    QString fileOut = QFileDialog::getSaveFileName(this, tr(QString("Select Output "  + selectedType).toStdString().c_str()), QDir::currentPath() + "/" + selectedType + "/"
+                                                       , tr(QString("Definition File (*." + selectedType + ")").toStdString().c_str()));
+
+    QFile outputFile(fileOut);
+    QFileInfo fileInfo(outputFile);
+    std::shared_ptr<DatabaseFile> customFile(new DatabaseFile);
+
+    QString fileSelection = dialogDatabase->comboOption->currentText();
+    qDebug() << Q_FUNC_INFO << "Selected file to inherit:" << fileSelection;
+
+    customFile->inputPath = fileOut;
+    customFile->fileName = fileInfo.fileName().left(fileInfo.fileName().indexOf("."));
+    customFile->fileExtension = selectedType;
+    customFile->inheritedFileName = fileSelection;
+    customFile->inheritedFile = std::static_pointer_cast<DefinitionFile>(matchFile(fileSelection));
+    customFile->maxInstances = 0;
+    customFile->parent = this;
+
+    loadedFiles.push_back(customFile);
+    loadedFileNames.push_back(customFile->fullFileName().toUpper());
+    fileBrowser->addItem(customFile->fullFileName());
+    qDebug() << Q_FUNC_INFO << "number of items in file browser" << fileBrowser->count();
+    fileBrowser->setCurrentRow(fileBrowser->count()-1);
+    customFile->updateCenter();
+
+    return 0;
+
+}
+
+QPoint ProgWindow::screenCenter(){
+    return QGuiApplication::primaryScreen()->geometry().center();
+}
+
+void ProgWindow::forceProcessEvents(){
+    QApplication::processEvents();
+}
+
+QDialog* ProgWindow::makePopup(bool &finished){
+    QDialog *dialogWindow = new QDialog();
+    QPushButton *buttonConfirm = new QPushButton("Confirm", dialogWindow);
+    QPushButton *buttonCancel = new QPushButton("Cancel", dialogWindow);
+    dialogWindow->setGeometry(QRect(screenCenter() - QPoint(125,125), QSize(250,250)));
+    buttonConfirm->setGeometry(QRect(QPoint(20,120), QSize(200,30)));
+    buttonCancel->setGeometry(QRect(QPoint(20,150), QSize(200,30)));
+
+    connect(buttonConfirm, &QPushButton::released, dialogWindow, &QDialog::accept);
+    connect(buttonCancel, &QPushButton::released, dialogWindow, &QDialog::reject);
+    connect(dialogWindow, &QDialog::finished, [&finished]() {finished = false;});
+
+    return dialogWindow;
+}
+
+CustomPopup* ProgWindow::makeSpecificPopup(bool &finished, QStringList addons, QStringList labels){
+    CustomPopup *dialogWindow = new CustomPopup();
+    int marginSize = 20;
+    int windowHeight = marginSize + (addons.size()+1) * 30 + marginSize;
+    int nextItemVertical = marginSize;
+    int nextItemHorizontal = marginSize;
+    int windowWidth = marginSize + 150 + marginSize + 150 + marginSize; //margin - button - space - button - margin
+
+    /*Do some prep work on the lists:
+        check that the caller sent enough labels, pad out the label list if not
+        increase the window height for larger items*/
+    int labelsNeeded = 0;
+    for(int i = 0; i < addons.size(); i++){
+        if(addons[i] == "boxset"){
+            i++;
+            int boxCount = addons[i].toInt();
+            qDebug() << Q_FUNC_INFO << "adding" << boxCount << "boxes. starting window width:" << windowWidth;
+            labelsNeeded += boxCount;
+            windowWidth += std::max(boxCount-2, 0)*(150+marginSize);
+            qDebug() << Q_FUNC_INFO << "ending window width:" << windowWidth;
+        }
+        if(addons[i] != "checkbox"){
+            labelsNeeded++;
+        }
+        if(addons[i] == "textedit" || addons[i] == "list"){
+            windowHeight += 60;
+        }
+    }
+
+    if(labels.size() < labelsNeeded){
+        for(int i = labels.size(); i < addons.size(); i++){
+            labels.push_back("");
+        }
+    }
+
+    windowHeight += (labels.size() * 30);
+
+
+    /*Beginning of window creation. We need:
+        Confirm & cancel buttons. These will always be at the bottom of the dialog.
+        */
+    QPushButton *buttonConfirm = new QPushButton("Confirm", dialogWindow);
+    QPushButton *buttonCancel = new QPushButton("Cancel", dialogWindow);
+    dialogWindow->setGeometry(QRect(screenCenter() - QPoint(125,125), QSize(windowWidth, windowHeight)));
+    buttonConfirm->setGeometry(QRect(QPoint(windowWidth/2 - 150 - marginSize/2, windowHeight - marginSize - 30), QSize(150,30)));
+    buttonCancel->setGeometry(QRect(QPoint(windowWidth/2 + marginSize/2, windowHeight - marginSize - 30), QSize(150,30)));
+
+    int currentLabel = 0;
+    for(int i = 0; i < addons.size(); i++){
+        if(addons[i] != "checkbox" && addons[i] != "boxset"){
+            QLabel* currentItemLabel = new QLabel(labels[currentLabel], dialogWindow);
+            currentItemLabel->setGeometry(QRect(QPoint(marginSize, nextItemVertical), QSize(250,30)));
+            nextItemVertical += 30;
+            currentLabel++;
+        }
+        if(addons[i] == "checkbox"){
+            dialogWindow->checkOption = new QCheckBox(dialogWindow);
+            dialogWindow->checkOption->setGeometry(QRect(QPoint(marginSize, nextItemVertical), QSize(250,30)));
+            dialogWindow->checkOption->show();
+        }
+        if(addons[i] == "combobox"){
+            dialogWindow->comboOption = new QComboBox(dialogWindow);
+            dialogWindow->comboOption->setGeometry(QRect(QPoint(marginSize, nextItemVertical), QSize(250,30)));
+            dialogWindow->comboOption->show();
+        }
+        if(addons[i] == "lineedit"){
+            dialogWindow->lineOption = new QLineEdit(dialogWindow);
+            dialogWindow->lineOption->setGeometry(QRect(QPoint(marginSize, nextItemVertical), QSize(250,30)));
+            dialogWindow->lineOption->show();
+        }
+        if(addons[i] == "textedit"){
+            dialogWindow->multiOption = new QTextEdit(dialogWindow);
+            dialogWindow->multiOption->setGeometry(QRect(QPoint(marginSize, nextItemVertical), QSize(250,90)));
+            dialogWindow->multiOption->show();
+            nextItemVertical += 60;
+        }
+        if(addons[i] == "list"){
+            dialogWindow->listOption = new QListWidget(dialogWindow);
+            dialogWindow->listOption->setGeometry(QRect(QPoint(marginSize, nextItemVertical), QSize(250,90)));
+            dialogWindow->listOption->show();
+            nextItemVertical += 60;
+        }
+        if(addons[i] == "boxset"){
+            i++;
+            int boxes = addons[i].toInt();
+            dialogWindow->boxList.resize(boxes);
+            for(int j = 0; j < boxes; j++){
+                QLabel* currentItemLabel = new QLabel(labels[currentLabel], dialogWindow);
+                currentItemLabel->setGeometry(QRect(QPoint(nextItemHorizontal, nextItemVertical), QSize(150,30)));
+                currentLabel++;
+
+                dialogWindow->boxList[j] = new QLineEdit(dialogWindow);
+                dialogWindow->boxList[j]->setGeometry(QRect(QPoint(nextItemHorizontal, nextItemVertical+30), QSize(150,30)));
+                nextItemHorizontal += 150 + marginSize;
+            }
+            nextItemVertical += 30;
+        }
+        nextItemVertical += 30;
+    }
+
+    connect(buttonConfirm, &QPushButton::released, dialogWindow, &QDialog::accept);
+    connect(buttonCancel, &QPushButton::released, dialogWindow, &QDialog::reject);
+    connect(dialogWindow, &QDialog::finished, [&finished]() {finished = false;});
+
+    return dialogWindow;
+}
+
+void CustomPopup::addBlankItem(){
+    QListWidgetItem* blankValue = new QListWidgetItem("", listOption);
+    blankValue->setFlags(blankValue->flags() | Qt::ItemIsEditable);
+    listOption->addItem(blankValue);
 }

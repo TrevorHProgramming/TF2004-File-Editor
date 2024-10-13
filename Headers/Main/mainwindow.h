@@ -15,6 +15,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QLineEdit>
+#include <QTextEdit>
 #include <QMessageBox>
 #include <QMenu>
 #include <QMenuBar>
@@ -70,6 +71,18 @@ private slots:
 private:
     QPushButton *sendUpdate;
     bool savedChanges;
+};
+
+class CustomPopup : public QDialog{
+public:
+    QCheckBox* checkOption;
+    QComboBox* comboOption;
+    QLineEdit* lineOption;
+    QTextEdit* multiOption;
+    QListWidget* listOption;
+    std::vector<QLineEdit*> boxList;
+
+    void addBlankItem();
 };
 
 class ProgWindow : public QMainWindow
@@ -129,6 +142,11 @@ public:
     void messageSuccess(QString message);
     void log(QString message);
 
+    static QDialog* makePopup(bool &finished);
+    static CustomPopup* makeSpecificPopup(bool &finished, QStringList addons, QStringList labels);
+    static QPoint screenCenter();
+    static void forceProcessEvents();
+
     void clearWindow();
     void clearFiles();
     void clearLog();
@@ -157,6 +175,8 @@ public:
     void loadBulkFile(theFile fileToOpen);
 
     int loadDatabases();
+    int createDefinitionFile();
+    int createDatabaseFile();
 
     template <typename theFile>
     void loadFile(theFile fileToOpen, QString givenPath = "");
