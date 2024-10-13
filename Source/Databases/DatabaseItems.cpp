@@ -10,6 +10,15 @@ ValueType dictItem::searchAttributes(QString itemName){
     return;
 }*/
 
+std::shared_ptr<taData> dictItem::getAttribute(QString attributeName){
+    for(int i = 0; i < attributes.size(); i++){
+        if(attributes[i]->name == attributeName){
+            return attributes[i];
+        }
+    }
+    return nullptr;
+}
+
 int dictItem::setAttribute(QString itemName, QString value){
     for(int i = 0; i < attributes.size(); i++){
         if(attributes[i]->name == itemName){
@@ -45,6 +54,8 @@ std::variant<QString, QVector3D, QQuaternion, int, float> taData::value(){
     }
     return -1;
 }
+
+
 
 std::shared_ptr<taData> DefinitionFile::createItem(QString itemType){
     if(itemType == "Bool"){
@@ -144,9 +155,14 @@ QString taData::backupDisplay(){
     return "";
 }
 
-QString taData::options(){
+QStringList taData::options(){
     //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid multi-option value";
-    return "";
+    return {""};
+}
+
+void taData::addOption(QString optionToAdd){
+    //qDebug() << Q_FUNC_INFO << "Item of this data type does not have a valid multi-option value";
+    return;
 }
 
 QString taData::stringValue(){
@@ -641,13 +657,10 @@ QQuaternion taDataQuaternion<valueType>::quatValue(){
 /*---------- taDataArray ----------*/
 
 template <class valueType>
-QString taDataArray<valueType>::options(){
-    QString displayValue;
+QStringList taDataArray<valueType>::options(){
+    QStringList displayValue;
     for(int i = 0; i < this->values.size(); i++){
-        if(i != 0){
-            displayValue += ", ";
-        }
-        displayValue += QVariant(values[i]).value<QString>();
+        displayValue.push_back(QVariant(values[i]).value<QString>());
     }
     //qDebug() << Q_FUNC_INFO << "generating display value for" << values << ":" << displayValue << ".";
     /*if(displayValue == ""){
@@ -713,6 +726,17 @@ void taDataIntArray<valueType>::write(QFile& file){
     }
 }
 
+template <class valueType>
+void taDataIntArray<valueType>::setValue(QString changedValue){
+    this->values.clear();
+    qDebug() << Q_FUNC_INFO << "Setting values to:" << changedValue;
+    QStringList valueList = changedValue.split(", ");
+    for(int i = 0; i < valueList.size(); i++){
+        qDebug() << Q_FUNC_INFO << "value" << valueList[i] << "being converted to" << valueList[i].toInt();
+        this->values.push_back(valueList[i].toInt());
+    }
+}
+
 /*---------- FloatArray ----------*/
 
 template <class valueType>
@@ -738,6 +762,15 @@ void taDataFloatArray<valueType>::write(QFile& file){
     for(int i = 0; i < this->values.size(); i++){
         QByteArray hexFloat = this->file->parent->binChanger.float_to_hex(this->values[i]);
         this->file->parent->binChanger.hexWrite(file, hexFloat);
+    }
+}
+
+template <class valueType>
+void taDataFloatArray<valueType>::setValue(QString changedValue){
+    this->values.clear();
+    QStringList valueList = changedValue.split(", ");
+    for(int i = 0; i < valueList.size(); i++){
+        this->values.push_back(valueList[i].toFloat());
     }
 }
 
@@ -778,6 +811,15 @@ std::shared_ptr<taData> taDataLinkArray<uint16_t>::clone(){
     return linkArrayItem;
 }
 
+template <class valueType>
+void taDataLinkArray<valueType>::setValue(QString changedValue){
+    this->values.clear();
+    QStringList valueList = changedValue.split(", ");
+    for(int i = 0; i < valueList.size(); i++){
+        this->values.push_back(valueList[i].toUInt());
+    }
+}
+
 /*---------- StringArray ----------*/
 
 template <>
@@ -813,6 +855,15 @@ void taDataStringArray<valueType>::write(QFile& file){
     for(int i = 0; i < this->values.size(); i++){
         this->file->parent->binChanger.intWrite(file, this->values[i].length());
         this->file->parent->binChanger.hexWrite(file, this->values[i].toUtf8());
+    }
+}
+
+template <class valueType>
+void taDataStringArray<valueType>::setValue(QString changedValue){
+    this->values.clear();
+    QStringList valueList = changedValue.split(", ");
+    for(int i = 0; i < valueList.size(); i++){
+        this->values.push_back(valueList[i]);
     }
 }
 
@@ -873,8 +924,12 @@ QString taDataVectorArray<valueType>::backupDisplay(){
 
 /*---------- Enum ----------*/
 
-QString taDataEnum::options(){
-    return valueOptions.join(", ");
+QStringList taDataEnum::options(){
+    return valueOptions;
+}
+
+void taDataEnum::addOption(QString optionToAdd){
+    valueOptions.push_back(optionToAdd);
 }
 
 QString taDataEnum::display(){
@@ -884,7 +939,11 @@ QString taDataEnum::display(){
 
 void taDataEnum::setValue(QString changedValue){
     this->isDefault = false;
-    this->defaultValue = changedValue.toInt();
+    if(valueOptions.contains(changedValue)){
+        this->defaultValue = valueOptions.indexOf(changedValue);
+    } else {
+        this->defaultValue = changedValue.toInt();
+    }
 }
 
 std::shared_ptr<taData> taDataEnum::clone(){
@@ -942,5 +1001,337 @@ void taDataEnum::write(QFile& file){
     this->file->parent->binChanger.intWrite(file, this->defaultValue);
 }
 
+std::shared_ptr<taData> dictItem::editAttributeValue(QString itemType, std::shared_ptr<taData> itemToEdit){
+    bool isDialogOpen = true;
+    CustomPopup* dialogGetValue = nullptr;
+
+    QStringList listWindows = {"StringArray", "IntegerArray", "FloatArray", "LinkArray"};
+
+    if(itemType == "Bool"){
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"checkbox"}, {""});
+        dialogGetValue->checkOption->setText("Set value to true?");
+    } else if(itemType == "String"){
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"lineedit"}, {"Value:"});
+    } else if(itemType == "Float"){
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"lineedit"}, {"Value:"});
+        /*Need to find the actual maximum and minimum*/
+        QValidator *validator = new QDoubleValidator(-4000, 4000, 3, dialogGetValue);
+        dialogGetValue->lineOption->setValidator(validator);
+    } else if(itemType == "Quaternion"){
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"boxset", "4"}, {"x:", "y:", "z:", "scalar:"});
+        /*Need to find the actual maximum and minimum*/
+        QValidator *validator = new QDoubleValidator(-4000, 4000, 3, dialogGetValue);
+        for(int i = 0; i < dialogGetValue->boxList.size(); i++){
+            dialogGetValue->boxList[i]->setValidator(validator);
+        }
+    } else if(itemType == "Integer"){
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"lineedit"}, {"Value:"});
+        /*Need to find the actual maximum and minimum*/
+        QValidator *validator = new QIntValidator(-4000, 4000, dialogGetValue);
+        dialogGetValue->lineOption->setValidator(validator);
+    } else if(itemType == "Link" || itemType == "Flag"){
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"lineedit"}, {"Value:"});
+        QValidator *validator = new QIntValidator(0, 65535, dialogGetValue);
+        dialogGetValue->lineOption->setValidator(validator);
+    } /*else if(itemType == "Flag"){
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"lineedit"}, {"Value:"});
+        QValidator *validator = new QIntValidator(0, 65535, dialogGetValue);
+        dialogGetValue->lineOption->setValidator(validator);
+    }*/else if(itemType == "Point"){
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"boxset", "3"}, {"x:", "y:", "z:"});
+        /*Need to find the actual maximum and minimum*/
+        QValidator *validator = new QDoubleValidator(-4000, 4000, 3, dialogGetValue);
+        for(int i = 0; i < dialogGetValue->boxList.size(); i++){
+            dialogGetValue->boxList[i]->setValidator(validator);
+        }
+    } else if(itemType == "Enum"){
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"combobox"}, {"Value options"});
+        for(int i = 0; i < itemToEdit->options().size(); i++){
+            dialogGetValue->comboOption->addItem(itemToEdit->options()[i]);
+        }
+    } else if(listWindows.contains(itemType)){
+        //Array values will be unsupported on the initial update.
+        //need to look into the different options and see which one will be easiest for these
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"list"}, {itemType + " values:"});
+        CustomPopup::connect(dialogGetValue->listOption->itemDelegate(), &QAbstractItemDelegate::commitData, dialogGetValue, [dialogGetValue]() {
+            if(dialogGetValue->listOption->itemAt(0, dialogGetValue->listOption->count())->text() != ""){
+                dialogGetValue->addBlankItem();
+            }
+        });
+        dialogGetValue->addBlankItem();
+    } /*else if(itemType == "VectorArray"){
+    }*/ else if(itemType == "Color"){
+        //there is a color select dialog - implement this at some point
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"boxset", "4"}, {"r:", "g:", "b:", "a:"});
+        QValidator *validator = new QIntValidator(0, 255, dialogGetValue);
+        for(int i = 0; i < dialogGetValue->boxList.size(); i++){
+            dialogGetValue->boxList[i]->setValidator(validator);
+        }
+    } else {
+        qDebug() << Q_FUNC_INFO << "Data type" << itemType << "hasn't been implemented yet.";
+        return itemToEdit;
+    }
+
+    if(dialogGetValue == nullptr){
+        return nullptr;
+    }
+
+    dialogGetValue->setWindowTitle("Set Attribute Value");
+
+    qDebug() << Q_FUNC_INFO << "making window for item type:" << itemType;
+
+    dialogGetValue->open();
+    while(isDialogOpen){
+        ProgWindow::forceProcessEvents();
+    }
+    int resultDialog = dialogGetValue->result();
+
+    if(resultDialog == 0){
+        qDebug() << Q_FUNC_INFO << "Process cancelled.";
+        return itemToEdit;
+    }
+
+    if(itemType == "Bool"){
+        if(dialogGetValue->checkOption->checkState()){
+            itemToEdit->setValue("True");
+        } else {
+            itemToEdit->setValue("False");
+        }
+    } else if(itemType == "String"){
+        itemToEdit->setValue(dialogGetValue->lineOption->text());
+    } else if(itemType == "Float"){
+        itemToEdit->setValue(dialogGetValue->lineOption->text());
+    } else if(itemType == "Quaternion"){
+        QString finalValue;
+        finalValue = dialogGetValue->boxList[0]->text() + ", ";
+        finalValue += dialogGetValue->boxList[1]->text() + ", ";
+        finalValue += dialogGetValue->boxList[2]->text() + ", ";
+        finalValue += dialogGetValue->boxList[3]->text();
+        itemToEdit->setValue(finalValue);
+    } else if(itemType == "Integer"){
+        itemToEdit->setValue(dialogGetValue->lineOption->text());
+    } else if(itemType == "Link"){
+        itemToEdit->setValue(dialogGetValue->lineOption->text());
+    } else if(itemType == "Flag"){
+        itemToEdit->setValue(dialogGetValue->lineOption->text());
+    } else if(itemType == "Point"){
+        QString finalValue;
+        finalValue = dialogGetValue->boxList[0]->text() + ", ";
+        finalValue += dialogGetValue->boxList[1]->text() + ", ";
+        finalValue += dialogGetValue->boxList[2]->text();
+        itemToEdit->setValue(finalValue);
+    } else if(itemType == "Enum"){
+        itemToEdit->setValue(dialogGetValue->comboOption->currentText());
+    } else if(itemType == "StringArray"){
+        QStringList finalValues;
+        for(int i = 0; i < dialogGetValue->listOption->count()-1; i++){
+            finalValues.push_back(dialogGetValue->listOption->item(i)->text());
+        }
+        itemToEdit->setValue(finalValues.join(", "));
+    } else if(itemType == "IntegerArray"){
+        QStringList finalValues;
+        for(int i = 0; i < dialogGetValue->listOption->count()-1; i++){
+            finalValues.push_back(dialogGetValue->listOption->item(i)->text());
+        }
+        itemToEdit->setValue(finalValues.join(", "));
+    } else if(itemType == "FloatArray"){
+        QStringList finalValues;
+        for(int i = 0; i < dialogGetValue->listOption->count()-1; i++){
+            finalValues.push_back(dialogGetValue->listOption->item(i)->text());
+        }
+        itemToEdit->setValue(finalValues.join(", "));
+    } else if(itemType == "VectorArray"){
+    } else if(itemType == "LinkArray"){
+        QStringList finalValues;
+        for(int i = 0; i < dialogGetValue->listOption->count()-1; i++){
+            finalValues.push_back(dialogGetValue->listOption->item(i)->text());
+        }
+        itemToEdit->setValue(finalValues.join(", "));
+    } else if(itemType == "Color"){
+        //there is a color select dialog - implement this at some point
+        QString finalValue;
+        finalValue = dialogGetValue->boxList[0]->text() + " ";
+        finalValue += dialogGetValue->boxList[1]->text() + " ";
+        finalValue += dialogGetValue->boxList[2]->text() + " ";
+        finalValue += dialogGetValue->boxList[3]->text();
+        itemToEdit->setValue(finalValue);
+    } else {
+        qDebug() << Q_FUNC_INFO << "Data type" << itemType << "hasn't been implemented yet.";
+        return itemToEdit;
+    }
+
+    return itemToEdit;
+}
+
+std::shared_ptr<taData> dictItem::editEnumDefinition(std::shared_ptr<taData> itemToEdit){
+    bool isDialogOpen = true;
+    CustomPopup* dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"combobox"}, {""});
+    dialogGetValue->setWindowTitle("Select edit type.");
+    QStringList editOptions = {"Change default value", "Add new value"};
+
+    for(int i = 0; i < editOptions.size(); i++){
+        dialogGetValue->comboOption->addItem(editOptions[i]);
+    }
+
+    dialogGetValue->open();
+    while(isDialogOpen){
+        ProgWindow::forceProcessEvents();
+    }
+    int resultDialog = dialogGetValue->result();
+
+    if(resultDialog == 0){
+        qDebug() << Q_FUNC_INFO << "Process cancelled.";
+        return itemToEdit;
+    }
+
+    int selectedEdit = editOptions.indexOf(dialogGetValue->comboOption->currentText());
+
+    switch(selectedEdit){
+    case 0: //change value
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"combobox"}, {"Value options:"});
+        for(int i = 0; i < itemToEdit->options().size(); i++){
+            dialogGetValue->comboOption->addItem(itemToEdit->options()[i]);
+        }
+        dialogGetValue->setWindowTitle("Select value");
+        break;
+    case 1: //add value
+        dialogGetValue = ProgWindow::makeSpecificPopup(isDialogOpen, {"lineedit"}, {"New value:"});
+        dialogGetValue->setWindowTitle("Add value");
+        break;
+    default: //unknown option
+        qDebug() << Q_FUNC_INFO << "Unknown option selected";
+        break;
+    }
 
 
+    isDialogOpen = true;
+    dialogGetValue->open();
+    while(isDialogOpen){
+        ProgWindow::forceProcessEvents();
+    }
+    resultDialog = dialogGetValue->result();
+
+    if(resultDialog == 0){
+        qDebug() << Q_FUNC_INFO << "Process cancelled.";
+        return itemToEdit;
+    }
+
+    switch(selectedEdit){
+    case 0: //change value
+        itemToEdit->setValue(dialogGetValue->comboOption->currentText());
+        itemToEdit->isDefault = true;
+        break;
+    case 1: //add value
+        itemToEdit->addOption(dialogGetValue->lineOption->text());
+        break;
+    default: //unknown option
+        qDebug() << Q_FUNC_INFO << "Unknown option selected";
+        break;
+    }
+
+    return itemToEdit;
+}
+
+int dictItem::addAttribute(QString itemType){
+    //make popup window with all options
+    /*for an attribute definition, we need:
+        type
+        "False"
+        Name
+        Value
+        Available values or range
+    */
+
+    /*easiest way to handle this is probably an initial popup that has all of the
+    available data types, then a second popup that's defined by the type chosen*/
+
+    //Those are all the ones we should need for now. The rest can be added later.
+    QStringList valueTypes = {"Cancel", "Enum", "Float", "Point", "String", "Bool"};
+
+    bool isDialogOpen = true;
+
+    CustomPopup* dialogCreateAttribute = ProgWindow::makeSpecificPopup(isDialogOpen, {"combobox", "lineedit"}, {"Attribute type:", "Attribute Name:"});
+    dialogCreateAttribute->setWindowTitle("Create New Attribute");
+
+    for(int i = 0; i < valueTypes.size(); i++){
+        dialogCreateAttribute->comboOption->insertItem(i, valueTypes[i]);
+    }
+
+    dialogCreateAttribute->open();
+    while(isDialogOpen){
+        ProgWindow::forceProcessEvents();
+    }
+    int resultDialog = dialogCreateAttribute->result();
+
+    if(resultDialog == 0 || dialogCreateAttribute->comboOption->currentIndex() == 0){
+        qDebug() << Q_FUNC_INFO << "Process cancelled.";
+        return 1;
+    }
+
+    itemType = dialogCreateAttribute->comboOption->currentText();
+
+    std::shared_ptr<taData> genericData = nullptr;
+
+    /*I hate needing this ifelse structure twice, but idk how else to handle it.*/
+    if(itemType == "Bool"){
+        std::shared_ptr<taDataBool<bool>> boolItem(new taDataBool<bool>);
+        genericData = boolItem;
+    } else if(itemType == "String"){
+        std::shared_ptr<taDataString<QString>> stringItem(new taDataString<QString>);
+        genericData = stringItem;
+    } else if(itemType == "Float"){
+        std::shared_ptr<taDataFloat<float>> floatItem(new taDataFloat<float>);
+        genericData = floatItem;
+    } else if(itemType == "Quaternion"){
+        std::shared_ptr<taDataQuaternion<QQuaternion>> quatItem(new taDataQuaternion<QQuaternion>);
+        genericData = quatItem;
+    } else if(itemType == "Integer"){
+        std::shared_ptr<taDataInteger<int>> intItem(new taDataInteger<int>);
+        genericData = intItem;
+    } else if(itemType == "Link"){
+        std::shared_ptr<taDataLink<uint16_t>> linkItem(new taDataLink<uint16_t>);
+        genericData = linkItem;
+    } else if(itemType == "Flag"){
+        std::shared_ptr<taDataFlag<int>> flagItem(new taDataFlag<int>);
+        genericData = flagItem;
+    } else if(itemType == "Point"){
+        std::shared_ptr<taDataPoint<QVector3D>> pointItem(new taDataPoint<QVector3D>);
+        genericData = pointItem;
+    } else if(itemType == "Enum"){
+        std::shared_ptr<taDataEnum> enumItem(new taDataEnum);
+        genericData = enumItem;
+    } else if(itemType == "StringArray"){
+        std::shared_ptr<taDataStringArray<QString>> stringArrayItem(new taDataStringArray<QString>);
+        genericData = stringArrayItem;
+    } else if(itemType == "IntegerArray"){
+        std::shared_ptr<taDataIntArray<int>> intArrayItem(new taDataIntArray<int>);
+        genericData = intArrayItem;
+    } else if(itemType == "FloatArray"){
+        std::shared_ptr<taDataFloatArray<float>> floatArrayItem(new taDataFloatArray<float>);
+        genericData = floatArrayItem;
+    } else if(itemType == "VectorArray"){
+        std::shared_ptr<taDataVectorArray<QVector3D>> vectorArrayItem(new taDataVectorArray<QVector3D>);
+        genericData = vectorArrayItem;
+    } else if(itemType == "LinkArray"){
+        std::shared_ptr<taDataLinkArray<uint16_t>> linkArrayItem(new taDataLinkArray<uint16_t>);
+        genericData = linkArrayItem;
+    } else if(itemType == "Color"){
+        std::shared_ptr<taDataColor<QColor>> colorItem(new taDataColor<QColor>);
+        //there is a color select dialog - implement this at some point
+        genericData = colorItem;
+    } else {
+        qDebug() << Q_FUNC_INFO << "Data type" << itemType << "hasn't been implemented yet.";
+        return 1;
+    }
+
+    genericData = editAttributeValue(itemType, genericData);
+
+    genericData->type = itemType;
+    genericData->name = dialogCreateAttribute->lineOption->text();
+
+    qDebug() << Q_FUNC_INFO << "data value set to:" << genericData->display();
+
+    attributes.push_back(genericData);
+
+    return 0;
+}

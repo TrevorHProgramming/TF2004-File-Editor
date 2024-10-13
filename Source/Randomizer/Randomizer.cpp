@@ -187,6 +187,7 @@ Randomizer::Randomizer(ProgWindow *parentPass){
 
     parent->centralContainer->setStyleSheet("QGroupBox{color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0);} "
                                             "QCheckBox{color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0);} "
+                                            "QLabel{color: rgb(255, 255, 255); background-color: rgba(255, 255, 255, 0);} "
                                             "QToolTip{color: rgb(0,0,0);}");
 
     QGroupBox *groupModOptions = new QGroupBox("Mod Options", parent->centralContainer);
@@ -205,7 +206,7 @@ Randomizer::Randomizer(ProgWindow *parentPass){
         QAbstractButton::connect(modCheck, &QCheckBox::stateChanged, parent, [i, modCheck, this] {modList[i].enabled = modCheck->isChecked();});
         modCheck->setToolTip(modList[i].description);
         modCheck->show();
-        parent->currentModeWidgets.push_back(modCheck);
+        //parent->currentModeWidgets.push_back(modCheck);
     }
 
     QGroupBox *groupLocations = new QGroupBox("Custom Locations", parent->centralContainer);
@@ -224,7 +225,7 @@ Randomizer::Randomizer(ProgWindow *parentPass){
         locationCheck->setToolTip(parent->dataHandler->customLocationList[i].description);
         locationCheck->toggle();
         locationCheck->show();
-        parent->currentModeWidgets.push_back(locationCheck);
+        //parent->currentModeWidgets.push_back(locationCheck);
     }
 
 
@@ -1146,7 +1147,7 @@ creature database files, not the metagame database. These will currently
 never find the powercost and team attributes*/
 void Randomizer::randomizeTeamColors(){
     int teamIndex = 0;
-    int shuffleValue = 0;
+    uint shuffleValue = 0;
     std::vector<int> teamList;
     if(randSettings.balancedTeams){
         for(int i = 0; i <parent->dataHandler->miniconList.size(); i++){
@@ -1168,6 +1169,7 @@ void Randomizer::randomizeTeamColors(){
         } else {
             /*Otherwise, assign a random team value with no regard to team count.*/
             shuffleValue = placemaster.generate();
+            qDebug() << Q_FUNC_INFO << "setting team value to" << shuffleValue%5 << "from" << shuffleValue;
             parent->dataHandler->miniconList[i].setAttribute("Team", QString::number(shuffleValue%5));
         }
     }
@@ -1176,7 +1178,7 @@ void Randomizer::randomizeTeamColors(){
 
 void Randomizer::randomizePowers(){
     int powerLevel = 0;
-    int shuffleValue = 0;
+    uint shuffleValue = 0;
     for(int i = 0; i <parent->dataHandler->miniconList.size(); i++){
         shuffleValue = placemaster.generate();
         powerLevel = parent->dataHandler->miniconList[i].searchAttributes<int>("PowerCost");
@@ -1213,7 +1215,8 @@ void Randomizer::randomizePowers(){
                 break;
             }
         } else {
-            /*Otherwise, assign a random team value with no regard to team count.*/
+            /*Otherwise, assign a random power cost value with no regard to original value.*/
+            qDebug() << Q_FUNC_INFO << "setting power value to" << (shuffleValue%5)*10 << "from" << shuffleValue;
             parent->dataHandler->miniconList[i].setAttribute("PowerCost", QString::number((shuffleValue%5)*10));
         }
     }

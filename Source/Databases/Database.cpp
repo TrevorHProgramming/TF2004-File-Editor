@@ -1,3 +1,4 @@
+
 #include "Headers/Main/mainwindow.h"
 
 /*Reads through a dictionary file to populate data. This data can be edited
@@ -85,34 +86,11 @@ void DictionaryFile::load(QString fromType){
 void DefinitionFile::updateCenter(){
     qDebug() << Q_FUNC_INFO << "updating center view for file" << fileName << "." << fileExtension;
     createDBTree();
-
-    QPushButton* ButtonEditDB = new QPushButton("Edit Enum Data", parent->centralContainer);
-    ButtonEditDB->setGeometry(QRect(QPoint(50,320), QSize(150,30)));
-    QAbstractButton::connect(ButtonEditDB, &QPushButton::released, parent, [this]{updateEnum();});
-    ButtonEditDB->show();
-    parent->currentModeWidgets.push_back(ButtonEditDB);
-    //I don't think this button is really that useful on definition files
-    //it requires the same item to be removed from all database files
-    /*ButtonRemoveItem = new QPushButton("Remove item", this);
-    ButtonRemoveItem->setGeometry(QRect(QPoint(50,370), QSize(150,30)));
-    connect(ButtonRemoveItem, &QPushButton::released, this, [this]{removeDatabaseItem(testView->currentIndex(), testView->currentIndex().row());});
-    ButtonRemoveItem->show();*/
-//    QPushButton* ButtonRemoveClass = new QPushButton("Remove class", parent->centralContainer);
-//    ButtonRemoveClass->setGeometry(QRect(QPoint(50,420), QSize(150,30)));
-//    QAbstractButton::connect(ButtonRemoveClass, &QPushButton::released, parent, [this]{removeTreeClass(dataTree->currentIndex());});
-//    ButtonRemoveClass->show();
-//    parent->currentModeWidgets.push_back(ButtonRemoveClass);
 }
 
 void DatabaseFile::updateCenter(){
     qDebug() << Q_FUNC_INFO << "updating center view for file" << fileName << "." << fileExtension;
     createDBTree();
-
-    QPushButton* ButtonEditDB = new QPushButton("Edit Enum Data", parent->centralContainer);
-    ButtonEditDB->setGeometry(QRect(QPoint(50,320), QSize(150,30)));
-    //QAbstractButton::connect(ButtonEditDB, &QPushButton::released, parent, [this]{editTreeItem(dataTree->currentIndex(), dataTree->currentIndex().row());});
-    ButtonEditDB->show();
-    parent->currentModeWidgets.push_back(ButtonEditDB);
 
     QPushButton* ButtonFilterTree = new QPushButton("Filter Instances", parent->centralContainer);
     ButtonFilterTree->setGeometry(QRect(QPoint(50,370), QSize(150,30)));
@@ -120,18 +98,6 @@ void DatabaseFile::updateCenter(){
     ButtonFilterTree->show();
     parent->currentModeWidgets.push_back(ButtonFilterTree);
 
-    //maybe useful for databases but needs to be rewritten - an item removed from
-    //fileDictionary needs to be removed from all instances. an item removed
-    //from an instance should just be set to default
-    /*ButtonRemoveItem = new QPushButton("Remove item", this);
-    ButtonRemoveItem->setGeometry(QRect(QPoint(50,370), QSize(150,30)));
-    connect(ButtonRemoveItem, &QPushButton::released, this, [this]{removeDatabaseItem(testView->currentIndex(), testView->currentIndex().row());});
-    ButtonRemoveItem->show();*/
-    QPushButton* ButtonRemoveInstance = new QPushButton("Remove instance", parent->centralContainer);
-    ButtonRemoveInstance->setGeometry(QRect(QPoint(50,420), QSize(150,30)));
-    QAbstractButton::connect(ButtonRemoveInstance, &QPushButton::released, parent, [this]{removeTreeInstance(dataTree->currentIndex());});
-    ButtonRemoveInstance->show();
-    parent->currentModeWidgets.push_back(ButtonRemoveInstance);
 }
 
 void DefinitionFile::createDBTree(){
@@ -139,10 +105,11 @@ void DefinitionFile::createDBTree(){
     dataTree = new QTreeView(parent->centralContainer);
     dataModel = new QStandardItemModel;
 
-    dataTree->setGeometry(QRect(QPoint(250,50), QSize(1000,900)));
+    dataTree->setGeometry(QRect(QPoint(250,50), QSize(1000,750)));
     QStandardItem *item = dataModel->invisibleRootItem();
     QList<QStandardItem *> dictRow;
     QStandardItem *classRow;
+    QStandardItem *headerItem;
     QList<QStandardItem *> details;
     QStandardItemModel model2;
 
@@ -150,8 +117,16 @@ void DefinitionFile::createDBTree(){
     //item->appendRow(dictRow);
 
     //append items to matching dictrow
-
-    dictRow = {new QStandardItem(fileName), new QStandardItem("Type"), new QStandardItem("Value"), new QStandardItem("Value List"), new QStandardItem("Comment")};
+    /*These need to be split up if we want them to be uneditable*/
+    QStringList columnHeaders = {"Type","Value","Value List","Comment"};
+    headerItem = new QStandardItem(fileName);
+    headerItem->setEditable(false);
+    dictRow.push_back(headerItem);
+    for(int i = 0; i < columnHeaders.size(); i++){
+        headerItem = new QStandardItem(columnHeaders[i]);
+        headerItem->setEditable(false);
+        dictRow.push_back(headerItem);
+    }
     item->appendRow(dictRow);
 
     //add columns "name", "type", "value", "allowed values"
@@ -159,11 +134,16 @@ void DefinitionFile::createDBTree(){
     for (int i = 0; i < dictionary.size();i++) {
         //qDebug() << Q_FUNC_INFO << "creating class row from" << dictionary[i].name;
         classRow = new QStandardItem(dictionary[i].name);
+        classRow->setEditable(false);
         dictRow.first()->appendRow(classRow);
         for(int j = 0; j<dictionary[i].attributes.size();j++){
             //qDebug() << Q_FUNC_INFO << "creating detail row from" << dictionary[i].attributes[j]->name;
+            /*These need to be split up if we want them to be uneditable*/
             details = {new QStandardItem(dictionary[i].attributes[j]->name),new QStandardItem(dictionary[i].attributes[j]->type),
-                       new QStandardItem(dictionary[i].attributes[j]->display()), new QStandardItem(dictionary[i].attributes[j]->options()), new QStandardItem(dictionary[i].attributes[j]->comment)};
+                       new QStandardItem(dictionary[i].attributes[j]->display()), new QStandardItem(dictionary[i].attributes[j]->options().join(", ")), new QStandardItem(dictionary[i].attributes[j]->comment)};
+            for(int k = 0; k < details.size(); k++){
+                details[k]->setEditable(false);
+            }
             classRow->appendRow(details);
         }
     }
@@ -173,45 +153,8 @@ void DefinitionFile::createDBTree(){
     dataTree->expand(dataTree->model()->index(0, 0));
     dataTree->show();
     dataTree->resizeColumnToContents(0);
-    QAbstractButton::connect(dataModel, &QStandardItemModel::dataChanged, parent, [this](QModelIndex topLeft, QModelIndex bottomRight){updateValue(topLeft, bottomRight);});
+    QAbstractButton::connect(dataTree, &QAbstractItemView::doubleClicked, parent, [this](QModelIndex selected){editRow(selected);});
     parent->currentModeWidgets.push_back(dataTree);
-}
-
-void DefinitionFile::updateValue(QModelIndex topLeft, QModelIndex bottomRight){
-    QString attributeName = topLeft.siblingAtColumn(0).data().toString();
-    QString attributeType = topLeft.siblingAtColumn(1).data().toString();
-    QString itemName = topLeft.parent().data().toString();
-    QString changedValue = topLeft.data().toString();
-
-    if(attributeType == "Enum"){
-        qDebug() << Q_FUNC_INFO << "resetting enum value";
-        for(int i = 0; i < dictionary.size(); i++){
-            if(dictionary[i].name == itemName){
-                for(int j = 0; j < dictionary[i].attributes.size(); j++){
-                    if(attributeName == dictionary[i].attributes[j]->name){
-                        if(changedValue != dictionary[i].attributes[j]->display() and changedValue != dictionary[i].attributes[j]->options()){
-                            //have to make sure the values don't match or this will get in an infinite loop.
-                            parent->log("Cannot set Enum value through table - please use the \"Edit Enum Data\" button.");
-                            dataModel->setData(topLeft.siblingAtColumn(2), dictionary[i].attributes[j]->display());
-                            dataModel->setData(topLeft.siblingAtColumn(3), dictionary[i].attributes[j]->options());
-                            //topLeft.data().setValue(dictionary[i].attributes[j]->display());
-                        }
-                    }
-                }
-            }
-        }
-        return;
-    }
-
-    for(int i = 0; i < dictionary.size(); i++){
-        if(dictionary[i].name == itemName){
-            for(int j = 0; j < dictionary[i].attributes.size(); j++){
-                if(attributeName == dictionary[i].attributes[j]->name){
-                    dictionary[i].attributes[j]->setValue(changedValue);
-                }
-            }
-        }
-    }
 }
 
 int DatabaseFile::addInstance(dictItem itemToAdd){
@@ -295,7 +238,7 @@ void DatabaseFile::filterInstances(){
             instanceHeader.first()->appendRow(instanceRow);
             for(int j = 0; j<instances[i].attributes.size();j++){
                 details = {new QStandardItem(instances[i].attributes[j]->name),new QStandardItem(instances[i].attributes[j]->type),
-                           new QStandardItem(instances[i].attributes[j]->display()), new QStandardItem(instances[i].attributes[j]->options())
+                           new QStandardItem(instances[i].attributes[j]->display()), new QStandardItem(instances[i].attributes[j]->options().join(", "))
                            , new QStandardItem(instances[i].attributes[j]->comment)};
                 instanceRow.first()->appendRow(details);
             }
@@ -305,150 +248,39 @@ void DatabaseFile::filterInstances(){
     dataTree->resizeColumnToContents(0);
 }
 
-/*Function to set enum values:
-Definition files:
-    option 1: change default value
-    option 2: add value to list
-    option 3: edit/replace value in list
-        (not useful yet, will likely break the game if used. write but comment out for now)
-
-Database files:
-    option 1: set to default value
-    option 2: change to another value option*/
-
-void DefinitionFile::updateEnum(){
-    QModelIndex selectedItem = dataTree->currentIndex();
-    QString attributeName = selectedItem.siblingAtColumn(0).data().toString();
-    QString attributeType = selectedItem.siblingAtColumn(1).data().toString();
-    QString itemName = selectedItem.parent().data().toString();
-    taDataEnum* targetEnum;
-    if(attributeType != "Enum"){
-        parent->log("Can't edit non-enum value this way. " + QString(Q_FUNC_INFO));
-        return;
+QList<QStandardItem *> DatabaseFile::createFileDictionaryRow(std::shared_ptr<taData> dataRow){
+    QList<QStandardItem *> details;
+    details = {new QStandardItem(dataRow->name),new QStandardItem(dataRow->type),
+               new QStandardItem(dataRow->display()), new QStandardItem(dataRow->options().join(", "))
+               , new QStandardItem(dataRow->comment)};
+    for(int k = 0; k < details.size(); k++){
+        details[k]->setEditable(false);
     }
-    for(int i = 0; i < dictionary.size(); i++){
-        if(dictionary[i].name == itemName){
-            for(int j = 0; j < dictionary[i].attributes.size(); j++){
-                if(attributeName == dictionary[i].attributes[j]->name){
-                    targetEnum = dictionary[i].attributes[j]->cloneEnum();
-                }
-            }
-        }
-    }
-    QStringList editOptions = {"Change default value", "Add value option", "Edit existing value"};
-    QString userChoiceString = QInputDialog::getItem(parent, parent->tr("Enum Edit"), parent->tr("Select type of edit:")
-                                                     ,editOptions, 0, false);
-    //provide window with three options
-    int userChoice = editOptions.indexOf(userChoiceString);
-    switch (userChoice){
-        case 0: {
-            //prompt user to change default value
-            QString updatedDefault = QInputDialog::getItem(parent, parent->tr("Enum Default Change"), parent->tr("Select new default value:")
-                                                           ,targetEnum->valueOptions, targetEnum->defaultValue, false);
-            targetEnum->defaultValue = targetEnum->valueOptions.indexOf(updatedDefault);
-            break;
-        }
-
-        case 1: {
-            //prompt user to add a value
-            QString addedValue = QInputDialog::getText(parent, parent->tr("Add Enum Option"), parent->tr("Enter new value:"));
-            targetEnum->valueOptions.push_back(addedValue);
-            break;
-        }
-
-        case 2: {
-            //prompt user to select an existing value
-            QString valueToChange = QInputDialog::getItem(parent, parent->tr("Enum Option Change"), parent->tr("Select value to change:")
-                                                          ,targetEnum->valueOptions, targetEnum->defaultValue, false);
-            int indexToChange = targetEnum->valueOptions.indexOf(valueToChange);
-            //prompt user for new value
-            QString updatedValue = QInputDialog::getText(parent, parent->tr("Enum Option Change"), parent->tr("Enter new value:"));
-            targetEnum->valueOptions[indexToChange] = updatedValue;
-            break;
-        }
-
-        default:
-        parent->log("Could not edit enum value: userChoice = " + QString::number(userChoice) + ". " + QString(Q_FUNC_INFO));
-    }
-
-    dataModel->setData(selectedItem.siblingAtColumn(2), targetEnum->display());
-    dataModel->setData(selectedItem.siblingAtColumn(3), targetEnum->options());
-
-    //change value in table to match display value of updated enum
+    return details;
 }
 
-void DatabaseFile::updateValue(QModelIndex topLeft, QModelIndex bottomRight){
-    QString attributeName = topLeft.siblingAtColumn(0).data().toString();
-    QString attributeType = topLeft.siblingAtColumn(1).data().toString();
-    QString itemName = topLeft.parent().data().toString();
-    QString changedValue = topLeft.data().toString();
-    QString checkInstance = topLeft.parent().siblingAtColumn(1).data().toString();
-    int instanceID = 0;
-    bool isInstance = false;
-    if(checkInstance != ""){
-        isInstance = true;
-        instanceID = checkInstance.toInt();
-    }
-
-    if(isInstance){
-        if(attributeType == "Enum"){
-            qDebug() << Q_FUNC_INFO << "resetting enum value";
-            for(int i = 0; i < dictionary.size(); i++){
-                if(instances[i].name == itemName){
-                    for(int j = 0; j < instances[i].attributes.size(); j++){
-                        if(attributeName == instances[i].attributes[j]->name){
-                            if(changedValue != instances[i].attributes[j]->display() and changedValue != instances[i].attributes[j]->options()){
-                                //have to make sure the values don't match or this will get in an infinite loop.
-                                parent->log("Cannot set Enum value through table - please use the \"Edit Enum Data\" button.");
-                                dataModel->setData(topLeft.siblingAtColumn(2), instances[i].attributes[j]->display());
-                                dataModel->setData(topLeft.siblingAtColumn(3), dictionary[i].attributes[j]->options());
-                            }
-                        }
-                    }
-                }
-            }
-            return;
-        }
-        for(int i = 0; i < instances.size(); i++){
-            if(instances[i].instanceIndex == instanceID){
-                for(int j = 0; j < instances[i].attributes.size(); j++){
-                    if(attributeName == instances[i].attributes[j]->name){
-                        instances[i].attributes[j]->setValue(changedValue);
-                    }
-                }
-            }
-        }
+QList<QStandardItem *> DatabaseFile::createInstanceRow(std::shared_ptr<taData> dataRow){
+    QString lastColumnValue;
+    QString defaultString;
+    QList<QStandardItem *> details;
+    if(dataRow->isDefault){
+        defaultString = "Default";
     } else {
-        if(attributeType == "Enum"){
-            qDebug() << Q_FUNC_INFO << "resetting enum value";
-            for(int i = 0; i < dictionary.size(); i++){
-                if(dictionary[i].name == itemName){
-                    for(int j = 0; j < dictionary[i].attributes.size(); j++){
-                        if(attributeName == dictionary[i].attributes[j]->name){
-                            if(changedValue != dictionary[i].attributes[j]->display() and changedValue != dictionary[i].attributes[j]->options()){
-                                //have to make sure the values don't match or this will get in an infinite loop.
-                                parent->log("Cannot set Enum value through table - please use the \"Edit Enum Data\" button.");
-                                dataModel->setData(topLeft.siblingAtColumn(2), dictionary[i].attributes[j]->display());
-                                dataModel->setData(topLeft.siblingAtColumn(3), dictionary[i].attributes[j]->options());
-                                //topLeft.data().setValue(dictionary[i].attributes[j]->display());
-                            }
-                        }
-                    }
-                }
-            }
-            return;
-        }
-        for(int i = 0; i < dictionary.size(); i++){
-            if(dictionary[i].name == itemName){
-                for(int j = 0; j < dictionary[i].attributes.size(); j++){
-                    if(attributeName == dictionary[i].attributes[j]->name){
-                        dictionary[i].attributes[j]->setValue(changedValue);
-                    }
-                }
-            }
-        }
+        defaultString = "Not Default";
     }
-
+    if(dataRow->comment == ""){
+        lastColumnValue = defaultString;
+    } else {
+        defaultString + ", " + dataRow->comment;
+    }
+    //qDebug() << Q_FUNC_INFO << "generating detail line for instance:" <<instances[i].instanceIndex << "attribute" << j << instances[i].attributes[j]->name;
+    details = {new QStandardItem(dataRow->name),new QStandardItem(dataRow->type),
+               new QStandardItem(dataRow->display()), new QStandardItem(dataRow->options().join(", "))
+               , new QStandardItem(lastColumnValue)};
+    for(int k = 0; k < details.size(); k++){
+        details[k]->setEditable(false);
+    }
+    return details;
 }
 
 void DatabaseFile::createDBTree(){
@@ -459,9 +291,10 @@ void DatabaseFile::createDBTree(){
     QHeaderView *headers = dataTree->header();
     headers->setSectionsClickable(true);
 
-    dataTree->setGeometry(QRect(QPoint(250,50), QSize(1000,900)));
+    dataTree->setGeometry(QRect(QPoint(250,50), QSize(1000,750)));
     QStandardItem *item = dataModel->invisibleRootItem();
     QList<QStandardItem *> dictHeader;
+    QStandardItem *headerItem;
     QList<QStandardItem *> instanceHeader;
     QList<QStandardItem *> dictRow;
     QList<QStandardItem *> instanceRow;
@@ -473,36 +306,35 @@ void DatabaseFile::createDBTree(){
 
     //append items to matching dictrow
 
-    dictHeader = {new QStandardItem("File Dictionary"), new QStandardItem("Type"), new QStandardItem("Value"), new QStandardItem("Value List"), new QStandardItem("Default")};
+    QStringList dictionaryHeaders = {"File Dictionary","Type","Value","Value List","Default"};
+    for(int i = 0; i < dictionaryHeaders.size(); i++){
+        headerItem = new QStandardItem(dictionaryHeaders[i]);
+        headerItem->setEditable(false);
+        dictHeader.push_back(headerItem);
+    }
     item->appendRow(dictHeader);
-
-    //add columns "name", "type", "value", "allowed values"
 
     for (int i = 0; i < dictionary.size();i++) {
         dictRow = {new QStandardItem(dictionary[i].name)};
         dictHeader.first()->appendRow(dictRow);
         for(int j = 0; j<dictionary[i].attributes.size();j++){
-            details = {new QStandardItem(dictionary[i].attributes[j]->name),new QStandardItem(dictionary[i].attributes[j]->type),
-                       new QStandardItem(dictionary[i].attributes[j]->display()), new QStandardItem(dictionary[i].attributes[j]->options())
-                       , new QStandardItem(dictionary[i].attributes[j]->comment)};
-            dictRow.first()->appendRow(details);
+            dictRow.first()->appendRow(createFileDictionaryRow(dictionary[i].attributes[j]));
         }
     }
 
-    instanceHeader = {new QStandardItem("Instances"), new QStandardItem("Type"), new QStandardItem("Value"), new QStandardItem("Value List"), new QStandardItem("Default")};
+    QStringList instanceHeaders = {"Instances","Type","Value","Value List","Default"};
+    for(int i = 0; i < instanceHeaders.size(); i++){
+        headerItem = new QStandardItem(instanceHeaders[i]);
+        headerItem->setEditable(false);
+        instanceHeader.push_back(headerItem);
+    }
     item->appendRow(instanceHeader);
-
-    //add columns "name", "type", "value", "allowed values"
 
     for (int i = 0; i < instances.size();i++) {
         instanceRow = {new QStandardItem(instances[i].name), new QStandardItem(QString::number(instances[i].instanceIndex))};
         instanceHeader.first()->appendRow(instanceRow);
         for(int j = 0; j<instances[i].attributes.size();j++){
-            //qDebug() << Q_FUNC_INFO << "generating detail line for instance:" <<instances[i].instanceIndex << "attribute" << j << instances[i].attributes[j]->name;
-            details = {new QStandardItem(instances[i].attributes[j]->name),new QStandardItem(instances[i].attributes[j]->type),
-                       new QStandardItem(instances[i].attributes[j]->display()), new QStandardItem(instances[i].attributes[j]->options())
-                       , new QStandardItem(instances[i].attributes[j]->comment)};
-            instanceRow.first()->appendRow(details);
+            instanceRow.first()->appendRow(createInstanceRow(instances[i].attributes[j]));
         }
     }
 
@@ -513,7 +345,7 @@ void DatabaseFile::createDBTree(){
     dataTree->expand(dataTree->model()->index(0, 0));
     dataTree->show();
     dataTree->resizeColumnToContents(0);
-    QAbstractButton::connect(dataModel, &QStandardItemModel::dataChanged, parent, [this](QModelIndex topLeft, QModelIndex bottomRight){updateValue(topLeft, bottomRight);});
+    QAbstractButton::connect(dataTree, &QAbstractItemView::doubleClicked, parent, [this](QModelIndex selected){editRow(selected);});
     parent->currentModeWidgets.push_back(dataTree);
 }
 
@@ -1170,7 +1002,7 @@ int DatabaseFile::readInstances(){
         sectionEnd = false;
         fileData->textSignature(&signature);
         instances[sectionIndex].name = signature.type;
-        //qDebug() << Q_FUNC_INFO << "reading class" << instances[sectionIndex].name;
+        qDebug() << Q_FUNC_INFO << "reading class" << instances[sectionIndex].name;
         for(int i = 0; i < dictionary.size(); i++){
             //qDebug() << Q_FUNC_INFO << "comparing class" << i << dictionary[i].name << "to inherited class" << signature.type;
             if(dictionary[i].name == signature.type){
@@ -1191,8 +1023,8 @@ int DatabaseFile::readInstances(){
             }
         }
         for(int j = 0; j < instances[sectionIndex].attributes.size(); j++){
-            //qDebug() << Q_FUNC_INFO << "class" << sectionIndex << instances[sectionIndex].name << "item" << j << "is" << instances[sectionIndex].attributes[j]->index
-            //       << instances[sectionIndex].attributes[j]->type << instances[sectionIndex].attributes[j]->name;
+            qDebug() << Q_FUNC_INFO << "class" << sectionIndex << instances[sectionIndex].name << "item" << j << "is" << instances[sectionIndex].attributes[j]->index
+                   << instances[sectionIndex].attributes[j]->type << instances[sectionIndex].attributes[j]->name;
         }
         fileData->nextLine();
         fileData->skipLine();
@@ -1212,7 +1044,7 @@ int DatabaseFile::readInstances(){
                 fileData->currentPosition += 6;
                 //qDebug() << Q_FUNC_INFO << "Reading object ID at" << fileData->currentPosition;
                 instances[sectionIndex].instanceIndex = fileData->textWord().toInt();
-                //qDebug() << Q_FUNC_INFO << "setting object ID to" << instances[sectionIndex].instanceIndex;
+                qDebug() << Q_FUNC_INFO << "setting instance index to" << instances[sectionIndex].instanceIndex;
                 fileData->nextLine();
                 continue;
             }
@@ -1248,8 +1080,8 @@ int DatabaseFile::readInstances(){
                 isPickup = false;
             }*/
             fileData->nextLine();
-            //qDebug() << Q_FUNC_INFO << "Data read as:" << instances[sectionIndex].attributes[itemIndex]->type << instances[sectionIndex].attributes[itemIndex]->name
-            //         << instances[sectionIndex].attributes[itemIndex]->active << instances[sectionIndex].attributes[itemIndex]->display() << instances[sectionIndex].attributes[itemIndex]->comment;
+            qDebug() << Q_FUNC_INFO << "Data read as:" << instances[sectionIndex].attributes[itemIndex]->type << instances[sectionIndex].attributes[itemIndex]->name
+                     << instances[sectionIndex].attributes[itemIndex]->active << instances[sectionIndex].attributes[itemIndex]->display() << instances[sectionIndex].attributes[itemIndex]->comment;
 
             itemIndex++;
         }
@@ -1684,14 +1516,6 @@ void DatabaseFile::acceptVisitor(ProgWindow& visitor){
     visitor.visit(*this);
 }
 
-/*std::vector<Warpgate> DatabaseFile::sendWarpgates(){
-    return warpgates;
-}
-
-std::vector<Pickup> DatabaseFile::sendPickups(){
-    return pickups;
-}*/
-
 std::vector<dictItem> DatabaseFile::sendInstances(QString instanceType){
     std::vector<dictItem> itemList;
     for(int i = 0; i < instances.size(); i++){
@@ -1723,4 +1547,455 @@ std::vector<std::shared_ptr<taData>> DatabaseFile::generateAttributes(QString cl
     }
     qDebug() << Q_FUNC_INFO << "generated attributes:" << generatedAttributes.size();
     return generatedAttributes;
+}
+
+int DefinitionFile::createClass(){
+    /*for a class definition, we need:
+        Name
+        Name of inherited class, if applicable
+        List of attributes*/
+
+    dictItem customClass;
+    bool isDialogOpen = true;
+
+    QStringList neededItems = {"lineedit", "combobox"};
+    CustomPopup* dialogCreateClass = parent->makeSpecificPopup(isDialogOpen, neededItems, {"Class Name:", "Inherited Class:"});
+    dialogCreateClass->setWindowTitle("Create Database Definition");
+
+    QLineEdit::connect(dialogCreateClass->lineOption, &QLineEdit::textEdited, [=, &customClass](QString text){customClass.name = text;});
+
+    /*to avoid making a for loop starting on 1,
+    test if inserting at 0 after the loop works intuitively*/
+    dialogCreateClass->comboOption->insertItem(0, "No Inheritance");
+    for(int i = 1; i <= dictionary.size(); i++){
+        dialogCreateClass->comboOption->insertItem(i, dictionary[i-1].name);
+    }
+
+
+    int resultDialog = 0;
+    QComboBox::connect(dialogCreateClass->comboOption, &QComboBox::currentIndexChanged, [=, &customClass](int index)
+    {
+        if(index>0){
+            customClass.copiedClass = dictionary[index-1].name;
+            customClass.inheritedDictionaryIndex = index-1;
+        } else {
+            customClass.copiedClass = "";
+            customClass.inheritedDictionaryIndex = 0;
+        }
+    });
+
+    dialogCreateClass->open();
+    while(isDialogOpen){
+        parent->forceProcessEvents();
+    }
+    resultDialog = dialogCreateClass->result();
+
+    if(resultDialog == 0){
+        qDebug() << Q_FUNC_INFO << "Process cancelled.";
+        return 1;
+    }
+
+    if(customClass.copiedClass != ""){
+        for(int i = 0; i < dictionary.size(); i++){
+            if(dictionary[i].name == inheritedClassName){
+                customClass.attributes = dictionary[i].attributes;
+            }
+        }
+    }
+
+    /*then we can repeat with the attributes - yay*/
+    dictionary.push_back(customClass);
+    updateCenter();
+
+    return 0;
+}
+
+int DatabaseFile::createInstance(){
+    /*Propts the user to select a class, then adds a default instance of that class to the instance list. The values can be edited as needed with the DatabaseFile::editAttribute function*/
+    dictItem addedInstance;
+    bool isDialogOpen = true;
+
+    /*The "makePopup" function can probably be expanded into its own class
+    needed interactions:
+        checkbox for boolean input. Should only need one
+        line edit for names. should only need one
+        combo box for selection from a list. should only need one?
+        multi line edit for enum options. definitely only need one.*/
+    QDialog* dialogAddInstance = parent->makePopup(isDialogOpen);
+    dialogAddInstance->setWindowTitle("Chose Class of Item to Add");
+
+    QComboBox* comboInstanceOptions = new QComboBox(dialogAddInstance);
+    comboInstanceOptions->setGeometry(QRect(QPoint(20, 60), QSize(150,30)));
+    for(int i = 1; i <= dictionary.size(); i++){
+        comboInstanceOptions->insertItem(i, dictionary[i].name);
+    }
+
+    int selectedItem = 0;
+    QComboBox::connect(comboInstanceOptions, &QComboBox::currentIndexChanged, [=, &selectedItem](int index){selectedItem = index;});
+
+    dialogAddInstance->open();
+    while(isDialogOpen){
+        parent->forceProcessEvents();
+    }
+    int resultDialog = dialogAddInstance->result();
+
+    if(resultDialog == 0){
+        qDebug() << Q_FUNC_INFO << "Process cancelled.";
+        return 1;
+    }
+
+    addedInstance.name = dictionary[selectedItem].name;
+    addedInstance.copiedClass = dictionary[selectedItem].copiedClass;
+    addedInstance.prototype = dictionary[selectedItem].prototype;
+    addedInstance.position = dictionary[selectedItem].position;
+    addedInstance.orientation = dictionary[selectedItem].orientation;
+    for(int j = 0; j < dictionary[selectedItem].attributes.size(); j++){
+        std::shared_ptr<taData> dictionaryCopy = dictionary[selectedItem].attributes[j]->clone();
+        dictionaryCopy->file = this; //have to replace the file attribute when copying from dictionary to filedictionary
+        if(dictionaryCopy == nullptr){
+            dictionaryCopy = dictionary[selectedItem].attributes[j];
+        }
+        addedInstance.attributes.push_back(dictionaryCopy);
+    }
+    addedInstance.instanceIndex = maxInstances + 1;
+
+    instances.push_back(addedInstance);
+    return 0;
+}
+
+dictItem* DictionaryFile::getDictionaryItem(QString itemName){
+    for(int i = 0; i < dictionary.size(); i++){
+        if(dictionary[i].name == itemName){
+            return &dictionary[i];
+        }
+    }
+    return nullptr;
+}
+
+dictItem* DatabaseFile::getInstance(QString itemName){
+    for(int i = 0; i < instances.size(); i++){
+        if(instances[i].name == itemName){
+            return &instances[i];
+        }
+    }
+    return nullptr;
+}
+
+dictItem* DatabaseFile::getInstance(int instanceID){
+    for(int i = 0; i < instances.size(); i++){
+        if(instances[i].instanceIndex == instanceID){
+            return &instances[i];
+        }
+    }
+    return nullptr;
+}
+
+void DefinitionFile::editRow(QModelIndex selected){
+    QString firstColumn = selected.siblingAtColumn(0).data().toString();
+    QString secondColumn = selected.siblingAtColumn(1).data().toString();
+    QString parentName = selected.parent().data().toString();
+    qDebug() << Q_FUNC_INFO << "selection column 0:" << firstColumn << "column 1" << secondColumn << "parent name" << parentName;
+    //if parentName == "", user selected the file header. prompt to add a class.
+    //if parentName == file name, user selected a class. for definition files, provide an option to add a new attribute
+    //if parentName == a class (or secondColumn != ""), user selected an attribute. for definition files, provide all attribute editing options
+    if(parentName == ""){
+        /*User selected the file header row. Prompt to add a new class.*/
+        createClass();
+    } else if(parentName == fileName){
+        /*User selected a class header. Prompt to add a new attribute to that class.*/
+        for(int i = 0; i < dictionary.size(); i++){
+            if(dictionary[i].name == firstColumn){
+                while(!dictionary[i].addAttribute()){
+
+                }
+            }
+        }
+    } else if(secondColumn != ""){
+        /*User selected an attribute. Prompt to edit that attribute's properties.
+        if the attribute is an enum, the user can add new options since this is a definition file*/
+        int selectedClassIndex = 0;
+        for(int i = 0; i < dictionary.size(); i++){
+            if(parentName == dictionary[i].name){
+                selectedClassIndex = i;
+            }
+        }
+        for(int i = 0; i < dictionary[selectedClassIndex].attributes.size(); i++){
+            std::shared_ptr<taData> editedData = nullptr;
+            if(secondColumn == "Enum" && firstColumn == dictionary[selectedClassIndex].attributes[i]->name){
+                editedData = dictItem::editEnumDefinition(dictionary[selectedClassIndex].attributes[i]);
+                if(editedData == nullptr){
+                    /*this one should never happen - editEnumDefinition always returns the fed item on failure*/
+                    parent->log("Type " + secondColumn + " is not currently supported by the database edit system.");
+                    return;
+                }
+                dictionary[selectedClassIndex].attributes[i] = editedData;
+            } else if(firstColumn == dictionary[selectedClassIndex].attributes[i]->name){
+                editedData = dictItem::editAttributeValue(secondColumn, dictionary[selectedClassIndex].attributes[i]);
+                if(editedData == nullptr){
+                    parent->log("Type " + secondColumn + " is not currently supported by the database edit system.");
+                    return;
+                }
+                dictionary[selectedClassIndex].attributes[i] = editedData;
+            }
+        }
+    }
+
+    //change this to just update the selected row - updating center minimizes all
+    updateCenter();
+
+}
+
+void DatabaseFile::editRow(QModelIndex selected){
+    QString firstColumn = selected.siblingAtColumn(0).data().toString();
+    QString secondColumn = selected.siblingAtColumn(1).data().toString();
+    QString parentName = selected.parent().data().toString();
+    qDebug() << Q_FUNC_INFO << "selection column 0:" << firstColumn << "column 1" << secondColumn << "parent name" << parentName;
+    /*if parentName == "" and firstColumn == "File Dictionary",
+    */
+
+    if(parentName == "" and firstColumn == "File Dictionary"){
+        //user selected the file dictionary. provide an option to pull another class from the definition.
+        addFileDictionaryClass();
+    } else if(parentName == "" and firstColumn == "Instances"){
+        //user selected the instance list. provide an option to add a new instance of an item.
+        addNewInstance();
+    } else if(parentName == "File Dictionary"){
+        //user selected a class. for database files, provide an option to pull another attribute from the definition file
+        addFileDictionaryAttributes(firstColumn);
+    } else if(parentName == "Instances"){
+        //user selected an instance of an item. provide an option to copy or delete that instance
+        copyOrDeleteInstance(secondColumn.toInt());
+    } else if(parentName != ""){
+        //by process of elimination, we know the user selected an attribute. What we do now depends on where that attribute is
+        if(selected.parent().parent().data().toString() == "Instances"){
+            int selectedInstanceID = selected.parent().siblingAtColumn(1).data().toInt();
+            //user is editing an instance. We can edit the value of this one
+            editAttributeValue(selectedInstanceID, parentName, firstColumn);
+        }
+        if(selected.parent().parent().data().toString() == "File Dictionary"){
+            //user wants to edit the file dictionary. Can't do that, should edit the definition file directly.
+            parent->messageError("The attributes in the File Dictionary cannot be edited from the Database file. Edit these from the related Definition file instead.");
+        }
+    }
+
+    //change this to just update the selected row - updating center minimizes all
+    updateCenter();
+}
+
+void DatabaseFile::copyOrDeleteInstance(int instanceID){
+    bool isDialogOpen = true;
+    CustomPopup* dialogCopyDelete = ProgWindow::makeSpecificPopup(isDialogOpen, {"combobox"}, {""});
+
+    dialogCopyDelete->comboOption->addItem("Create copy");
+    dialogCopyDelete->comboOption->addItem("Delete instance");
+
+    dialogCopyDelete->open();
+    while(isDialogOpen){
+        ProgWindow::forceProcessEvents();
+    }
+    int resultDialog = dialogCopyDelete->result();
+
+    if(resultDialog == 0){
+        qDebug() << Q_FUNC_INFO << "Process cancelled.";
+        return;
+    }
+
+    int userSelection = dialogCopyDelete->comboOption->currentIndex();
+    switch(userSelection){
+        case 0: //make a copy
+            copyInstance(instanceID);
+            break;
+        case 1: //User chose to delete
+            removeInstance(instanceID);
+            break;
+        case 2: //user chose to change instance type
+            //not implemented yet but could be useful
+            break;
+        default:
+            qDebug() << Q_FUNC_INFO << "Unexpected selection value - how did you even do this?";
+            break;
+    }
+
+}
+
+void DatabaseFile::copyInstance(int instanceID){
+    dictItem* instanceToCopy = getInstance(instanceID);
+    maxInstances++;
+    int nextInstanceID = instances.size();
+    instances.resize(instances.size()+1);
+    instances[nextInstanceID].instanceIndex = nextInstanceID;
+    instances[nextInstanceID].name = instanceToCopy->name;
+    for(int i = 0; i < instanceToCopy->attributes.size(); i++){
+        instances[nextInstanceID].attributes.push_back(instanceToCopy->attributes[i]->clone());
+    }
+}
+
+void DatabaseFile::editAttributeValue(int selectedInstanceID, QString instanceName, QString attributeName){
+    /*Should do two popups - one asks if the value will as for default/change, the other edits the value if change is chosen*/
+    bool isDialogOpen = true;
+    CustomPopup* dialogGetDefault = ProgWindow::makeSpecificPopup(isDialogOpen, {"checkbox"}, {""});
+    dialogGetDefault->setWindowTitle("Set to Default?");
+    dialogGetDefault->checkOption->setText("Check to set value to default.");
+    dialogGetDefault->open();
+    while(isDialogOpen){
+        ProgWindow::forceProcessEvents();
+    }
+    int resultDialog = dialogGetDefault->result();
+
+    if(resultDialog == 0){
+        qDebug() << Q_FUNC_INFO << "Process cancelled.";
+        return;
+    }
+    dictItem* instanceItem;
+    instanceItem = getInstance(selectedInstanceID);
+    std::shared_ptr<taData> instanceData;
+    instanceData = instanceItem->getAttribute(attributeName);
+    if(dialogGetDefault->checkOption->isChecked()){
+        std::shared_ptr<taData> defaultData;
+        defaultData = getDictionaryItem(instanceName)->getAttribute(attributeName);
+        instanceData->setValue(defaultData->display());
+        instanceData->isDefault = true;
+    } else {
+        instanceData = dictItem::editAttributeValue(instanceData->type, instanceData);
+        instanceData->isDefault = false;
+    }
+}
+
+void DatabaseFile::addFileDictionaryClass(){
+    bool isDialogOpen = true;
+    CustomPopup* dialogGetClassName = ProgWindow::makeSpecificPopup(isDialogOpen, {"combobox"}, {"Class:"});
+    dialogGetClassName->setWindowTitle("Choose class to add");
+
+    bool alreadyIncluded = false;
+    for(int i = 0; i < inheritedFile->dictionary.size(); i++){
+        for(int j = 0; j < dictionary.size(); j++){
+            if(inheritedFile->dictionary[i].name == dictionary[j].name){
+                alreadyIncluded = true;
+            }
+        }
+        if(!alreadyIncluded){
+            dialogGetClassName->comboOption->addItem(inheritedFile->dictionary[i].name);
+        }
+        alreadyIncluded = false;
+    }
+
+    dialogGetClassName->open();
+    while(isDialogOpen){
+        ProgWindow::forceProcessEvents();
+    }
+    int resultDialog = dialogGetClassName->result();
+
+    if(resultDialog == 0){
+        qDebug() << Q_FUNC_INFO << "Process cancelled.";
+        return;
+    }
+
+    int sectionIndex = dictionary.size();
+    dictionary.resize(sectionIndex+1);
+
+    QString chosenClassName = dialogGetClassName->comboOption->currentText();
+    dictionary[sectionIndex].name = chosenClassName;
+
+    addFileDictionaryAttributes(chosenClassName);
+}
+
+void DatabaseFile::addFileDictionaryAttributes(QString chosenClassName){
+    dictItem* inheritClass = nullptr;
+
+    for(int i = 0; i < inheritedFile->dictionary.size(); i++){
+        if(inheritedFile->dictionary[i].name == chosenClassName){
+            inheritClass = &inheritedFile->dictionary[i];
+        }
+    }
+
+    if(inheritClass == nullptr){
+        return;
+    }
+
+    int sectionIndex = 0;
+    for(int i = 0; i < dictionary.size(); i++){
+        if(dictionary[i].name == chosenClassName){
+            sectionIndex = i;
+        }
+    }
+
+    bool isDialogOpen = true;
+    CustomPopup *dialogGetClassName = ProgWindow::makeSpecificPopup(isDialogOpen, {"list"}, {"Select Attributes:"});
+    dialogGetClassName->setWindowTitle("Choose attributes to use");
+    bool alreadyIncluded = false;
+    for(int i = 0; i < inheritClass->attributes.size(); i++){
+        for(int j = 0; j < dictionary[sectionIndex].attributes.size(); j++){
+            if(inheritClass->attributes[i]->name == dictionary[sectionIndex].attributes[j]->name){
+                alreadyIncluded = true;
+            }
+        }
+        QListWidgetItem* possibleAttribute = new QListWidgetItem(inheritClass->attributes[i]->name, dialogGetClassName->listOption);
+        possibleAttribute->setFlags(possibleAttribute->flags() | Qt::ItemIsUserCheckable);
+        if(!alreadyIncluded){
+            possibleAttribute->setCheckState(Qt::Unchecked);
+        } else {
+            //might remove this - if it's included and used, then removing it is a bad idea.
+            possibleAttribute->setCheckState(Qt::Checked);
+        }
+        dialogGetClassName->listOption->addItem(possibleAttribute);
+        alreadyIncluded = false;
+    }
+
+    isDialogOpen = true;
+    dialogGetClassName->open();
+    while(isDialogOpen){
+        ProgWindow::forceProcessEvents();
+    }
+    int resultDialog = dialogGetClassName->result();
+
+    if(resultDialog == 0){
+        qDebug() << Q_FUNC_INFO << "Process cancelled.";
+        return;
+    }
+
+
+    for(int i = 0; i < dialogGetClassName->listOption->count(); i++){
+        for(int j = 0; j < inheritClass->attributes.size(); j++){
+            if(dialogGetClassName->listOption->item(i)->text() == inheritClass->attributes[j]->name && dialogGetClassName->listOption->item(i)->checkState()){
+                dictionary[sectionIndex].attributes.push_back(inheritClass->attributes[j]->clone());
+            }
+        }
+    }
+}
+
+void DatabaseFile::addNewInstance(){
+    bool isDialogOpen = true;
+    CustomPopup* dialogGetClassName = ProgWindow::makeSpecificPopup(isDialogOpen, {"combobox"}, {"Instance:"});
+    dialogGetClassName->setWindowTitle("Choose instance type to add");
+
+    for(int i = 0; i < dictionary.size(); i++){
+        dialogGetClassName->comboOption->addItem(dictionary[i].name);
+    }
+
+    dialogGetClassName->open();
+    while(isDialogOpen){
+        ProgWindow::forceProcessEvents();
+    }
+    int resultDialog = dialogGetClassName->result();
+
+    if(resultDialog == 0){
+        qDebug() << Q_FUNC_INFO << "Process cancelled.";
+        return;
+    }
+
+    int instanceSize = instances.size();
+    instances.resize(instanceSize+1);
+    instances[instanceSize].instanceIndex = maxInstances + 1;
+    maxInstances++;
+
+    QString chosenInstanceName = dialogGetClassName->comboOption->currentText();
+    instances[instanceSize].name = chosenInstanceName;
+    for(int i = 0; i < dictionary.size(); i++){
+        if(dictionary[i].name == chosenInstanceName){
+            for(int j = 0; j < dictionary[i].attributes.size(); j++){
+                instances[instanceSize].attributes.push_back(dictionary[i].attributes[j]->clone());
+            }
+        }
+    }
+
 }

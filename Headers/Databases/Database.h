@@ -55,12 +55,13 @@ public:
     virtual void read(); //for reading binary data to the data's value types
     virtual void write(QFile& file);
     virtual QString display();
-    virtual QString options();
+    virtual QStringList options();
     virtual QString definitionOutput();
     virtual QString databaseOutput();
     virtual std::shared_ptr<taData> clone();
     virtual QString backupDisplay();
     virtual void setValue(QString changedValue);
+    virtual void addOption(QString optionToAdd);
 
     virtual taDataEnum* cloneEnum();
 
@@ -82,7 +83,7 @@ template <class valueType>
 class taDataArray : public taData{
 public:
     std::vector<valueType> values;
-    QString options();
+    QStringList options();
     QString definitionOutput();
     QString databaseOutput();
 
@@ -124,6 +125,7 @@ public:
     void read();
     std::shared_ptr<taData> clone();
     void write(QFile& file);
+    void setValue(QString changedValue);
     //void write();
 };
 
@@ -133,6 +135,7 @@ public:
     void read();
     std::shared_ptr<taData> clone();
     void write(QFile& file);
+    void setValue(QString changedValue);
     //void write();
     int size(){
         return (sizeof(valueType)+4) * this->values.size();
@@ -145,6 +148,7 @@ public:
     void read();
     std::shared_ptr<taData> clone();
     void write(QFile& file);
+    void setValue(QString changedValue);
     //void write();
 };
 
@@ -154,6 +158,7 @@ public:
     void read();
     void write(QFile& file);
     std::shared_ptr<taData> clone();
+    void setValue(QString changedValue);
     //void write();
 };
 
@@ -280,12 +285,13 @@ public:
     QStringList valueOptions;
     void read();
     void write(QFile& file);
-    QString options();
+    QStringList options();
     QString display();
     QString definitionOutput();
     QString databaseOutput();
     std::shared_ptr<taData> clone();
     void setValue(QString changedValue);
+    void addOption(QString optionToAdd);
     taDataEnum* cloneEnum(){
         return this;
     };
@@ -322,6 +328,11 @@ public:
 
     int setAttribute(QString itemName, QString value);
     int setAttributeDefault(QString itemName);
+    std::shared_ptr<taData> getAttribute(QString attributeName);
+
+    int addAttribute(QString itemType = "");
+    static std::shared_ptr<taData> editAttributeValue(QString itemType, std::shared_ptr<taData> itemToEdit);
+    static std::shared_ptr<taData> editEnumDefinition(std::shared_ptr<taData> itemToEdit);
 
     QString prototype;
     QVector3D position;
@@ -348,6 +359,12 @@ public:
     int versionNumber;
     std::vector<dictItem> dictionary;
 
+    //Below are used for adding a new class to  the file
+    //I think there's a cleaner way to handle getting these values from the UI objects to the new class item
+    //I just don't know what it is.
+    QString addedClassName;
+    QString inheritedClassName;
+
     void save(QString toType);
     void load(QString fromType);
 
@@ -359,6 +376,7 @@ public:
     virtual void writeDAE();
     int readIncludedFiles(QString fullRead);
     QString includedFileRelativePath();
+    dictItem* getDictionaryItem(QString itemName);
 
     virtual int readDictionary(); //text version
     virtual int readDictionary(SectionHeader signature); //binary version
@@ -375,7 +393,6 @@ public:
         return QStringList{"TMD", "BMD"};
     };
     QStringList majorSections;
-    void updateValue(QModelIndex topLeft, QModelIndex bottomRight);
     void updateEnum();
     int indexIn(QString searchName);
     void writeText();
@@ -389,6 +406,9 @@ public:
     int readDictionary(SectionHeader signature); //binary version
     void createDBTree();
     void editTreeItem(QModelIndex item, int itemIndex);
+
+    int createClass();
+    void editRow(QModelIndex selected);
 
 };
 
@@ -406,7 +426,6 @@ public:
     void writeText();
     void writeBinary();
     void writeDAE();
-    void updateValue(QModelIndex topLeft, QModelIndex bottomRight);
 
     int dictItemIndex(int dictIndex, QString searchName);
 
@@ -424,11 +443,24 @@ public:
     int readFileDictionary(SectionHeader signature); //binary
     int readInstances(SectionHeader signature); //binary
     void createDBTree();
+    QList<QStandardItem *> createFileDictionaryRow(std::shared_ptr<taData> dataRow);
+    QList<QStandardItem *> createInstanceRow(std::shared_ptr<taData> dataRow);
     void filterInstances();
     void editTreeItem(QModelIndex item, int itemIndex);
     int addInstance(dictItem itemToAdd);
     //int addInstance(Pickup itemToAdd);
     void removeAll(QString itemType);
+
+    int createInstance();
+    void editRow(QModelIndex selected);
+    void addFileDictionaryClass();
+    void addFileDictionaryAttributes(QString chosenClass);
+    void addNewInstance();
+    void editAttributeValue(int selectedInstanceID, QString instanceName, QString attributeName);
+    dictItem* getInstance(QString itemName);
+    dictItem* getInstance(int instanceID);
+    void copyOrDeleteInstance(int instanceID);
+    void copyInstance(int instanceID);
 
     std::vector<std::shared_ptr<taData>> generateAttributes(QString className);
 
